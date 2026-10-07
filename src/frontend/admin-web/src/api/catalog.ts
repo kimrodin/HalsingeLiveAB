@@ -117,3 +117,10 @@ export async function updateEvent(id: string, data: CreateEventRequest): Promise
   mockEvents[index] = updated;
   return updated;
 }
+
+export async function deleteEvent(id: string): Promise<void> {
+  await delay(400);
+  const index = mockEvents.findIndex((e) => e.id === id);
+  if (index === -1) throw new Error('Evenemanget hittades inte');
+  mockEvents.splice(index, 1);
+}

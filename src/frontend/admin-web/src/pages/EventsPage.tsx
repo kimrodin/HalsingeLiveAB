@@ -1,11 +1,11 @@
 import { Link as RouterLink } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
 import {
   Alert, Box, Button, Chip, CircularProgress, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
-import { getEvents, getVenues } from '../api/catalog';
+import { getEvents, getVenues, deleteEvent } from '../api/catalog';
 import type { EventStatus } from '../api/catalog';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 const statusLabel: Record<EventStatus, string> = {
   draft: 'Utkast',
@@ -20,18 +20,25 @@ const statusColor: Record<EventStatus, 'default' | 'success' | 'error'> = {
 };
 
 export default function EventsPage() {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: deleteEvent,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+    }
+  });
   const { data, isPending, isError } = useQuery({
     queryKey: ['events'],
     queryFn: getEvents,
   });
 
   const { data: venues } = useQuery({
-  queryKey: ['venues'],
-  queryFn: getVenues,
-});
+    queryKey: ['venues'],
+    queryFn: getVenues,
+  });
 
-const venueName = (id: string) =>
-  venues?.find((v) => v.id === id)?.name ?? '…';
+  const venueName = (id: string) =>
+    venues?.find((v) => v.id === id)?.name ?? '…';
 
   return (
     <>
@@ -78,6 +85,9 @@ const venueName = (id: string) =>
                   <TableCell align="right">
                     <Button component={RouterLink} to={`/events/${event.id}`}>
                       Redigera
+                    </Button>
+                    <Button onClick={() => mutation.mutate(event.id)} color="error">
+                      Radera
                     </Button>
                   </TableCell>
                 </TableRow>
