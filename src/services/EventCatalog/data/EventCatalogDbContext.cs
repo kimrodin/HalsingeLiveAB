@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using EventCatalog.Models;
 
 public class EventCatalogDbContext : DbContext
 {
@@ -9,5 +10,47 @@ public class EventCatalogDbContext : DbContext
         DbContextOptions<EventCatalogDbContext> options)
         : base(options)
     {
+    }
+
+    protected override void OnModelCreating(
+    ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        #region Event
+        modelBuilder.Entity<Event>()
+            .HasKey(e => e.EventId);
+
+        modelBuilder.Entity<Event>()
+            .HasProperty(e => e.Name)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        modelBuilder.Entity<Event>()
+            .HasProperty(e => e.Price)
+            .IsRequired();
+
+        modelBuilder.Entity<Event>()
+            .HasProperty(e => e.Description)
+            .HasMaxLength(2000);
+
+        modelBuilder.Entity<Event>()
+            .HasProperty(e => e.StartDate)
+            .IsRequired();
+
+        modelBuilder.Entity<Event>()
+            .HasProperty(e => e.EndDate)
+            .IsRequired();
+
+        modelBuilder.Entity<Event>()
+            .HasProperty(e => e.OnSaleFrom)
+            .IsRequired();
+
+        modelBuilder.Entity<Event>()
+            .HasOne(e => e.Venue)
+            .WithMany(v => v.Events)
+            .HasForeignKey(e => e.VenueId);
+        #endregion
+
     }
 }

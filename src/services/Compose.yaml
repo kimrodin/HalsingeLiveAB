@@ -1,0 +1,26 @@
+services:
+
+  eventcatalog:
+    build:
+      context: ./EventCatalog
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eventcatalog-db
+
+  eventcatalog-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: eventcatalog
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - eventcatalog-data:/var/lib/postgresql
+
+volumes:
+  eventcatalog-data:
+    volumes:
+      - eventcatalog-data:/var/lib/postgresql
