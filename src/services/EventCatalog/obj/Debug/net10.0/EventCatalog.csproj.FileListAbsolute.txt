@@ -11,3 +11,5 @@ C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\
 C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\obj\Debug\net10.0\refint\EventCatalog.dll
 C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\obj\Debug\net10.0\EventCatalog.pdb
 C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\obj\Debug\net10.0\ref\EventCatalog.dll
+C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\obj\Debug\net10.0\rpswa.dswa.cache.json
+C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\obj\Debug\net10.0\EventCatalog.MvcApplicationPartsAssemblyInfo.cache
