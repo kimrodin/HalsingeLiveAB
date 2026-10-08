@@ -27,7 +27,7 @@ public class CreateVenueHandler() //(EventCatalogDbContext dbContext)
     {
 
     }
-    // // TODO: Skapa id:n och spara lokal, sektioner och stolar atomärt i katalogens databas.
+    // TODO: Skapa id:n och spara lokal, sektioner och stolar atomärt i katalogens databas.
     // public async Task<Venue> CreateVenueAsync(CreateVenueRequest request, CancellationToken cancellationToken)
     // {
     //     return new Venue();
