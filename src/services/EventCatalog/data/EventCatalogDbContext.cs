@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using EventCatalog.Models;
+using EventCatalog.Features.Events.Models;
+
+namespace EventCatalog.Data;
 
 public class EventCatalogDbContext : DbContext
 {
@@ -22,28 +24,28 @@ public class EventCatalogDbContext : DbContext
             .HasKey(e => e.EventId);
 
         modelBuilder.Entity<Event>()
-            .HasProperty(e => e.Name)
+            .Property(e => e.Name)
             .IsRequired()
             .HasMaxLength(200);
 
         modelBuilder.Entity<Event>()
-            .HasProperty(e => e.Price)
+            .Property(e => e.Price)
             .IsRequired();
 
         modelBuilder.Entity<Event>()
-            .HasProperty(e => e.Description)
+            .Property(e => e.Description)
             .HasMaxLength(2000);
 
         modelBuilder.Entity<Event>()
-            .HasProperty(e => e.StartDate)
+            .Property(e => e.StartDate)
             .IsRequired();
 
         modelBuilder.Entity<Event>()
-            .HasProperty(e => e.EndDate)
+            .Property(e => e.EndDate)
             .IsRequired();
 
         modelBuilder.Entity<Event>()
-            .HasProperty(e => e.OnSaleFrom)
+            .Property(e => e.OnSaleFrom)
             .IsRequired();
 
         modelBuilder.Entity<Event>()
