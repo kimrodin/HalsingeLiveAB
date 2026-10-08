@@ -20,7 +20,7 @@ TODO 3: Knapp i tabellraden
 
 Hint: MUI-knappen har color="error".
 
-
+-------------------------------------------------------------------------------
 TODO 4: Bekräftelsedialog
 
 Radering utan bekräftelse är en klassisk olycka, särskilt i ett adminverktyg.
