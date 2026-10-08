@@ -1,6 +1,3 @@
 namespace EventCatalog.Features.Venues.GetVenue;
 
-public class GetVenueRequest
-{
-    public Guid VenueId { get; init; }
-}
+public record GetVenueRequest(Guid VenueId);

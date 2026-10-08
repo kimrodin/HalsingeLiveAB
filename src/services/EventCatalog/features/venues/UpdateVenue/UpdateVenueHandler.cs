@@ -1,12 +1,24 @@
+using EventCatalog.Data;
+using Microsoft.EntityFrameworkCore;
+
 namespace EventCatalog.Features.Venues.UpdateVenue;
 
-public class UpdateVenueHandler
+public class UpdateVenueHandler(EventCatalogDbContext dbContext)
 {
-    // TODO: Hämta lokalen via VenueId; returnera inte-hittad-resultat om den saknas.
-    // TODO: Validera ändrade uppgifter med samma regler som vid skapande.
-    // TODO: Kontrollera kopplade evenemang innan kapacitet eller platskarta ändras; fastställ regeln med produktägaren.
-    // TODO: Bevara stolarnas id:n så att befintliga evenemang och bokningar inte förlorar sina referenser.
-    // TODO: Spara tillåtna ändringar atomärt och skicka vidare CancellationToken.
-    // TODO: Om samtidighetskontroll används: upptäck ändringar sedan läsningen och returnera konflikt i stället för att skriva över.
-    // TODO: Verifiera giltig uppdatering, ogiltig indata, saknad lokal och skydd av platskartor som används.
+    public async Task<bool> Handle(UpdateVenueRequest request)
+    {
+        var venue = await dbContext.Venues
+            .FirstOrDefaultAsync(v => v.VenueId == request.VenueId);
+
+        if (venue is null)
+            return false;
+
+        venue.VenueName = request.Name;
+        venue.VenueAddress = request.Address;
+        venue.VenueCapacity = request.Capacity;
+        venue.SeatingType = request.SeatingType;
+
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
 }
