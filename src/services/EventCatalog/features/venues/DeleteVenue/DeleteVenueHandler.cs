@@ -14,7 +14,7 @@ public class DeleteVenueHandler(EventCatalogDbContext dbContext)
             return false;
 
         if (await dbContext.Events.AnyAsync(e => e.VenueId == request.VenueId))
-            throw new InvalidOperationException("Lokalen används av evenemang och kan inte tas bort.");
+            throw new InvalidOperationException("The venue is used by events and cannot be deleted.");
 
         dbContext.Venues.Remove(venue);
 
