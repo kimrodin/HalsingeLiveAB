@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using EventCatalog.Features.Events.Models;
 
 namespace EventCatalog.Features.Venues.Models;
 
@@ -15,4 +16,5 @@ public sealed class Venue
     public int VenueCapacity { get; set; }
     public SeatingType SeatingType { get; set; }
     public List<Section> VenueSections { get; set; } = [];
+    public List<Event> Events { get; set; } = [];
 }

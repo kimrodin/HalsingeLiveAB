@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using EventCatalog.Features.Events.Models;
+using EventCatalog.Features.Venues.Models;
 
 namespace EventCatalog.Data;
 
