@@ -7,7 +7,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - eventcatalog-db
+      eventcatalog-db:
+        condition: service_healthy
 
   eventcatalog-db:
     image: postgres:18-alpine
@@ -19,8 +20,11 @@ services:
       - "5432:5432"
     volumes:
       - eventcatalog-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d eventcatalog"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   eventcatalog-data:
-    volumes:
-      - eventcatalog-data:/var/lib/postgresql
