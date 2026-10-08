@@ -19,7 +19,7 @@ public class EventCatalogDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        #region Event
+        #region EventDbModel
         modelBuilder.Entity<Event>()
             .HasKey(e => e.EventId);
 

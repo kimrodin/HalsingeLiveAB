@@ -1,3 +1,6 @@
+using EventCatalog.Data;
+using EventCatalog.Features.Events.Models;
+
 namespace EventCatalog.Features.Events.CreateEvent;
 
 public class Handler(EventCatalogDbContext dbContext)
@@ -7,7 +10,7 @@ public class Handler(EventCatalogDbContext dbContext)
         {
         var newEvent = new Event
             {
-                Id = Guid.NewGuid(),
+                EventId = Guid.NewGuid(),
                 Name = request.Name,
                 Price = request.Price,
                 Description = request.Description,
@@ -20,6 +23,6 @@ public class Handler(EventCatalogDbContext dbContext)
 
             await dbContext.SaveChangesAsync();
 
-            return newEvent.Id;
+            return newEvent.EventId;
         }
 }
