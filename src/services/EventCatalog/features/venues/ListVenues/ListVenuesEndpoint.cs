@@ -10,10 +10,6 @@ namespace EventCatalog.Features.Venues.ListVenues;
 [Route("venues")]
 public class ListVenuesEndpoint : ControllerBase
 {
-    // TODO: Registrera GET /venues och anropa handlern.
-    // TODO: Returnera 200 med ListVenuesResponse även när listan är tom.
-    // TODO: Om sökning eller paginering införs: bind och validera query-parametrarna.
-    // TODO: Dokumentera svar och eventuella query-parametrar i OpenAPI; skicka vidare CancellationToken.
 
     private readonly ILogger<ListVenuesEndpoint> _logger;
     private readonly ListVenuesHandler _handler;
@@ -24,6 +20,7 @@ public class ListVenuesEndpoint : ControllerBase
         _handler = handler;
     }
 
+    // GET /venues hämtar listan över lokaler via handlern.
     [HttpGet()]
     [ProducesResponseType(typeof(ListVenuesResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
@@ -36,10 +33,12 @@ public class ListVenuesEndpoint : ControllerBase
 
             var venues = await _handler.Handle();
 
+            // Returnera 200 med svaret även när listan är tom.
             return Ok(venues);
         }
         catch (Exception ex)
         {
+            // Logga felet och returnera 500 med ProblemDetails.
             _logger.LogError(ex, "Failed to list venues.");
             return Problem(
                 title: "An error occurred while listing the venues.",
