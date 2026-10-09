@@ -1,3 +1,5 @@
+using EventCatalog.Features.Events.Models;
+
 namespace EventCatalog.Features.Venues.Models;
 
 public class Section
@@ -10,4 +12,5 @@ public class Section
     public Guid VenueId { get; set; }
     public string Name { get; set; } = string.Empty;
     public List<Seat> Seats { get; set; } = [];
+    public List<EventSectionPrice> EventPrices { get; set; } = [];
 }

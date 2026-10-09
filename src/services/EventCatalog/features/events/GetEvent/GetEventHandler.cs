@@ -11,7 +11,18 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
         return await dbContext.Events
             .Where(e => e.EventId == request.EventId)
             .Select(e => new GetEventResponse(
-                e.EventId, e.Name, e.Description, e.Price, e.StartDate, e.EndDate, e.OnSaleFrom, e.VenueId))
+                e.EventId,
+                e.Name,
+                e.Description,
+                e.StartDate,
+                e.EndDate,
+                e.OnSaleFrom,
+                e.VenueId,
+                e.SectionPrices
+                    .Select(price => new EventSectionPriceResponse(
+                        price.SectionId,
+                        price.Price))
+                    .ToList()))
             .FirstOrDefaultAsync();
     }
 }

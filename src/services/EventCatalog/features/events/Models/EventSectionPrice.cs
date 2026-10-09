@@ -1,3 +1,5 @@
+using EventCatalog.Features.Venues.Models;
+
 namespace EventCatalog.Features.Events.Models;
 
 public class EventSectionPrice

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EventCatalog.Features.Events.UpdateEvent;
 
-public class Handler(EventCatalogDbContext dbContext)
+public class UpdateEventHandler(EventCatalogDbContext dbContext)
 {
     public async Task<bool> Handle(UpdateEventRequest request)
     {
