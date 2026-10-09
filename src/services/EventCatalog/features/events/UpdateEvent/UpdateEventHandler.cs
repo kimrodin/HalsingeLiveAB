@@ -17,7 +17,6 @@ public class Handler(EventCatalogDbContext dbContext)
         eventItem.Description = request.Description;
         eventItem.StartDate = request.StartDate;
         eventItem.EndDate = request.EndDate;
-        eventItem.Price = request.Price;
 
         await dbContext.SaveChangesAsync();
 

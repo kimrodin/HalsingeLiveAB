@@ -12,11 +12,10 @@ public class CreateEventHandler(EventCatalogDbContext dbContext)
             {
                 EventId = Guid.NewGuid(),
                 Name = request.Name,
-                Price = request.Price,
                 Description = request.Description,
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
-                OnSaleFrom = request.OnSaleFrom
+                StartDate = request.StartDate!.Value,
+                EndDate = request.EndDate!.Value,
+                OnSaleFrom = request.OnSaleFrom!.Value
             };
 
             dbContext.Events.Add(newEvent);
