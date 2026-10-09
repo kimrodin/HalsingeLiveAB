@@ -31,12 +31,13 @@ function toIso(value: string): string | undefined {
 }
 
 interface FormValues {
-  title: string;
+  name: string;
   description: string;
   category: EventCategory | '';
   venueId: string;
-  startsAt: string;
-  endsAt: string;
+  price: string;
+  startDate: string;
+  endDate: string;
   onSaleFrom: string;
 }
 
@@ -44,15 +45,19 @@ type FormErrors = Partial<Record<keyof FormValues, string>>;
 
 function validate(v: FormValues): FormErrors {
   const errors: FormErrors = {};
-  if (!v.title.trim()) errors.title = 'Titel krävs';
-  else if (v.title.length > 120) errors.title = 'Max 120 tecken';
+  if (!v.name.trim()) errors.name = 'Namn krävs';
+  else if (v.name.length > 200) errors.name = 'Max 200 tecken';
   if (!v.category) errors.category = 'Välj kategori';
   if (!v.venueId) errors.venueId = 'Välj scen';
-  if (!v.startsAt) errors.startsAt = 'Starttid krävs';
-  if (v.endsAt && v.startsAt && v.endsAt <= v.startsAt) {
-    errors.endsAt = 'Sluttid måste vara efter starttid';
+  if (!v.price.trim()) errors.price = 'Pris krävs';
+  else if (!Number.isFinite(Number(v.price)) || Number(v.price) < 0) {
+    errors.price = 'Ange ett giltigt pris i kronor';
   }
-  if (v.onSaleFrom && v.startsAt && v.onSaleFrom >= v.startsAt) {
+  if (!v.startDate) errors.startDate = 'Starttid krävs';
+  if (v.endDate && v.startDate && v.endDate <= v.startDate) {
+    errors.endDate = 'Sluttid måste vara efter starttid';
+  }
+  if (v.onSaleFrom && v.startDate && v.onSaleFrom >= v.startDate) {
     errors.onSaleFrom = 'Försäljningen måste starta före evenemanget';
   }
   return errors;
@@ -66,19 +71,20 @@ function EventForm({ event }: { event?: EventDetails }) {
   const { data: venues } = useQuery({ queryKey: ['venues'], queryFn: getVenues });
 
   const [values, setValues] = useState<FormValues>({
-    title: event?.title ?? '',
+    name: event?.name ?? '',
     description: event?.description ?? '',
     category: event?.category ?? '',
     venueId: event?.venueId ?? '',
-    startsAt: toInputValue(event?.startsAt),
-    endsAt: toInputValue(event?.endsAt),
+    price: event?.price.toString() ?? '',
+    startDate: toInputValue(event?.startDate),
+    endDate: toInputValue(event?.endDate),
     onSaleFrom: toInputValue(event?.onSaleFrom),
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
   const mutation = useMutation({
     mutationFn: (data: CreateEventRequest) =>
-      isEdit ? updateEvent(event.id, data) : createEvent(data),
+      isEdit ? updateEvent(event.eventId, data) : createEvent(data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       navigate('/events');
@@ -97,12 +103,13 @@ function EventForm({ event }: { event?: EventDetails }) {
     if (Object.keys(found).length > 0) return;
 
     mutation.mutate({
-      title: values.title.trim(),
+      name: values.name.trim(),
       description: values.description.trim() || undefined,
       category: values.category as EventCategory,
       venueId: values.venueId,
-      startsAt: toIso(values.startsAt)!,
-      endsAt: toIso(values.endsAt),
+      price: Number(values.price),
+      startDate: toIso(values.startDate)!,
+      endDate: toIso(values.endDate),
       onSaleFrom: toIso(values.onSaleFrom),
     });
   };
@@ -118,8 +125,8 @@ function EventForm({ event }: { event?: EventDetails }) {
       <Paper component="form" onSubmit={handleSubmit} noValidate sx={{ p: 3, maxWidth: 640 }}>
         <Stack spacing={2}>
           <TextField
-            label="Titel" required value={values.title} onChange={handleChange('title')}
-            error={!!errors.title} helperText={errors.title}
+            label="Namn" required value={values.name} onChange={handleChange('name')}
+            error={!!errors.name} helperText={errors.name}
           />
           <TextField
             label="Beskrivning" multiline minRows={3}
@@ -144,14 +151,19 @@ function EventForm({ event }: { event?: EventDetails }) {
             ))}
           </TextField>
           <TextField
-            {...dateFieldProps} label="Start" required value={values.startsAt}
-            onChange={handleChange('startsAt')}
-            error={!!errors.startsAt} helperText={errors.startsAt}
+            label="Pris (kr)" required type="number" slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+            value={values.price} onChange={handleChange('price')}
+            error={!!errors.price} helperText={errors.price}
           />
           <TextField
-            {...dateFieldProps} label="Slut" value={values.endsAt}
-            onChange={handleChange('endsAt')}
-            error={!!errors.endsAt} helperText={errors.endsAt}
+            {...dateFieldProps} label="Start" required value={values.startDate}
+            onChange={handleChange('startDate')}
+            error={!!errors.startDate} helperText={errors.startDate}
+          />
+          <TextField
+            {...dateFieldProps} label="Slut" value={values.endDate}
+            onChange={handleChange('endDate')}
+            error={!!errors.endDate} helperText={errors.endDate}
           />
           <TextField
             {...dateFieldProps} label="Biljettsläpp (försäljning startar)" value={values.onSaleFrom}

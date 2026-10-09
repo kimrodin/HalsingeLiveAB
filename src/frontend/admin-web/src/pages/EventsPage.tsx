@@ -63,22 +63,29 @@ export default function EventsPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Titel</TableCell>
+                <TableCell>Namn</TableCell>
                 <TableCell>Scen</TableCell>
                 <TableCell>Datum</TableCell>
+                <TableCell>Pris</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
               {data.map((event) => (
-                <TableRow key={event.id} hover>
-                  <TableCell>{event.title}</TableCell>
+                <TableRow key={event.eventId} hover>
+                  <TableCell>{event.name}</TableCell>
                   <TableCell>{venueName(event.venueId)}</TableCell>
                   <TableCell>
-                    {new Date(event.startsAt).toLocaleString('sv-SE', {
+                    {new Date(event.startDate).toLocaleString('sv-SE', {
                       dateStyle: 'medium',
                       timeStyle: 'short',
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    {event.price.toLocaleString('sv-SE', {
+                      style: 'currency',
+                      currency: 'SEK',
                     })}
                   </TableCell>
                   <TableCell>
@@ -89,7 +96,7 @@ export default function EventsPage() {
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Button component={RouterLink} to={`/events/${event.id}`}>
+                    <Button component={RouterLink} to={`/events/${event.eventId}`}>
                       Redigera
                     </Button>
                     <Button onClick={() => {
@@ -114,7 +121,7 @@ export default function EventsPage() {
       >
         <DialogTitle>Radera evenemang?</DialogTitle>
 
-        <DialogContent>Är du säker på att du vill radera "{eventToDelete?.title}"?
+        <DialogContent>Är du säker på att du vill radera "{eventToDelete?.name}"?
 
           {mutation.isError && (
             <Alert severity="error" sx={{ mt: 2 }}>
@@ -138,7 +145,7 @@ export default function EventsPage() {
             disabled={mutation.isPending}
             onClick={() => {
               if (eventToDelete) {
-                mutation.mutate(eventToDelete.id);
+                mutation.mutate(eventToDelete.eventId);
               }
             }}
           >
