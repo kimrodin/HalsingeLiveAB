@@ -9,7 +9,7 @@ public class EventCatalogDbContext : DbContext
     public DbSet<Event> Events => Set<Event>();
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<VenueSeatingMap> VenueSeatingMaps => Set<VenueSeatingMap>();
-    public DbSet<Seat> EventSeats => Set<Seat>();
+    public DbSet<Seat> Seats => Set<Seat>();
     public DbSet<Section> Sections => Set<Section>();
 
 
@@ -78,6 +78,28 @@ public class EventCatalogDbContext : DbContext
 
         modelBuilder.Entity<VenueSeatingMap>()
             .Property(m => m.ContentType)
+            .IsRequired();
+
+        modelBuilder.Entity<Section>()
+            .HasOne<Venue>()
+            .WithMany(v => v.VenueSections)
+            .HasForeignKey(s => s.VenueId);
+
+        modelBuilder.Entity<Seat>()
+            .HasOne<Section>()
+            .WithMany(s => s.Seats)
+            .HasForeignKey(s => s.SectionId);
+
+        modelBuilder.Entity<Seat>()
+            .HasIndex(s => new { s.SectionId, s.Row, s.Number })
+            .IsUnique();
+
+        modelBuilder.Entity<Seat>()
+            .Property(s => s.Row)
+            .IsRequired();
+
+        modelBuilder.Entity<Section>()
+            .Property(s => s.Name)
             .IsRequired();
 
     }
