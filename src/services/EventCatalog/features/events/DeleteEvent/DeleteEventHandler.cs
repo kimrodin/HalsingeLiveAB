@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EventCatalog.Features.Events.DeleteEvent;
 
-public class Handler(EventCatalogDbContext dbContext)
+public class DeleteEventHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<bool> Handle(DeleteEventRequest request)
+    public async Task<bool> Handle(DeleteEventRequest request, CancellationToken cancellationToken)
     {
         var eventItem = await dbContext.Events
             .FirstOrDefaultAsync(e => e.EventId == request.EventId);

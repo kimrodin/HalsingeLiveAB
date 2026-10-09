@@ -3,10 +3,10 @@ using EventCatalog.Features.Events.Models;
 
 namespace EventCatalog.Features.Events.CreateEvent;
 
-public class Handler(EventCatalogDbContext dbContext)
+public class CreateEventHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<Guid> Handle(
-        CreateEventRequest request)
+    public async Task<CreateEventResponse> Handle(
+        CreateEventRequest request, CancellationToken cancellationToken)
         {
         var newEvent = new Event
             {
@@ -23,6 +23,6 @@ public class Handler(EventCatalogDbContext dbContext)
 
             await dbContext.SaveChangesAsync();
 
-            return newEvent.EventId;
+            return new CreateEventResponse(newEvent.EventId);
         }
 }

@@ -2,9 +2,9 @@ using EventCatalog.Data;
 using Microsoft.EntityFrameworkCore;
 using EventCatalog.Features.Events.Models;
 
-namespace EventCatalog.Features.Events.GetEvents;
+namespace EventCatalog.Features.Events.ListEvents;
 
-public class Handler(EventCatalogDbContext dbContext)
+public class ListEventsHandler(EventCatalogDbContext dbContext)
 {
     public async Task<List<Event>> Handle()
     {

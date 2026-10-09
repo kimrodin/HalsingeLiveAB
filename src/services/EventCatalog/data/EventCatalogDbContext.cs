@@ -8,6 +8,7 @@ public class EventCatalogDbContext : DbContext
 {
     public DbSet<Event> Events => Set<Event>();
     public DbSet<Venue> Venues => Set<Venue>();
+    public DbSet<VenueSeatingMap> VenueSeatingMaps => Set<VenueSeatingMap>();
 
     public EventCatalogDbContext(
         DbContextOptions<EventCatalogDbContext> options)
@@ -54,6 +55,27 @@ public class EventCatalogDbContext : DbContext
             .WithMany(v => v.Events)
             .HasForeignKey(e => e.VenueId);
         #endregion
+
+        modelBuilder.Entity<VenueSeatingMap>()
+            .HasOne<Venue>()
+            .WithMany(v => v.SeatingMaps)
+            .HasForeignKey(m => m.VenueId);
+
+        modelBuilder.Entity<VenueSeatingMap>()
+            .Property(m => m.Name)
+            .IsRequired();
+
+        modelBuilder.Entity<VenueSeatingMap>()
+            .Property(m => m.FileName)
+            .IsRequired();
+
+        modelBuilder.Entity<VenueSeatingMap>()
+            .Property(m => m.StorageKey)
+            .IsRequired();
+
+        modelBuilder.Entity<VenueSeatingMap>()
+            .Property(m => m.ContentType)
+            .IsRequired();
 
     }
 }
