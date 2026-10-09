@@ -6,7 +6,7 @@ namespace EventCatalog.Features.Venues.CreateVenue;
 
 public class CreateVenueHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<CreateVenueResponse> Handle(CreateVenueRequest request)
+    public async Task<CreateVenueResponse> Handle(CreateVenueRequest request, CancellationToken cancellationToken = default)
     {
         var venue = new Venue
         {
@@ -18,7 +18,7 @@ public class CreateVenueHandler(EventCatalogDbContext dbContext)
         };
 
         dbContext.Venues.Add(venue);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new CreateVenueResponse(
             venue.VenueId, venue.VenueName, venue.VenueAddress,

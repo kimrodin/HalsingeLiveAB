@@ -33,7 +33,7 @@ public class CreateVenueEndpoint(CreateVenueHandler handler) : ControllerBase
         // Verksamhetsvalidering, exempelvis positiv kapacitet, hör till handlern.
         // ASP.NET Core binder JSON till requesten och injicerar handlern i konstruktorn.
         // Token skickas vidare så att handlerns databasarbete kan avbrytas.
-        var response = await handler.HandleAsync(request, cancellationToken);
+        var response = await handler.Handle(request, cancellationToken);
 
         // TODO: När handlern returnerar valideringsfel, mappa dem till
         // ValidationProblem med fel per fält, exempelvis via ModelState.AddModelError.
