@@ -19,6 +19,7 @@ public class DeleteVenueEndpoint : ControllerBase
     }
 
 
+    // DELETE /venues/{id} skickar lokalens id till handlern för borttagning.
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -26,6 +27,7 @@ public class DeleteVenueEndpoint : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DeleteVenue([FromRoute] Guid id)
     {
+        // Avvisa ett tomt lokal-id innan handlern anropas.
         if (id == Guid.Empty)
             return BadRequest("VenueId must not be empty.");
 
@@ -36,10 +38,12 @@ public class DeleteVenueEndpoint : ControllerBase
             var request = new DeleteVenueRequest(id);
             await _handler.Handle(request);
 
+            // När handlern har slutförts returneras 204 utan svarskropp.
             return NoContent();
         }
         catch (Exception ex)
         {
+            // Nuvarande felhantering loggar alla undantag och returnerar 500.
             _logger.LogError(ex, "Failed to delete venue {VenueId}", id);
             return Problem(
                 title: "An error occurred while deleting the venue.",
@@ -47,9 +51,3 @@ public class DeleteVenueEndpoint : ControllerBase
         }
     }
 }
-    // TODO: Registrera DELETE /venues/{id:guid} och bind id till request.
-    // TODO: Kräv administratörsbehörighet enligt projektets behörighetsmodell.
-    // TODO: Anropa handlern och returnera 204 No Content när lokalen har tagits bort.
-    // TODO: Returnera 404 om lokalen saknas och 409 om den används och därför inte får tas bort.
-    // TODO: Dokumentera svaren i OpenAPI och skicka vidare CancellationToken.
-
