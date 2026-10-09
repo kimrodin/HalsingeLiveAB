@@ -17,6 +17,7 @@ public class UpdateVenueEndpoint : ControllerBase
         this.handler = handler;
     }
 
+    // PUT /venues/{id} tar emot lokalens nya uppgifter som JSON.
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -25,6 +26,7 @@ public class UpdateVenueEndpoint : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> UpdateVenue([FromRoute] Guid id, [FromBody] UpdateVenueRequest request)
     {
+        // Avvisa ett tomt lokal-id innan handlern anropas.
         if (id == Guid.Empty)
             return BadRequest("VenueId must not be empty.");
 
@@ -32,18 +34,22 @@ public class UpdateVenueEndpoint : ControllerBase
         {
             logger.LogInformation("Updating venue {VenueId}", id);
 
+            // Använd id från URL:en även om requesten innehåller ett annat VenueId.
             var updated = await handler.Handle(request with { VenueId = id });
 
+            // Handlern returnerar false när lokalen saknas, vilket ger 404.
             if (!updated)
             {
                 logger.LogWarning("Venue {VenueId} not found for update.", id);
                 return NotFound();
             }
 
+            // En lyckad uppdatering ger 204 utan svarskropp.
             return NoContent();
         }
         catch (Exception ex)
         {
+            // Logga felet och returnera 500 med ProblemDetails.
             logger.LogError(ex, "Failed to update venue {VenueId}", id);
             return Problem(
                 title: "An error occurred while updating the venue.",
@@ -51,7 +57,3 @@ public class UpdateVenueEndpoint : ControllerBase
         }
     }
 }
-
-    // TODO: Kräv administratörsbehörighet enligt projektets behörighetsmodell.
-    // TODO: Skicka vidare CancellationToken när handlern stöder det.
-
