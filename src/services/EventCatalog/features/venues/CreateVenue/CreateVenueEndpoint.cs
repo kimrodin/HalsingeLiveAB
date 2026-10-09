@@ -21,7 +21,7 @@ public class CreateVenueEndpoint : ControllerBase
 
     // POST /venues tar emot en lokal som JSON och skapar den via handlern.
     [HttpPost]
-    [Consumes("application/json")]
+    [Consumes("application/json")] //Ingen fil eller sökväg i projektet. Den betyder att innehållet är JSON.
     [ProducesResponseType(typeof(CreateVenueResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
