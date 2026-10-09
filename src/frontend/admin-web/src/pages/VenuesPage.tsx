@@ -75,7 +75,7 @@ export default function VenuesPage() {
                         {venue.sections.map((section, index) => (
                           <Typography key={`${section.name}-${index}`} variant="body2">
                             {section.name} ({section.seatCount}, {seatingTypeLabel[section.seatingType]}) ·{' '}
-                            {section.price.toLocaleString('sv-SE')} kr
+                            
                           </Typography>
                         ))}
                       </Stack>

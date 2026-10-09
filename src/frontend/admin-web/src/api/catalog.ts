@@ -6,11 +6,15 @@ export interface VenueSection {
   name: string;
   seatCount: number;
   seatingType: SectionSeatingType;
-  price: number;
 }
 
 export interface VenueSeatingMap {
-  
+  id: string;
+  venueId: string;
+  name: string;
+  fileName: string;
+  contentType: string;
+  url: string; // mock: object-URL. Med riktigt API: länk som backend ger
 }
 
 export interface EventDetails {
@@ -36,12 +40,18 @@ export interface Venue {
 
 export type CreateEventRequest = Omit<EventDetails, 'eventId' | 'status'>;
 export type CreateVenueRequest = Omit<Venue, 'id'>;
+export interface UploadSeatingMapRequest {
+  name: string;
+  file: File;
+}
 
 const mockVenues: Venue[] = [
   { id: 'venue-kulturhuset', name: 'Kulturhuset (stora salen)', address: 'Storgatan 1, 12345 Stad', capacity: 500 },
   { id: 'venue-studion', name: 'Studion', address: 'Lilla gatan 2, 12345 Stad', capacity: 100 },
   { id: 'venue-festival', name: 'Sommarfestivalens område', address: 'Festivalvägen 3, 12345 Stad', capacity: 2000 },
 ];
+
+const mockSeatingMaps: VenueSeatingMap[] = [];
 
 // Byts senare mot: fetch(`${import.meta.env.VITE_CATALOG_API_URL}/events`)
 const mockEvents: EventDetails[] = [
@@ -197,5 +207,40 @@ export async function deleteVenue(venueId: string): Promise<void> {
   if (mockEvents.some((e) => e.venueId === venueId)) {
     throw new Error('Scenen används av evenemang och kan inte tas bort');
   }
+  for (let i = mockSeatingMaps.length - 1; i >= 0; i--) {
+    if (mockSeatingMaps[i].venueId === venueId) mockSeatingMaps.splice(i, 1);
+  }
   mockVenues.splice(index, 1);
+}
+
+//CRUD for Venue Map
+export async function getSeatingMaps(venueId: string): Promise<VenueSeatingMap[]> {
+  await delay(200);
+  return mockSeatingMaps.filter((m) => m.venueId === venueId);
+}
+
+export async function uploadSeatingMap(
+  venueId: string,
+  data: UploadSeatingMapRequest,
+): Promise<VenueSeatingMap> {
+  await delay(400);
+  if (!mockVenues.some((v) => v.id === venueId)) throw new Error('Scen hittades inte');
+  const map: VenueSeatingMap = {
+    id: crypto.randomUUID(),
+    venueId,
+    name: data.name,
+    fileName: data.file.name,
+    contentType: data.file.type,
+    url: URL.createObjectURL(data.file),
+  };
+  mockSeatingMaps.push(map);
+  return map;
+}
+
+export async function deleteSeatingMap(venueId: string, seatingMapId: string): Promise<void> {
+  await delay(400);
+  const index = mockSeatingMaps.findIndex((m) => m.id === seatingMapId && m.venueId === venueId);
+  if (index === -1) throw new Error('Platskartan hittades inte');
+  URL.revokeObjectURL(mockSeatingMaps[index].url);
+  mockSeatingMaps.splice(index, 1);
 }
