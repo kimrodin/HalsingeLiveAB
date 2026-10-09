@@ -9,6 +9,9 @@ public class EventCatalogDbContext : DbContext
     public DbSet<Event> Events => Set<Event>();
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<VenueSeatingMap> VenueSeatingMaps => Set<VenueSeatingMap>();
+    public DbSet<Seat> EventSeats => Set<Seat>();
+    public DbSet<Section> Sections => Set<Section>();
+
 
     public EventCatalogDbContext(
         DbContextOptions<EventCatalogDbContext> options)
