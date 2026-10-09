@@ -1,5 +1,17 @@
 export type EventStatus = 'draft' | 'published' | 'cancelled';
 export type EventCategory = 'concert' | 'standup' | 'conference' | 'workshop';
+export type SectionSeatingType = 'standing' | 'seated';
+
+export interface VenueSection {
+  name: string;
+  seatCount: number;
+  seatingType: SectionSeatingType;
+  price: number;
+}
+
+export interface VenueSeatingMap {
+  
+}
 
 export interface EventDetails {
   eventId: string;
@@ -14,17 +26,21 @@ export interface EventDetails {
   status: EventStatus;
 }
 
-export type CreateEventRequest = Omit<EventDetails, 'eventId' | 'status'>;
-
 export interface Venue {
   id: string;
   name: string;
+  address?: string;
+  capacity?: number;
+  sections?: VenueSection[];
 }
 
+export type CreateEventRequest = Omit<EventDetails, 'eventId' | 'status'>;
+export type CreateVenueRequest = Omit<Venue, 'id'>;
+
 const mockVenues: Venue[] = [
-  { id: 'venue-kulturhuset', name: 'Kulturhuset (stora salen)' },
-  { id: 'venue-studion', name: 'Studion' },
-  { id: 'venue-festival', name: 'Sommarfestivalens område' },
+  { id: 'venue-kulturhuset', name: 'Kulturhuset (stora salen)', address: 'Storgatan 1, 12345 Stad', capacity: 500 },
+  { id: 'venue-studion', name: 'Studion', address: 'Lilla gatan 2, 12345 Stad', capacity: 100 },
+  { id: 'venue-festival', name: 'Sommarfestivalens område', address: 'Festivalvägen 3, 12345 Stad', capacity: 2000 },
 ];
 
 // Byts senare mot: fetch(`${import.meta.env.VITE_CATALOG_API_URL}/events`)
@@ -86,6 +102,11 @@ const mockEvents: EventDetails[] = [
     status: 'cancelled',
   },
 ];
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function totalSeats(sections: VenueSection[]): number {
+  return sections.reduce((total, s) => total + s.seatCount, 0);
+}
 
 export async function getEvents(): Promise<EventDetails[]> {
   await new Promise((resolve) => setTimeout(resolve, 400));
@@ -98,8 +119,8 @@ export async function getVenues(): Promise<Venue[]> {
 }
 
 
-//CRUD för events
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+//CRUD for events
 
 export async function getEvent(eventId: string): Promise<EventDetails> {
   await delay(200);
@@ -129,4 +150,52 @@ export async function deleteEvent(eventId: string): Promise<void> {
   const index = mockEvents.findIndex((e) => e.eventId === eventId);
   if (index === -1) throw new Error('Evenemanget hittades inte');
   mockEvents.splice(index, 1);
+}
+
+//CRUD for venue
+export async function getVenue(venueId: string): Promise<Venue> {
+  await delay(200);
+  const venue = mockVenues.find((v) => v.id === venueId);
+  if (!venue) throw new Error('Scen hittades inte');
+  return venue;
+}
+
+export async function createVenue(data: CreateVenueRequest): Promise<Venue> {
+  await delay(400);
+  const sections = data.sections ?? [];
+  const venue: Venue = {
+    id: crypto.randomUUID(),
+    name: data.name,
+    address: data.address,
+    capacity: sections.reduce((total, s) => total + s.seatCount, 0),
+    sections,
+  };
+  mockVenues.push(venue);
+  return venue;
+}
+
+export async function updateVenue(venueId: string, data: CreateVenueRequest): Promise<Venue> {
+  await delay(400);
+  const index = mockVenues.findIndex((v) => v.id === venueId);
+  if (index === -1) throw new Error('Scen hittades inte');
+  const sections = data.sections ?? [];
+  const updated: Venue = {
+    id: venueId,
+    name: data.name,
+    address: data.address,
+    capacity: sections.length > 0 ? totalSeats(sections) : data.capacity,
+    sections,
+  };
+  mockVenues[index] = updated;
+  return updated;
+}
+
+export async function deleteVenue(venueId: string): Promise<void> {
+  await delay(400);
+  const index = mockVenues.findIndex((v) => v.id === venueId);
+  if (index === -1) throw new Error('Scen hittades inte');
+  if (mockEvents.some((e) => e.venueId === venueId)) {
+    throw new Error('Scenen används av evenemang och kan inte tas bort');
+  }
+  mockVenues.splice(index, 1);
 }

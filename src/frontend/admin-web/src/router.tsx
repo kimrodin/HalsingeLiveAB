@@ -4,6 +4,7 @@ import EventsPage from './pages/EventsPage';
 import EventFormPage from './pages/EventFormPage';
 import VenuesPage from './pages/VenuesPage';
 import NotFoundPage from './pages/NotFoundPage';
+import VenueFormPage from './pages/VenuesFormPage';
 
 export const router = createBrowserRouter([
   {
@@ -15,6 +16,9 @@ export const router = createBrowserRouter([
       { path: 'events/new', element: <EventFormPage /> },
       { path: 'events/:id', element: <EventFormPage /> },
       { path: 'venues', element: <VenuesPage /> },
+      { path: 'venues', element: <VenuesPage /> },
+      { path: 'venues/new', element: <VenueFormPage /> },
+      { path: 'venues/:id', element: <VenueFormPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
