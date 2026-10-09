@@ -8,7 +8,7 @@
       "applicationUrl": "http://localhost:5080",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ConnectionStrings__EventCatalog": "Host=localhost;Port=5432;Database=eventcatalog;Username=postgres;Password=postgres"
+        "ConnectionStrings__EventCatalog": "Host=localhost;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
       }
     }
   }
