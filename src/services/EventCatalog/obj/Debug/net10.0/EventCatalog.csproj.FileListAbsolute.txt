@@ -11,3 +11,15 @@ C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\
 C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\obj\Debug\net10.0\refint\EventCatalog.dll
 C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\obj\Debug\net10.0\EventCatalog.pdb
 C:\Users\Kim\OneDrive\Desktop\Halsinge\HalsingeLiveAB\src\services\EventCatalog\obj\Debug\net10.0\ref\EventCatalog.dll
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.csproj.AssemblyReference.cache
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\rpswa.dswa.cache.json
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.GeneratedMSBuildEditorConfig.editorconfig
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.AssemblyInfoInputs.cache
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.AssemblyInfo.cs
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.csproj.CoreCompileInputs.cache
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.MvcApplicationPartsAssemblyInfo.cs
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.MvcApplicationPartsAssemblyInfo.cache
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.sourcelink.json
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.dll
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\refint\EventCatalog.dll
+C:\HälsingeLiveAB\HalsingeLiveAB\src\Services\EventCatalog\obj\Debug\net10.0\EventCatalog.pdb

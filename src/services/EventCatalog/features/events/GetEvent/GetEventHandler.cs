@@ -4,11 +4,14 @@ using EventCatalog.Features.Events.Models;
 
 namespace EventCatalog.Features.Events.GetEvent;
 
-public class Handler(EventCatalogDbContext dbContext)
+public class GetEventHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<Event> Handle(GetEventRequest request)
+    public async Task<GetEventResponse> Handle(GetEventRequest request)
     {
         return await dbContext.Events
-            .FirstOrDefaultAsync(e => e.EventId == request.EventId);
+            .Where(e => e.EventId == request.EventId)
+            .Select(e => new GetEventResponse(
+                e.EventId, e.Name, e.Description, e.Price, e.StartDate, e.EndDate, e.OnSaleFrom, e.VenueId))
+            .FirstOrDefaultAsync();
     }
 }

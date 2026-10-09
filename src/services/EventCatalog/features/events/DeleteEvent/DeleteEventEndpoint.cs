@@ -25,7 +25,7 @@ public class DeleteEventEndpoint(DeleteEventHandler handler) : ControllerBase
     // TODO: Lägg till [Authorize(Policy = "EventAdmin")] när policyn finns i API-hosten.
     // TODO: Dokumentera 401 och 403 när behörighetskontrollen kopplas in.
     public async Task<IActionResult> Delete(
-        [FromRoute] Guid id,
+        [FromRoute] DeleteEventRequest request,
         CancellationToken cancellationToken)
     {
         // [ApiController] hanterar bindningsfel och ogiltigt ModelState med 400.
