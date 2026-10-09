@@ -7,7 +7,7 @@ public class Seat
     // TODO: Lägg en unik databasregel på SectionId, Row och Number för att undvika dubbla stolar i platskartan.
     // TODO: Bevara id när stolen används av ett evenemang; reservationer och försäljning ägs av bokningstjänsten.
 
-    public Guid Id { get; set; }
+    public Guid SeatId { get; set; }
     public Guid SectionId { get; set; }
     public string Row { get; set; } = string.Empty;
     public int Number { get; set; }

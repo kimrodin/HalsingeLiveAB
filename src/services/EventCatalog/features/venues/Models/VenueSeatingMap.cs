@@ -2,7 +2,7 @@ namespace EventCatalog.Features.Venues.Models;
 
 public class VenueSeatingMap
 {
-    public Guid Id { get; set; }
+    public Guid VenueSeatingMapId { get; set; }
     public Guid VenueId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;
