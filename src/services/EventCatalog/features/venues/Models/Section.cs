@@ -11,6 +11,8 @@ public class Section
     public Guid SectionId { get; set; }
     public Guid VenueId { get; set; }
     public string Name { get; set; } = string.Empty;
-    public List<Seat> Seats { get; set; } = [];
-    public List<EventSectionPrice> EventPrices { get; set; } = [];
+    public int SectionCapacity { get; set; }
+    public SeatingType SeatingType { get; set; }
+    public List<Seat> Seats { get; set; } = new List<Seat>();
+    public List<EventSectionPrice> EventPrices { get; set; } = new List<EventSectionPrice>();
 }

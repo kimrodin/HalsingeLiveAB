@@ -8,4 +8,9 @@ public record CreateEventRequest(
     [Required] Guid? VenueId,
     [Required] DateTime? StartDate,
     [Required] DateTime? EndDate,
-    [Required] DateTime? OnSaleFrom);
+    [Required] DateTime? OnSaleFrom,
+    [Required, MinLength(1)] List<CreateEventSectionPriceRequest> SectionPrices);
+
+public record CreateEventSectionPriceRequest(
+    [Required] Guid? SectionId,
+    [Required, Range(typeof(decimal), "0", "79228162514264337593543950335")] decimal? Price);

@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using EventCatalog.Features.Venues.Models;
 
 namespace EventCatalog.Features.Venues.CreateVenue;
 
@@ -14,8 +13,4 @@ public record CreateVenueRequest(
 
     [Range(1, int.MaxValue,
         ErrorMessage = "The capacity must be greater than zero.")]
-    int Capacity,
-
-    [EnumDataType(typeof(SeatingType),
-        ErrorMessage = "Invalid seating type.")]
-    SeatingType SeatingType);
+    int Capacity);

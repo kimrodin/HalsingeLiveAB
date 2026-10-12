@@ -110,6 +110,14 @@ namespace EventCatalog.data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<int>("SeatingType")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SectionCapacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<Guid>("VenueId")
                         .HasColumnType("uuid");
 
@@ -125,9 +133,6 @@ namespace EventCatalog.data.Migrations
                     b.Property<Guid>("VenueId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<int>("SeatingType")
-                        .HasColumnType("integer");
 
                     b.Property<string>("VenueAddress")
                         .IsRequired()

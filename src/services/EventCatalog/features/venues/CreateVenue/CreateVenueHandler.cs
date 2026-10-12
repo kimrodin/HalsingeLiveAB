@@ -14,7 +14,6 @@ public class CreateVenueHandler(EventCatalogDbContext dbContext)
             VenueName = request.Name,
             VenueAddress = request.Address,
             VenueCapacity = request.Capacity,
-            SeatingType = request.SeatingType
         };
 
         dbContext.Venues.Add(venue);
@@ -22,6 +21,6 @@ public class CreateVenueHandler(EventCatalogDbContext dbContext)
 
         return new CreateVenueResponse(
             venue.VenueId, venue.VenueName, venue.VenueAddress,
-            venue.VenueCapacity, venue.SeatingType);
+            venue.VenueCapacity);
     }
 }

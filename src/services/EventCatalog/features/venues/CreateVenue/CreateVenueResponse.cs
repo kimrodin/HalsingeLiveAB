@@ -5,5 +5,4 @@ public record CreateVenueResponse(
     Guid VenueId, 
     string Name, 
     string Address, 
-    int Capacity, 
-    SeatingType SeatingType);
+    int Capacity);

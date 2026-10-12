@@ -16,7 +16,6 @@ public class UpdateVenueHandler(EventCatalogDbContext dbContext)
         venue.VenueName = request.Name;
         venue.VenueAddress = request.Address;
         venue.VenueCapacity = request.Capacity;
-        venue.SeatingType = request.SeatingType;
 
         await dbContext.SaveChangesAsync();
         return true;

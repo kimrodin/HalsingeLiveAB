@@ -1,4 +1,4 @@
-using EventCatalog.Features.Venues.Models;
+using EventCatalog.Features.Venues;
 
 namespace EventCatalog.Features.Venues.ListVenues;
 
@@ -17,5 +17,5 @@ public class VenueListItemResponseDTO
     public required string VenueName { get; init; }
     public required string VenueAddress { get; init; }
     public int VenueCapacity { get; init; }
-    public SeatingType SeatingType { get; init; }
+    public IReadOnlyList<VenueSectionResponse> Sections { get; init; } = [];
 }

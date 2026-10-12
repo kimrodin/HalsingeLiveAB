@@ -23,17 +23,37 @@ public class CreateEventEndpoint(CreateEventHandler handler) : ControllerBase
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(CreateEventResponse))]
     [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ValidationProblemDetails))]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     // TODO: Lägg till [Authorize(Policy = "EventAdmin")] när policyn finns i API-hosten.
     // TODO: Dokumentera 401 och 403 när behörighetskontrollen kopplas in.
     public async Task<IActionResult> Create(
         [FromBody] CreateEventRequest request,
         CancellationToken cancellationToken)
     {
+        if (request.SectionPrices is null
+            || request.SectionPrices.Any(price => price is null
+                || price.SectionId is null
+                || price.SectionId == Guid.Empty
+                || price.Price is null))
+        {
+            return BadRequest("Provide a section ID and price for every section price.");
+        }
+
+        var sectionIds = request.SectionPrices
+            .Select(price => price.SectionId!.Value)
+            .ToArray();
+
+        if (sectionIds.Distinct().Count() != sectionIds.Length)
+            return BadRequest("Each section can only be included once.");
+
         // [ApiController] hanterar bindningsfel och ogiltigt ModelState med 400.
         // Verksamhetsvalidering, exempelvis positiv kapacitet, hör till handlern.
         // ASP.NET Core binder JSON till requesten och injicerar handlern i konstruktorn.
         // Token skickas vidare så att handlerns databasarbete kan avbrytas.
         var response = await handler.Handle(request, cancellationToken);
+
+        if (response is null)
+            return NotFound("The venue or one of its sections was not found.");
 
         // TODO: När handlern returnerar valideringsfel, mappa dem till
         // ValidationProblem med fel per fält, exempelvis via ModelState.AddModelError.

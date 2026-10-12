@@ -14,8 +14,7 @@ public sealed class Venue
     public string VenueName { get; set; } = string.Empty;
     public string VenueAddress { get; set; } = string.Empty;
     public int VenueCapacity { get; set; }
-    public SeatingType SeatingType { get; set; }
-    public List<Section> VenueSections { get; set; } = [];
-    public List<VenueSeatingMap> SeatingMaps { get; set; } = [];
-    public List<Event> Events { get; set; } = [];
+    public List<Section> VenueSections { get; set; } = new List<Section>();
+    public List<VenueSeatingMap> SeatingMaps { get; set; } = new List<VenueSeatingMap>();
+    public List<Event> Events { get; set; } = new List<Event>();
 }

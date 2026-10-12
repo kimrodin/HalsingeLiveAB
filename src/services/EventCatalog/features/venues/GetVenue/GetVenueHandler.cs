@@ -1,4 +1,5 @@
 using EventCatalog.Data;
+using EventCatalog.Features.Venues;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventCatalog.Features.Venues.GetVenue;
@@ -11,7 +12,16 @@ public class GetVenueHandler(EventCatalogDbContext dbContext)
             .Where(v => v.VenueId == request.VenueId)
             .Select(v => new GetVenueResponse(
                 v.VenueId, v.VenueName, v.VenueAddress,
-                v.VenueCapacity, v.SeatingType))
+                v.VenueCapacity,
+                v.VenueSections
+                    .OrderBy(section => section.Name)
+                    .ThenBy(section => section.SectionId)
+                    .Select(section => new VenueSectionResponse(
+                        section.SectionId,
+                        section.Name,
+                        section.SectionCapacity,
+                        section.SeatingType))
+                    .ToList()))
             .FirstOrDefaultAsync();
     }
 }

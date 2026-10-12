@@ -1,4 +1,5 @@
 using EventCatalog.Data;
+using EventCatalog.Features.Venues;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventCatalog.Features.Venues.ListVenues;
@@ -16,7 +17,15 @@ public class ListVenuesHandler(EventCatalogDbContext dbContext)
                 VenueName = v.VenueName,
                 VenueAddress = v.VenueAddress,
                 VenueCapacity = v.VenueCapacity,
-                SeatingType = v.SeatingType
+                Sections = v.VenueSections
+                    .OrderBy(section => section.Name)
+                    .ThenBy(section => section.SectionId)
+                    .Select(section => new VenueSectionResponse(
+                        section.SectionId,
+                        section.Name,
+                        section.SectionCapacity,
+                        section.SeatingType))
+                    .ToList()
             })
             .ToListAsync();
 

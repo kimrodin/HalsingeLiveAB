@@ -124,6 +124,17 @@ public class EventCatalogDbContext : DbContext
             .IsRequired()
             .HasMaxLength(100);
 
+        // Sektionens kapacitet måste vara positiv.
+        modelBuilder.Entity<Section>()
+            .Property(s => s.SectionCapacity)
+            .IsRequired()
+            .HasDefaultValue(1);
+
+        // Sektionens sittplatstyp får inte vara NULL.
+        modelBuilder.Entity<Section>()
+            .Property(s => s.SeatingType)
+            .IsRequired();
+
         // En stol hör till en sektion via SectionId; sektionen kan ha flera stolar.
         // Cascade raderar stolarna när sektionen raderas, även när lokalen tas bort.
         modelBuilder.Entity<Seat>()
