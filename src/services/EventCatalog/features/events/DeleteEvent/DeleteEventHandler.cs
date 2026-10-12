@@ -6,7 +6,7 @@ namespace EventCatalog.Features.Events.DeleteEvent;
 
 public class DeleteEventHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<bool> Handle(DeleteEventRequest request, CancellationToken cancellationToken)
+    public async Task<bool> Handle(DeleteEventRequest request)
     {
         var eventItem = await dbContext.Events
             .FirstOrDefaultAsync(e => e.EventId == request.EventId);

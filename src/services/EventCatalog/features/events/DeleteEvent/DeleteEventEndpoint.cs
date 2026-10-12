@@ -1,47 +1,53 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace EventCatalog.Features.Events.DeleteEvent;
 
+[Controller]
 [ApiController]
 [Route("events")]
-public class DeleteEventEndpoint(DeleteEventHandler handler) : ControllerBase
+public class DeleteEventEndpoint : ControllerBase
 {
-    // För inkoppling i EventCatalogs API:
-    // 1. Projektet behöver tillgång till ASP.NET Core via Web SDK eller framework reference.
-    // 2. Registrera controllers: builder.Services.AddControllers();
-    // 3. Registrera handlern i DI: builder.Services.AddScoped<DeleteEventHandler>();
-    // 4. Registrera routes efter builder.Build(): app.MapControllers();
-    // Om API-hosten ligger i ett annat assembly kan den behöva:
-    // builder.Services.AddControllers().AddApplicationPart(typeof(DeleteEventEndpoint).Assembly);
-    // Dessa steg görs i projektfilen/API-hosten, inte i denna endpoint.
+    private readonly ILogger<DeleteEventEndpoint> _logger;
+    private readonly DeleteEventHandler _handler;
 
-    /// <summary>
-    /// Tar emot DELETE /events/{id:guid}, anropar handlern och returnerar HTTP-svaret.
-    /// </summary>
+    public DeleteEventEndpoint(ILogger<DeleteEventEndpoint> logger, DeleteEventHandler handler)
+    {
+        _logger = logger;
+        _handler = handler;
+    }
+
+
+    // DELETE /event/{id} skickar lokalens id till handlern för borttagning.
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    // TODO: Lägg till [Authorize(Policy = "EventAdmin")] när policyn finns i API-hosten.
-    // TODO: Dokumentera 401 och 403 när behörighetskontrollen kopplas in.
-    public async Task<IActionResult> Delete(
-        [FromRoute] DeleteEventRequest request,
-        CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> DeleteEvent([FromRoute] Guid id)
     {
-        // [ApiController] hanterar bindningsfel och ogiltigt ModelState med 400.
-        // Verksamhetsvalidering, exempelvis positiv kapacitet, hör till handlern.
-        // ASP.NET Core binder JSON till requesten och injicerar handlern i konstruktorn.
-        // Token skickas vidare så att handlerns databasarbete kan avbrytas.
-        var response = await handler.Handle(request, cancellationToken);
+        // Avvisa ett tomt lokal-id innan handlern anropas.
+        if (id == Guid.Empty)
+            return BadRequest("EventId must not be empty.");
 
-        // TODO: När handlern returnerar valideringsfel, mappa dem till
-        // ValidationProblem med fel per fält, exempelvis via ModelState.AddModelError.
-        // Håll verksamhetsreglerna i handlern så att endpointen bara hanterar HTTP.
-        // Oväntade fel bör hanteras centralt som 500, inte fångas här som 400.
+        try
+        {
+            _logger.LogInformation("Deleting event {EventId}", id);
 
-        // TODO: När response innehåller VenueId och GET-routen finns, ange Location:
-        // return Created($"/venues/{response.VenueId}", response);
-        // Response är ännu en tom stomme, så ingen resursadress kan anges här.
-        return StatusCode(StatusCodes.Status201Created, response);
+            var request = new DeleteEventRequest(id);
+            await _handler.Handle(request);
+
+            // När handlern har slutförts returneras 204 utan svarskropp.
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            // Nuvarande felhantering loggar alla undantag och returnerar 500.
+            _logger.LogError(ex, "Failed to delete event {EventId}", id);
+            return Problem(
+                title: "An error occurred while deleting the event.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 }
