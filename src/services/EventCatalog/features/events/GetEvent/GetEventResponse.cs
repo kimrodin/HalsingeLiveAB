@@ -4,9 +4,14 @@ public record GetEventResponse(
     Guid EventId,
     string Name,
     string Description,
-    decimal Price,
     DateTime StartDate,
     DateTime EndDate,
     DateTime OnSaleFrom,
-    Guid VenueId
+    Guid VenueId,
+    IReadOnlyList<EventSectionPriceResponse> SectionPrices
+);
+
+public record EventSectionPriceResponse(
+    Guid SectionId,
+    decimal Price
 );

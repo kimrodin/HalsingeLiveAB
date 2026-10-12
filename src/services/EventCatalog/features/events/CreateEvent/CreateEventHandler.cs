@@ -11,6 +11,7 @@ public class CreateEventHandler(EventCatalogDbContext dbContext)
         var newEvent = new Event
             {
                 EventId = Guid.NewGuid(),
+                VenueId = request.VenueId!.Value,
                 Name = request.Name,
                 Description = request.Description,
                 StartDate = request.StartDate!.Value,

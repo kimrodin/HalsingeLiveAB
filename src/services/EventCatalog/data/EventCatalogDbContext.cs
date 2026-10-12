@@ -40,11 +40,6 @@ public class EventCatalogDbContext : DbContext
             .IsRequired()
             .HasMaxLength(200);
 
-        // Priset får inte vara NULL. Regeln kontrollerar inte att priset är positivt.
-        modelBuilder.Entity<Event>()
-            .Property(e => e.Price)
-            .IsRequired();
-
         // Beskrivningen får innehålla högst 2 000 tecken.
         modelBuilder.Entity<Event>()
             .Property(e => e.Description)

@@ -1,43 +1,105 @@
-# HalsingeLiveAB
+# HälsingeLiveAB
 
-## Testa EventCatalog lokalt
+Repositoryt innehåller EventCatalog API:t och en separat admin-webbklient. Docker Compose-konfigurationen startar EventCatalog och PostgreSQL; admin-webbklienten ingår inte i Compose-flödet.
 
-1. Starta Docker Desktop och starta PostgreSQL från repots rot:
+## Starta EventCatalog med Docker och Swagger
 
-   ```powershell
-   docker compose -f src/services/Compose.yaml up -d eventcatalog-db
-   ```
+### Förutsättningar
 
-2. Öppna `HalsingeLiveAB.sln` i Visual Studio och välj `EventCatalog` som startprojekt.
-   Startprofilen `EventCatalog` öppnar Swagger på `http://localhost:5080/swagger`.
+- Docker Desktop med Linux-containrar aktiverade.
+- .NET 10 SDK. Det behövs på värddatorn för att köra EF Core-migrationen.
+- `dotnet-ef` 10.0.12. Installera verktyget om kommandot `dotnet ef` saknas:
 
-   Vid första starten med en tom testdatabas, kör från repots rot:
+  ```powershell
+  dotnet tool install --global dotnet-ef --version 10.0.12
+  ```
 
-   ```powershell
-   dotnet run --project src/services/EventCatalog/EventCatalog.csproj --launch-profile EventCatalog -- --InitializeDatabase=true
-   ```
+Kör kommandona nedan från repositoryts rotmapp.
 
-   Flaggan skapar tabeller i en tom databas i Development. Den uppdaterar inte ett
-   befintligt schema; projektet har ännu inga EF Core-migrationer.
+### Första starten
 
-3. Vid senare starter kan du använda F5 i Visual Studio eller:
+1. Starta PostgreSQL-containern:
 
    ```powershell
-   dotnet run --project src/services/EventCatalog/EventCatalog.csproj --launch-profile EventCatalog
+   docker compose -f src/Services/Compose.yaml up -d eventcatalog-db
    ```
 
-I Swagger, testa `POST /venues` med exempelvis:
+2. Applicera projektets EF Core-migrationer på databasen `eventcatalog_dev`. Migrationen körs från värddatorn, så anslutningen använder `localhost`:
 
-```json
-{
-  "name": "Testlokal",
-  "address": "Testgatan 1",
-  "capacity": 100,
-  "seatingType": 0
-}
+   ```powershell
+   $env:ConnectionStrings__EventCatalog = "Host=localhost;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
+
+   dotnet ef database update `
+     --context EventCatalog.Data.EventCatalogDbContext `
+     --project src/Services/EventCatalog/EventCatalog.csproj `
+     --startup-project src/Services/EventCatalog/EventCatalog.csproj
+
+   Remove-Item Env:ConnectionStrings__EventCatalog
+   ```
+
+3. Bygg och starta API:t och databasen:
+
+   ```powershell
+   docker compose -f src/Services/Compose.yaml up -d --build
+   ```
+
+4. Öppna Swagger UI:
+
+   **http://localhost:8080/swagger**
+
+Compose sätter `ASPNETCORE_ENVIRONMENT=Development`, vilket aktiverar Swagger. API:t lyssnar på port `8080`; PostgreSQL publiceras på port `5432`.
+
+### Senare starter
+
+När databasen redan har skapats och migrationerna har applicerats startar du tjänsterna så här:
+
+```powershell
+docker compose -f src/Services/Compose.yaml up -d
 ```
 
-`seatingType` är `0` för fri placering och `1` för numrerade platser.
-Använd lokalens returnerade id för att testa GET, PUT och DELETE.
+Lägg till `--build` efter kodändringar som ska byggas in i API-containern.
 
-Bygg hela solutionen med `dotnet build HalsingeLiveAB.sln`.
+Visa status och loggar:
+
+```powershell
+docker compose -f src/Services/Compose.yaml ps
+docker compose -f src/Services/Compose.yaml logs -f eventcatalog
+docker compose -f src/Services/Compose.yaml logs -f eventcatalog-db
+```
+
+Stoppa containrarna utan att ta bort databasen:
+
+```powershell
+docker compose -f src/Services/Compose.yaml down
+```
+
+PostgreSQL-data sparas i den namngivna volymen `eventcatalog-data`. Om du uttryckligen vill radera all lokal databasdata kan du ta bort volymen med `docker compose -f src/Services/Compose.yaml down -v`. Det går inte att ångra.
+
+### Köra API:t från IDE i stället för som container
+
+Starta PostgreSQL med Compose och kör sedan:
+
+```powershell
+docker compose -f src/Services/Compose.yaml up -d eventcatalog-db
+dotnet run --project src/Services/EventCatalog/EventCatalog.csproj --launch-profile EventCatalog
+```
+
+Startprofilen använder `Host=localhost` och öppnar Swagger på **http://localhost:5080/swagger**. Applicera migrationerna enligt steget ovan första gången.
+
+### Anslutningssträngar
+
+API-containern ansluter till databasen via Compose-värdnamnet `eventcatalog-db`. Kommandon som körs på värddatorn, till exempel `dotnet ef database update`, ansluter via `localhost`. Databasen heter `eventcatalog_dev` i båda fallen.
+
+PostgreSQL-imagets `POSTGRES_DB` används när datavolymen initieras första gången. Om en befintlig volym återanvänds skapar en ändring av `POSTGRES_DB` inte automatiskt en ny databas.
+
+Om loggen visar att `eventcatalog_dev` saknas trots att PostgreSQL-containern körs kan du skapa databasen manuellt:
+
+```powershell
+docker compose -f src/Services/Compose.yaml exec eventcatalog-db psql -U postgres -d postgres -c 'CREATE DATABASE eventcatalog_dev;'
+```
+
+Kör sedan `dotnet ef database update` enligt första-start-steget.
+
+## Admin-webb
+
+Admin-webbklienten ligger i `src/frontend/admin-web` och startas inte av Compose-konfigurationen i `src/Services/Compose.yaml`. Den använder för närvarande mockdata i stället för EventCatalog API:t.

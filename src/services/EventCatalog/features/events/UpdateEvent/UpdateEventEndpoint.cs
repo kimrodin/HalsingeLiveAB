@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
-namespace EventCatalog.Features.Venues.UpdateVenue;
+namespace EventCatalog.Features.Events.UpdateEvent;
 
 [ApiController]
 [Route("events")]
@@ -11,7 +11,7 @@ public class UpdateEventEndpoint : ControllerBase
     private readonly ILogger<UpdateEventEndpoint> logger;
     private readonly UpdateEventHandler handler;
 
-    public UpdateVenueEndpoint(ILogger<UpdateEventEndpoint> logger, UpdateEventHandler handler)
+    public UpdateEventEndpoint(ILogger<UpdateEventEndpoint> logger, UpdateEventHandler handler)
     {
         this.logger = logger;
         this.handler = handler;
