@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Alert, Box, Button, CircularProgress, MenuItem, Paper, Stack, TextField, Typography,
 } from '@mui/material';
+import { ApiError } from '../api/http';
 import { createVenue, getVenue, updateVenue } from '../api/catalog';
 import type { SaveVenueRequest, SectionSeatingType, Venue } from '../api/catalog';
 import SeatingMapsSection from '../components/SeatingMapsSection';
@@ -32,6 +33,27 @@ interface VenueFormValues {
 }
 
 type FormErrors = Record<string, string>;
+
+function saveErrorMessage(error: Error): string {
+    if (error instanceof ApiError && error.status === 409) {
+        const detail = error.message.toLowerCase();
+
+        if (detail.includes('cannot be deleted') || detail.includes('used by an event')) {
+            return 'Sektionen används av ett evenemang och kan inte tas bort förrän kopplingen till evenemanget har tagits bort. Priser tas inte bort automatiskt.';
+        }
+        if (detail.includes('cannot be updated') || detail.includes('capacity and seating type')) {
+            return 'Kapacitet och platsform kan inte ändras medan sektionen används av ett evenemang. Sektionsnamnet kan fortfarande ändras.';
+        }
+        if (detail.includes('combined section capacity')) {
+            return 'Sektionernas sammanlagda kapacitet får inte överstiga scenens kapacitet.';
+        }
+        if (detail.includes('capacity cannot be lower')) {
+            return 'Kapaciteten kan inte sänkas under antalet befintliga stolar, och platsformen kan inte ändras medan stolar finns.';
+        }
+    }
+
+    return error.message || 'Försök igen.';
+}
 
 function createSection(): SectionFormValues {
     return {
@@ -196,8 +218,10 @@ function VenueForm({ venue }: { venue?: Venue }) {
 
                             {isEdit && (
                                 <Alert severity="info" sx={{ mb: 2 }}>
-                                    Sparade sektioner kan inte ändras, bara tas bort. Vill du ändra en sektion tar du bort den
-                                    och lägger till en ny. När en sektion tas bort försvinner också dess priser på evenemang.
+                                    Sektionsnamn kan ändras. Kapacitet och platsform kan inte ändras medan sektionen används
+                                    av ett evenemang eller har stolar som hindrar ändringen. En sektion kan inte tas bort
+                                    medan den används av ett evenemang; ta först bort kopplingen till sektionen från evenemanget.
+                                    Borttagning raderar inte priser automatiskt.
                                 </Alert>
                             )}
 
@@ -205,7 +229,6 @@ function VenueForm({ venue }: { venue?: Venue }) {
 
                             <Stack spacing={2}>
                                 {values.sections.map((section, index) => {
-                                    const locked = section.sectionId !== undefined;
                                     return (
                                         <Paper key={section.id} variant="outlined" sx={{ p: 2 }}>
                                             <Stack spacing={2}>
@@ -223,14 +246,12 @@ function VenueForm({ venue }: { venue?: Venue }) {
                                                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                                     <TextField
                                                         label="Sektionsnamn" required fullWidth value={section.name}
-                                                        disabled={locked}
                                                         onChange={handleSectionChange(section.id, 'name')}
                                                         error={!!errors[`section-${section.id}-name`]}
                                                         helperText={errors[`section-${section.id}-name`]}
                                                     />
                                                     <TextField
                                                         label="Antal platser" required type="number" fullWidth
-                                                        disabled={locked}
                                                         slotProps={{ htmlInput: { min: 1, step: 1 } }}
                                                         value={section.seatCount}
                                                         onChange={handleSectionChange(section.id, 'seatCount')}
@@ -242,7 +263,6 @@ function VenueForm({ venue }: { venue?: Venue }) {
                                                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                                     <TextField
                                                         select label="Platsform" fullWidth value={section.seatingType}
-                                                        disabled={locked}
                                                         onChange={handleSectionChange(section.id, 'seatingType')}
                                                     >
                                                         {Object.entries(seatingTypeLabel).map(([type, label]) => (
@@ -263,7 +283,7 @@ function VenueForm({ venue }: { venue?: Venue }) {
 
                         {mutation.isError && (
                             <Alert severity="error">
-                                Kunde inte spara scenen. {mutation.error.message || 'Försök igen.'}
+                                Kunde inte spara scenen. {saveErrorMessage(mutation.error)}
                             </Alert>
                         )}
 

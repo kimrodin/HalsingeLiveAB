@@ -8,10 +8,9 @@ import {
 import { createEvent, getEvent, getVenues, updateEvent } from '../api/catalog';
 import type { EventDetails } from '../api/catalog';
 
-// Gränserna kommer från backend. UpdateEventRequest tillåter bara 500 tecken i beskrivningen
-// (CreateEventRequest 2000), så 500 gäller för båda tills backend rättas.
+// Gränserna kommer från backend.
 const MAX_NAME = 200;
-const MAX_DESCRIPTION = 500;
+const MAX_DESCRIPTION = 2000;
 
 // ISO (UTC) -> värde för <input type="datetime-local"> i lokal tid
 function toInputValue(iso?: string): string {
@@ -52,23 +51,28 @@ function validate(v: FormValues, sectionIds: string[], isEdit: boolean): FormErr
   if (!v.endDate) errors.endDate = 'Sluttid krävs';
   else if (v.startDate && v.endDate <= v.startDate) errors.endDate = 'Sluttid måste vara efter starttid';
 
-  // Scen, biljettsläpp och priser kan bara anges när evenemanget skapas
+  if (!v.onSaleFrom) errors.onSaleFrom = 'Biljettsläpp krävs';
+  else if (v.startDate && v.onSaleFrom >= v.startDate) {
+    errors.onSaleFrom = 'Försäljningen måste starta före evenemanget';
+  }
+
+  if (isEdit && sectionIds.length === 0) {
+    errors.sectionPrices = 'Minst en sektion måste vara kopplad till evenemanget';
+  }
+
+  // Scen and prices are initially selected only when creating an event
   if (!isEdit) {
     if (!v.venueId) errors.venueId = 'Välj scen';
 
-    if (!v.onSaleFrom) errors.onSaleFrom = 'Biljettsläpp krävs';
-    else if (v.startDate && v.onSaleFrom >= v.startDate) {
-      errors.onSaleFrom = 'Försäljningen måste starta före evenemanget';
-    }
-
-    sectionIds.forEach((id) => {
-      const raw = v.prices[id]?.trim() ?? '';
-      const price = Number(raw);
-      if (!raw || !Number.isFinite(price) || price < 0) {
-        errors[`price-${id}`] = 'Ange ett pris (0 eller mer)';
-      }
-    });
   }
+
+  sectionIds.forEach((id) => {
+    const raw = v.prices[id]?.trim() ?? '';
+    const price = Number(raw);
+    if (!raw || !Number.isFinite(price) || price < 0) {
+      errors[`price-${id}`] = 'Ange ett pris (0 eller mer)';
+    }
+  });
 
   return errors;
 }
@@ -104,7 +108,16 @@ function EventForm({ event }: { event?: EventDetails }) {
         endDate: toIso(v.endDate),
       };
 
-      if (isEdit) return updateEvent(event.eventId, common);
+      if (isEdit) {
+        return updateEvent(event.eventId, {
+          ...common,
+          onSaleFrom: toIso(v.onSaleFrom),
+          sectionPrices: Object.entries(v.prices).map(([sectionId, price]) => ({
+            sectionId,
+            price: Number(price),
+          })),
+        });
+      }
 
       return createEvent({
         ...common,
@@ -135,7 +148,8 @@ function EventForm({ event }: { event?: EventDetails }) {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const found = validate(values, sections.map((s) => s.id), isEdit);
+    const sectionIds = isEdit ? Object.keys(values.prices) : sections.map((s) => s.id);
+    const found = validate(values, sectionIds, isEdit);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
@@ -155,7 +169,8 @@ function EventForm({ event }: { event?: EventDetails }) {
         <Stack spacing={2}>
           {isEdit && (
             <Alert severity="info">
-              Scen, biljettsläpp och priser kan inte ändras efter att evenemanget har skapats.
+              Scenen kan inte bytas här. Biljettsläpp och priser kan ändras. Du kan ta bort en sektionskoppling
+              för att kunna ta bort sektionen från scenen, men minst en sektion måste vara kopplad till evenemanget.
             </Alert>
           )}
 
@@ -185,25 +200,44 @@ function EventForm({ event }: { event?: EventDetails }) {
             </Alert>
           )}
 
-          {venue && sections.length > 0 && (
+          {venue && (isEdit ? Object.keys(values.prices).length > 0 : sections.length > 0) && (
             <Stack spacing={2}>
               <Typography variant="h6">Priser per sektion</Typography>
-              {sections.map((section) => (
-                <TextField
-                  key={section.id}
-                  label={`${section.name} (kr)`}
-                  required
-                  type="number"
-                  disabled={isEdit}
-                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                  value={values.prices[section.id] ?? ''}
-                  onChange={handlePriceChange(section.id)}
-                  error={!!errors[`price-${section.id}`]}
-                  helperText={errors[`price-${section.id}`]}
-                />
-              ))}
+              {sections
+                .filter((section) => !isEdit || values.prices[section.id] !== undefined)
+                .map((section) => (
+                  <Stack key={section.id} direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+                    <TextField
+                      label={`${section.name} (kr)`}
+                      required
+                      type="number"
+                      fullWidth
+                      slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                      value={values.prices[section.id] ?? ''}
+                      onChange={handlePriceChange(section.id)}
+                      error={!!errors[`price-${section.id}`]}
+                      helperText={errors[`price-${section.id}`]}
+                    />
+                    {isEdit && (
+                      <Button
+                        color="error"
+                        disabled={Object.keys(values.prices).length <= 1}
+                        onClick={() => {
+                          setValues((prev) => {
+                            const prices = { ...prev.prices };
+                            delete prices[section.id];
+                            return { ...prev, prices };
+                          });
+                        }}
+                      >
+                        Ta bort koppling
+                      </Button>
+                    )}
+                  </Stack>
+                ))}
             </Stack>
           )}
+          {errors.sectionPrices && <Alert severity="error">{errors.sectionPrices}</Alert>}
 
           <TextField
             {...dateFieldProps} label="Start" required value={values.startDate}
@@ -218,7 +252,6 @@ function EventForm({ event }: { event?: EventDetails }) {
           <TextField
             {...dateFieldProps} label="Biljettsläpp (försäljning startar)" required
             value={values.onSaleFrom} onChange={handleChange('onSaleFrom')}
-            disabled={isEdit}
             error={!!errors.onSaleFrom} helperText={errors.onSaleFrom}
           />
 
