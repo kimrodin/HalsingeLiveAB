@@ -8,6 +8,7 @@ using EventCatalog.Features.Venues.UpdateVenue;
 using EventCatalog.Features.Venues.DeleteVenue;
 using EventCatalog.Features.Venues.CreateSection;
 using EventCatalog.Features.Venues.DeleteSection;
+using EventCatalog.Features.Venues.UpdateSection;
 
 namespace EventCatalog.Features.Venues;
 
@@ -21,6 +22,7 @@ public class VenuesController(
     DeleteVenueHandler deleteVenueHandler,
     CreateSectionHandler createSectionHandler,
     DeleteSectionHandler deleteSectionHandler,
+    UpdateSectionHandler updateSectionHandler,
     ILogger<VenuesController> logger) : ControllerBase
 {
     [HttpPost]
@@ -317,6 +319,55 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
+    [HttpPut("{venueId:guid}/{sectionId:guid}")]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateSection(
+        [FromRoute] Guid venueId,
+        [FromRoute] Guid sectionId,
+        [FromBody] UpdateSectionRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await updateSectionHandler.Handle(venueId, sectionId, request, cancellationToken);
+            if (result == UpdateSectionResult.NotFound)
+                return NotFound();
+
+            var conflict = result switch
+            {
+                UpdateSectionResult.InUse => "Capacity and seating type cannot be changed while the section is used by an event.",
+                UpdateSectionResult.CapacityExceeded => "The combined section capacity cannot exceed the venue capacity.",
+                UpdateSectionResult.SeatConflict => "Capacity cannot be lower than the number of seats, and seating type cannot change while seats exist.",
+                _ => null
+            };
+
+            if (conflict is not null)
+                return Problem(title: "The section cannot be updated.", detail: conflict,
+                    statusCode: StatusCodes.Status409Conflict);
+
+            return NoContent();
+        }
+        catch (VenueValidationException ex)
+        {
+            return RequestValidationProblem(ex);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to update section {SectionId} for venue {VenueId}", sectionId, venueId);
+            return Problem(title: "An error occurred while updating the section.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
     private IActionResult RequestValidationProblem(VenueValidationException exception)
     {
         foreach (var (field, messages) in exception.Errors)
