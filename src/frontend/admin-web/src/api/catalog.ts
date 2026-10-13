@@ -45,15 +45,27 @@ export interface EventDetails {
   venueId: string;
   name: string;
   description: string;
-  startDate: string; // ISO 8601
+  startDate: string;
   endDate: string;
   onSaleFrom: string;
   sectionPrices: EventSectionPrice[];
 }
 
-export type CreateEventRequest = Omit<EventDetails, 'eventId'>;
-// Backend (UpdateEventRequest) kan bara ändra dessa fält efter att eventet skapats
-export type UpdateEventRequest = Pick<EventDetails, 'name' | 'description' | 'startDate' | 'endDate'>;
+export interface CreateEventRequest {
+  venueId: string;
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  onSaleFrom: string;
+  sectionPrices: EventSectionPrice[];
+}
+
+// Formuläret ändrar dessa fält; updateEvent hämtar övriga värden för backendens fullständiga DTO.
+export type UpdateEventRequest = Pick<
+  EventDetails,
+  'name' | 'description' | 'startDate' | 'endDate'
+>;
 
 export interface VenueSeatingMap {
   id: string;
@@ -113,17 +125,30 @@ interface CreateVenueResponseDto {
   venueId: string;
 }
 
-// GET /events returnerar Event-entiteten, GET /events/{id} returnerar GetEventResponse.
-// sectionPrices är tom i listan eftersom handlern inte hämtar dem där.
+// GET /GetEvent/{id} (GetEventResponse)
 interface EventDto {
   eventId: string;
-  venueId: string;
   name: string;
-  description: string | null;
+  description: string;
   startDate: string;
   endDate: string;
   onSaleFrom: string;
-  sectionPrices?: { sectionId: string; price: number }[];
+  venueId: string;
+  sectionPrices: EventSectionPrice[];
+}
+
+// GET /ListEvents (EventListItemResponseDTO)
+interface EventListItemDto {
+  eventId: string;
+  eventName: string;
+  eventDescription: string;
+  sectionPrices: EventSectionPrice[];
+  eventDate: string;
+  venueId: string;
+}
+
+interface ListEventsDto {
+  events: EventListItemDto[];
 }
 
 // POST /events  (CreateEventResponse)
@@ -180,11 +205,11 @@ function eventFromDto(e: EventDto): EventDetails {
     eventId: e.eventId,
     venueId: e.venueId,
     name: e.name,
-    description: e.description ?? '',
+    description: e.description,
     startDate: e.startDate,
     endDate: e.endDate,
     onSaleFrom: e.onSaleFrom,
-    sectionPrices: e.sectionPrices ?? [],
+    sectionPrices: e.sectionPrices,
   };
 }
 
@@ -201,20 +226,20 @@ function totalSeats(sections: { seatCount: number }[]): number {
  * 4. EVENEMANG
  * ========================================================================== */
 
-// GET /events
+// The list response omits endDate and onSaleFrom, which the UI needs, so fetch full details.
 export async function getEvents(): Promise<EventDetails[]> {
-  const dtos = await request<EventDto[]>('/events');
-  return dtos.map(eventFromDto);
+  const { events } = await request<ListEventsDto>('/ListEvents');
+  return Promise.all(events.map(({ eventId }) => getEvent(eventId)));
 }
 
-// GET /events/{id}
+// GET /GetEvent/{id}
 export async function getEvent(eventId: string): Promise<EventDetails> {
-  return eventFromDto(await request<EventDto>(`/events/${eventId}`));
+  return eventFromDto(await request<EventDto>(`/GetEvent/${eventId}`));
 }
 
-// POST /events -> 201 { eventId }
+// POST /CreateEvent -> 201 { eventId }
 export function createEvent(data: CreateEventRequest): Promise<CreateEventResponseDto> {
-  return sendJson<CreateEventResponseDto>('POST', '/events', {
+  return sendJson<CreateEventResponseDto>('POST', '/CreateEvent', {
     name: data.name,
     description: data.description,
     venueId: data.venueId,
@@ -225,14 +250,23 @@ export function createEvent(data: CreateEventRequest): Promise<CreateEventRespon
   });
 }
 
-// PUT /events/{id} -> 204
-export function updateEvent(eventId: string, data: UpdateEventRequest): Promise<void> {
-  return sendJson('PUT', `/events/${eventId}`, { eventId, ...data });
+// PUT /UpdateEvent/{id} requires the complete request; retain venue, ticket sale time, and prices.
+export async function updateEvent(eventId: string, data: UpdateEventRequest): Promise<void> {
+  const current = await getEvent(eventId);
+  await sendJson('PUT', `/UpdateEvent/${eventId}`, {
+    name: data.name,
+    description: data.description,
+    startDate: data.startDate,
+    endDate: data.endDate,
+    venueId: current.venueId,
+    onSaleFrom: current.onSaleFrom,
+    sectionPrices: current.sectionPrices,
+  });
 }
 
 // DELETE /events/{id} -> 204
 export function deleteEvent(eventId: string): Promise<void> {
-  return request(`/events/${eventId}`, { method: 'DELETE' });
+  return request(`/DeleteEvent/${eventId}`, { method: 'DELETE' });
 }
 
 /* ==========================================================================
@@ -241,13 +275,13 @@ export function deleteEvent(eventId: string): Promise<void> {
 
 // GET /venues -> { venues: [...] }
 export async function getVenues(): Promise<Venue[]> {
-  const dto = await request<ListVenuesDto>('/venues');
+  const dto = await request<ListVenuesDto>('/listvenues');
   return dto.venues.map(venueFromListItem);
 }
 
 // GET /venues/{id}
 export async function getVenue(venueId: string): Promise<Venue> {
-  return venueFromDto(await request<VenueDto>(`/venues/${venueId}`));
+  return venueFromDto(await request<VenueDto>(`/Getvenue/${venueId}`));
 }
 
 // Backend skapar scen och sektioner med separata anrop och tar emot kapaciteten som
