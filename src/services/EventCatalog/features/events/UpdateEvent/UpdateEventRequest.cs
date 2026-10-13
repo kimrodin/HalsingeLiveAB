@@ -7,4 +7,6 @@ public record UpdateEventRequest(
     [Required, StringLength(200)] string Name,
     [Required, StringLength(500)] string Description,
     [Required] DateTime StartDate,
-    [Required] DateTime EndDate);
+    [Required] DateTime EndDate,
+    // Utelämnat eller tomt: behåll kopplingarna. Id:n här tas bara bort från detta evenemang.
+    IReadOnlyList<Guid> SectionIdsToRemove = null);

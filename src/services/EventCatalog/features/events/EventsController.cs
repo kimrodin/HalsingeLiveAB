@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using System.ComponentModel.DataAnnotations;
 using EventCatalog.Features.Events.CreateEvent;
 using EventCatalog.Features.Events.GetEvent;
 using EventCatalog.Features.Events.ListEvents;
@@ -123,7 +124,7 @@ public class EventsController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> UpdateEvent([FromRoute] Guid id, [FromBody] UpdateEventRequest request)
+    public async Task<IActionResult> UpdateEvent([FromRoute] Guid id, [FromBody] UpdateEventRequest request, CancellationToken cancellationToken)
     {
         if (id == Guid.Empty)
             return BadRequest("EventId must not be empty.");
@@ -132,7 +133,7 @@ public class EventsController(
         {
             logger.LogInformation("Updating event {EventId}", id);
 
-            var updated = await updateEventHandler.Handle(request with { EventId = id });
+            var updated = await updateEventHandler.Handle(request with { EventId = id }, cancellationToken);
 
             if (!updated)
             {
@@ -141,6 +142,15 @@ public class EventsController(
             }
 
             return NoContent();
+        }
+        catch (ValidationException ex)
+        {
+            ModelState.AddModelError(nameof(UpdateEventRequest.SectionIdsToRemove), ex.Message);
+            return ValidationProblem(ModelState);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -152,7 +162,6 @@ public class EventsController(
     }
 
     // TODO: Kräv administratörsbehörighet enligt projektets behörighetsmodell.
-    // TODO: Skicka vidare CancellationToken när handlern stöder det.
 
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

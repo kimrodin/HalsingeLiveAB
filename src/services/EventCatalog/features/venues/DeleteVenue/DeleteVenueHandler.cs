@@ -5,20 +5,29 @@ namespace EventCatalog.Features.Venues.DeleteVenue;
 
 public class DeleteVenueHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<bool> Handle(DeleteVenueRequest request)
+    public async Task<DeleteVenueResult> Handle(DeleteVenueRequest request)
     {
+        VenueValidation.ValidateId(request.VenueId, nameof(request.VenueId));
+
         var venue = await dbContext.Venues
             .FirstOrDefaultAsync(v => v.VenueId == request.VenueId);
 
         if (venue is null)
-            return false;
+            return DeleteVenueResult.NotFound;
 
         if (await dbContext.Events.AnyAsync(e => e.VenueId == request.VenueId))
-            throw new InvalidOperationException("The venue is used by events and cannot be deleted.");
+            return DeleteVenueResult.InUse;
 
         dbContext.Venues.Remove(venue);
 
         await dbContext.SaveChangesAsync();
-        return true;
+        return DeleteVenueResult.Deleted;
     }
+}
+
+public enum DeleteVenueResult
+{
+    Deleted,
+    NotFound,
+    InUse
 }

@@ -11,11 +11,19 @@ public class CreateSectionHandler(EventCatalogDbContext dbContext)
         CreateSectionRequest request,
         CancellationToken cancellationToken = default)
     {
-        var venueExists = await dbContext.Venues
-            .AnyAsync(venue => venue.VenueId == venueId, cancellationToken);
+        VenueValidation.ValidateId(venueId, nameof(venueId));
+        VenueValidation.ValidateSection(request.Name, request.Capacity, request.SeatingType);
 
-        if (!venueExists)
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var venue = await VenueCapacityRules.LockVenueAsync(dbContext, venueId, cancellationToken);
+
+        if (venue is null)
             return null;
+
+        var sectionCapacity = await VenueCapacityRules.GetSectionCapacityAsync(dbContext, venueId, cancellationToken);
+        if (sectionCapacity + request.Capacity > venue.VenueCapacity)
+            throw new VenueCapacityConflictException(
+                "The combined section capacity cannot exceed the venue capacity.");
 
         var section = new Section
         {
@@ -28,6 +36,7 @@ public class CreateSectionHandler(EventCatalogDbContext dbContext)
 
         dbContext.Sections.Add(section);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return new CreateSectionResponse(
             section.SectionId,

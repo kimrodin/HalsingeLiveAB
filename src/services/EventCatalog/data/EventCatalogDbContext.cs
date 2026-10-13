@@ -80,7 +80,9 @@ public class EventCatalogDbContext : DbContext
         modelBuilder.Entity<EventSectionPrice>()
             .HasOne(p => p.Section)
             .WithMany(s => s.EventPrices)
-            .HasForeignKey(p => p.SectionId);
+            .HasForeignKey(p => p.SectionId)
+            // En använd sektion får inte raderas tillsammans med evenemangets pris.
+            .OnDelete(DeleteBehavior.Restrict);
         #endregion
 
         // En platskarta hör till en lokal via VenueId; lokalen kan ha flera platskartor.
@@ -127,8 +129,16 @@ public class EventCatalogDbContext : DbContext
         // Sektionens kapacitet måste vara positiv.
         modelBuilder.Entity<Section>()
             .Property(s => s.SectionCapacity)
-            .IsRequired()
-            .HasDefaultValue(1);
+            .IsRequired();
+
+        // Databasen avvisar noll och negativa värden även vid direkt SQL.
+        modelBuilder.Entity<Section>()
+            .ToTable("Sections", table => table.HasCheckConstraint(
+                "CK_Sections_PositiveCapacity", "\"SectionCapacity\" > 0"));
+
+        modelBuilder.Entity<Venue>()
+            .ToTable("Venues", table => table.HasCheckConstraint(
+                "CK_Venues_PositiveCapacity", "\"VenueCapacity\" > 0"));
 
         // Sektionens sittplatstyp får inte vara NULL.
         modelBuilder.Entity<Section>()
