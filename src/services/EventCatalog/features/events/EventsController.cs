@@ -132,7 +132,7 @@ public class EventsController(
         {
             logger.LogInformation("Updating event {EventId}", id);
 
-            var result = await updateEventHandler.Handle(request with { EventId = id });
+            var result = await updateEventHandler.Handle(id, request);
 
             if (result == UpdateEventResult.EventNotFound)
             {

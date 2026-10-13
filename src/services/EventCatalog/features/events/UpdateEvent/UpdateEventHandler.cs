@@ -6,11 +6,11 @@ namespace EventCatalog.Features.Events.UpdateEvent;
 
 public class UpdateEventHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<UpdateEventResult> Handle(UpdateEventRequest request)
+    public async Task<UpdateEventResult> Handle(Guid eventId, UpdateEventRequest request)
     {
         var eventItem = await dbContext.Events
             .Include(e => e.SectionPrices)
-            .FirstOrDefaultAsync(e => e.EventId == request.EventId);
+            .FirstOrDefaultAsync(e => e.EventId == eventId);
 
         if (eventItem is null)
             return UpdateEventResult.EventNotFound;
@@ -36,7 +36,7 @@ public class UpdateEventHandler(EventCatalogDbContext dbContext)
             return UpdateEventResult.InvalidSectionPrices;
 
         var matchingSectionCount = await dbContext.Sections
-            .CountAsync(section => section.VenueId == eventItem.VenueId
+            .CountAsync(section => section.VenueId == request.VenueId
                 && sectionIds.Contains(section.SectionId));
 
         if (matchingSectionCount != sectionIds.Length)
@@ -46,6 +46,8 @@ public class UpdateEventHandler(EventCatalogDbContext dbContext)
         eventItem.Description = request.Description;
         eventItem.StartDate = request.StartDate;
         eventItem.EndDate = request.EndDate;
+        eventItem.VenueId = request.VenueId;
+        eventItem.OnSaleFrom = request.OnSaleFrom;
 
         var existingPrices = eventItem.SectionPrices.ToDictionary(p => p.SectionId);
         var requestedSectionIdSet = sectionIds.ToHashSet();
