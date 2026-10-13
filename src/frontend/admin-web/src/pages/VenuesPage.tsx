@@ -16,18 +16,18 @@ const seatingTypeLabel: Record<SectionSeatingType, string> = {
 
 export default function VenuesPage() {
 
-    const queryClient = useQueryClient();
-  
-    const [venueToDelete, setVenueToDelete] = useState<Venue | null>(null);
-    const [dialogOpen, setDialogOpen] = useState(false);
-  
-    const mutation = useMutation({
-      mutationFn: deleteVenue,
-      onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: ['venues'] });
-        setDialogOpen(false);
-      }
-    });
+  const queryClient = useQueryClient();
+
+  const [venueToDelete, setVenueToDelete] = useState<Venue | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: deleteVenue,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['venues'] });
+      setDialogOpen(false);
+    }
+  });
 
   const { data: venues, isPending, isError } = useQuery({
     queryKey: ['venues'],
@@ -71,14 +71,17 @@ export default function VenuesPage() {
                   </TableCell>
                   <TableCell>
                     {venue.sections?.length ? (
-                      <Stack spacing={0.5}>
-                        {venue.sections.map((section, index) => (
-                          <Typography key={`${section.name}-${index}`} variant="body2">
-                            {section.name} ({section.seatCount}, {seatingTypeLabel[section.seatingType]})
-                            
-                          </Typography>
-                        ))}
-                      </Stack>
+                      venue.sections.length > 2 ? (
+                        `${venue.sections.length} sektioner`
+                      ) : (
+                        <Stack spacing={0.5}>
+                          {venue.sections.map((section, index) => (
+                            <Typography key={`${section.name}-${index}`} variant="body2">
+                              {section.name} ({section.seatCount}, {seatingTypeLabel[section.seatingType]})
+                            </Typography>
+                          ))}
+                        </Stack>
+                      )
                     ) : '–'}
                   </TableCell>
                   <TableCell align="right">
@@ -99,7 +102,7 @@ export default function VenuesPage() {
           </Table>
         </TableContainer>
       )}
-            <Dialog
+      <Dialog
         open={dialogOpen}
         onClose={() => {
           if (!mutation.isPending) { setDialogOpen(false) }
