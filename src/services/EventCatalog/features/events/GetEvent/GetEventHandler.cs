@@ -1,4 +1,5 @@
 using EventCatalog.Data;
+using EventCatalog.Features.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventCatalog.Features.Events.GetEvent;
@@ -7,6 +8,8 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
 {
     public async Task<GetEventResponse> Handle(GetEventRequest request)
     {
+        EventValidation.ValidateId(request.EventId, nameof(request.EventId));
+
         var eventItem = await dbContext.Events
             .AsNoTracking()
             .Include(e => e.SectionPrices)

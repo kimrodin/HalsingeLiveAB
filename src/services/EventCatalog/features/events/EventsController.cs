@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using System.ComponentModel.DataAnnotations;
+using EventCatalog.Features.Events;
 using EventCatalog.Features.Events.CreateEvent;
 using EventCatalog.Features.Events.GetEvent;
 using EventCatalog.Features.Events.ListEvents;
@@ -31,27 +31,19 @@ public class EventsController(
         [FromBody] CreateEventRequest request,
         CancellationToken cancellationToken)
     {
-        if (request.SectionPrices is null
-            || request.SectionPrices.Any(price => price is null
-                || price.SectionId is null
-                || price.SectionId == Guid.Empty
-                || price.Price is null))
-        {
-            return BadRequest("Provide a section ID and price for every section price.");
-        }
-
-        var sectionIds = request.SectionPrices
-            .Select(price => price.SectionId!.Value)
-            .ToArray();
-
-        if (sectionIds.Distinct().Count() != sectionIds.Length)
-            return BadRequest("Each section can only be included once.");
-
         // [ApiController] hanterar bindningsfel och ogiltigt ModelState med 400.
         // Verksamhetsvalidering, exempelvis positiv kapacitet, hör till handlern.
         // ASP.NET Core binder JSON till requesten och injicerar handlern i konstruktorn.
         // Token skickas vidare så att handlerns databasarbete kan avbrytas.
-        var response = await createEventHandler.Handle(request, cancellationToken);
+        CreateEventResponse response;
+        try
+        {
+            response = await createEventHandler.Handle(request, cancellationToken);
+        }
+        catch (EventValidationException ex)
+        {
+            return RequestValidationProblem(ex);
+        }
 
         if (response is null)
             return NotFound("The venue or one of its sections was not found.");
@@ -72,9 +64,6 @@ public class EventsController(
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetEvent([FromRoute] Guid id)
     {
-        if (id == Guid.Empty)
-            return BadRequest("EventId must not be empty.");
-
         try
         {
             logger.LogInformation("Retrieving event {EventId}", id);
@@ -85,6 +74,10 @@ public class EventsController(
                 return NotFound();
 
             return Ok(response);
+        }
+        catch (EventValidationException ex)
+        {
+            return RequestValidationProblem(ex);
         }
         catch (Exception ex)
         {
@@ -126,9 +119,6 @@ public class EventsController(
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> UpdateEvent([FromRoute] Guid id, [FromBody] UpdateEventRequest request, CancellationToken cancellationToken)
     {
-        if (id == Guid.Empty)
-            return BadRequest("EventId must not be empty.");
-
         try
         {
             logger.LogInformation("Updating event {EventId}", id);
@@ -141,15 +131,11 @@ public class EventsController(
                 return NotFound();
             }
 
-            if (result == UpdateEventResult.InvalidSectionPrices)
-                return BadRequest("Section prices must contain unique sections belonging to the event's venue, with non-negative prices.");
-
             return NoContent();
         }
-        catch (ValidationException ex)
+        catch (EventValidationException ex)
         {
-            ModelState.AddModelError(nameof(UpdateEventRequest.SectionIdsToRemove), ex.Message);
-            return ValidationProblem(ModelState);
+            return RequestValidationProblem(ex);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -173,10 +159,6 @@ public class EventsController(
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DeleteEvent([FromRoute] Guid id)
     {
-        // Avvisa ett tomt event-id innan handlern anropas.
-        if (id == Guid.Empty)
-            return BadRequest("EventId must not be empty.");
-
         try
         {
             logger.LogInformation("Deleting event {EventId}", id);
@@ -187,6 +169,10 @@ public class EventsController(
             // När handlern har slutförts returneras 204 utan svarskropp.
             return NoContent();
         }
+        catch (EventValidationException ex)
+        {
+            return RequestValidationProblem(ex);
+        }
         catch (Exception ex)
         {
             // Nuvarande felhantering loggar alla undantag och returnerar 500.
@@ -195,5 +181,16 @@ public class EventsController(
                 title: "An error occurred while deleting the event.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
+    }
+
+    private IActionResult RequestValidationProblem(EventValidationException exception)
+    {
+        foreach (var (field, messages) in exception.Errors)
+        {
+            foreach (var message in messages)
+                ModelState.AddModelError(field, message);
+        }
+
+        return ValidationProblem(ModelState);
     }
 }
