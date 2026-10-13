@@ -1,24 +1,15 @@
 import { Link as RouterLink } from 'react-router';
 import {
-  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Table, TableBody,
+  Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
 import { getEvents, getVenues, deleteEvent } from '../api/catalog';
-import type { EventStatus, EventDetails } from '../api/catalog';
+import type { EventDetails } from '../api/catalog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-const statusLabel: Record<EventStatus, string> = {
-  draft: 'Utkast',
-  published: 'Publicerad',
-  cancelled: 'Inställd',
-};
-
-const statusColor: Record<EventStatus, 'default' | 'success' | 'error'> = {
-  draft: 'default',
-  published: 'success',
-  cancelled: 'error',
-};
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' });
 
 export default function EventsPage() {
   const queryClient = useQueryClient();
@@ -31,8 +22,9 @@ export default function EventsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       setDialogOpen(false);
-    }
+    },
   });
+
   const { data, isPending, isError } = useQuery({
     queryKey: ['events'],
     queryFn: getEvents,
@@ -57,17 +49,19 @@ export default function EventsPage() {
 
       {isPending && <CircularProgress />}
       {isError && <Alert severity="error">Kunde inte hämta evenemang.</Alert>}
+      {data && data.length === 0 && (
+        <Alert severity="info">Det finns inga evenemang ännu.</Alert>
+      )}
 
-      {data && (
+      {data && data.length > 0 && (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
                 <TableCell>Namn</TableCell>
                 <TableCell>Scen</TableCell>
-                <TableCell>Datum</TableCell>
-                <TableCell>Pris</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Start</TableCell>
+                <TableCell>Biljettsläpp</TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
@@ -76,34 +70,20 @@ export default function EventsPage() {
                 <TableRow key={event.eventId} hover>
                   <TableCell>{event.name}</TableCell>
                   <TableCell>{venueName(event.venueId)}</TableCell>
-                  <TableCell>
-                    {new Date(event.startDate).toLocaleString('sv-SE', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    {event.price.toLocaleString('sv-SE', {
-                      style: 'currency',
-                      currency: 'SEK',
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={statusLabel[event.status]}
-                      color={statusColor[event.status]}
-                    />
-                  </TableCell>
+                  <TableCell>{formatDate(event.startDate)}</TableCell>
+                  <TableCell>{formatDate(event.onSaleFrom)}</TableCell>
                   <TableCell align="right">
                     <Button component={RouterLink} to={`/events/${event.eventId}`}>
                       Redigera
                     </Button>
-                    <Button onClick={() => {
-                      mutation.reset();
-                      setEventToDelete(event);
-                      setDialogOpen(true);
-                    }} color="error">
+                    <Button
+                      color="error"
+                      onClick={() => {
+                        mutation.reset();
+                        setEventToDelete(event);
+                        setDialogOpen(true);
+                      }}
+                    >
                       Radera
                     </Button>
                   </TableCell>
@@ -113,29 +93,27 @@ export default function EventsPage() {
           </Table>
         </TableContainer>
       )}
+
       <Dialog
         open={dialogOpen}
         onClose={() => {
-          if (!mutation.isPending) { setDialogOpen(false) }
+          if (!mutation.isPending) setDialogOpen(false);
         }}
       >
         <DialogTitle>Radera evenemang?</DialogTitle>
 
-        <DialogContent>Är du säker på att du vill radera "{eventToDelete?.name}"?
+        <DialogContent>
+          Är du säker på att du vill radera "{eventToDelete?.name}"?
 
           {mutation.isError && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              Kunde inte radera evenemanget.
+              Kunde inte radera evenemanget. {mutation.error.message}
             </Alert>
           )}
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={() => {
-            setDialogOpen(false);
-          }}
-            disabled={mutation.isPending}
-          >
+          <Button onClick={() => setDialogOpen(false)} disabled={mutation.isPending}>
             Avbryt
           </Button>
 
@@ -144,9 +122,7 @@ export default function EventsPage() {
             variant="contained"
             disabled={mutation.isPending}
             onClick={() => {
-              if (eventToDelete) {
-                mutation.mutate(eventToDelete.eventId);
-              }
+              if (eventToDelete) mutation.mutate(eventToDelete.eventId);
             }}
           >
             Radera

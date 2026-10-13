@@ -1,12 +1,59 @@
-export type EventStatus = 'draft' | 'published' | 'cancelled';
-export type EventCategory = 'concert' | 'standup' | 'conference' | 'workshop';
+import { request, sendJson } from './http'
+
+/* ==========================================================================
+ * 1. UI-MODELLER
+ *    Det React-sidorna arbetar med. Ändras bara när sidorna behöver något nytt.
+ * ========================================================================== */
+
 export type SectionSeatingType = 'standing' | 'seated';
 
 export interface VenueSection {
+  id: string;
   name: string;
   seatCount: number;
   seatingType: SectionSeatingType;
 }
+
+export interface Venue {
+  id: string;
+  name: string;
+  address: string;
+  capacity: number; // summa av sektionernas platser
+  sections: VenueSection[];
+}
+
+export interface VenueSectionInput {
+  id?: string; // saknas på nya sektioner, finns på befintliga
+  name: string;
+  seatCount: number;
+  seatingType: SectionSeatingType;
+}
+
+export interface SaveVenueRequest {
+  name: string;
+  address: string;
+  sections: VenueSectionInput[];
+}
+
+export interface EventSectionPrice {
+  sectionId: string;
+  price: number; // kronor
+}
+
+export interface EventDetails {
+  eventId: string;
+  venueId: string;
+  name: string;
+  description: string;
+  startDate: string; // ISO 8601
+  endDate: string;
+  onSaleFrom: string;
+  sectionPrices: EventSectionPrice[];
+}
+
+export type CreateEventRequest = Omit<EventDetails, 'eventId'>;
+// Backend (UpdateEventRequest) kan bara ändra dessa fält efter att eventet skapats
+export type UpdateEventRequest = Pick<EventDetails, 'name' | 'description' | 'startDate' | 'endDate'>;
 
 export interface VenueSeatingMap {
   id: string;
@@ -14,206 +61,268 @@ export interface VenueSeatingMap {
   name: string;
   fileName: string;
   contentType: string;
-  url: string; // mock: object-URL. Med riktigt API: länk som backend ger
+  url: string;
 }
 
-export interface EventDetails {
-  eventId: string;
-  name: string;
-  description?: string;
-  category: EventCategory;
-  venueId: string;
-  price: number;
-  startDate: string;
-  endDate?: string;
-  onSaleFrom?: string;
-  status: EventStatus;
-}
-
-export interface Venue {
-  id: string;
-  name: string;
-  address?: string;
-  capacity?: number;
-  sections?: VenueSection[];
-}
-
-export type CreateEventRequest = Omit<EventDetails, 'eventId' | 'status'>;
-export type CreateVenueRequest = Omit<Venue, 'id'>;
 export interface UploadSeatingMapRequest {
   name: string;
   file: File;
 }
 
-const mockVenues: Venue[] = [
-  { id: 'venue-kulturhuset', name: 'Kulturhuset (stora salen)', address: 'Storgatan 1, 12345 Stad', capacity: 500 },
-  { id: 'venue-studion', name: 'Studion', address: 'Lilla gatan 2, 12345 Stad', capacity: 100 },
-  { id: 'venue-festival', name: 'Sommarfestivalens område', address: 'Festivalvägen 3, 12345 Stad', capacity: 2000 },
-];
+/* ==========================================================================
+ * 2. API-TYPER (DTO)
+ *    Exakt hur JSON ser ut från backend. ASP.NET gör PascalCase till camelCase.
+ *    Källa: Response-recordsen i EventCatalog/features/...
+ * ========================================================================== */
 
-const mockSeatingMaps: VenueSeatingMap[] = [];
+// Backend skickar enum som siffra (0 = GeneralAdmission, 1 = AssignedSeating) eftersom
+// JsonStringEnumConverter inte är registrerad. Typen tillåter båda om det läggs till senare.
+type SeatingTypeDto = number | string;
 
-// Byts senare mot: fetch(`${import.meta.env.VITE_CATALOG_API_URL}/events`)
-const mockEvents: EventDetails[] = [
-  {
-    eventId: '1',
-    name: 'Sommarkonsert',
-    description: 'En kväll med lokala artister i stora salen.',
-    category: 'concert',
-    venueId: 'venue-kulturhuset',
-    price: 249,
-    startDate: '2026-11-14T18:00:00Z',
-    endDate: '2026-11-14T21:00:00Z',
-    onSaleFrom: '2026-10-01T08:00:00Z',
-    status: 'published',
-  },
-  {
-    eventId: '2',
-    name: 'Ståupp-kväll',
-    description: 'Tre komiker, en scen.',
-    category: 'standup',
-    venueId: 'venue-studion',
-    price: 195,
-    startDate: '2026-11-21T19:00:00Z',
-    endDate: '2026-11-21T21:30:00Z',
-    onSaleFrom: '2026-10-15T08:00:00Z',
-    status: 'published',
-  },
-  {
-    eventId: '3',
-    name: 'Konferens: Digitala Hälsingland',
-    description: 'En heldag om digitalisering i regionen.',
-    category: 'conference',
-    venueId: 'venue-kulturhuset',
-    price: 890,
-    startDate: '2026-12-03T08:00:00Z',
-    endDate: '2026-12-03T16:00:00Z',
-    status: 'draft',
-  },
-  {
-    eventId: '4',
-    name: 'Sommarfestivalen 2027',
-    category: 'concert',
-    venueId: 'venue-festival',
-    price: 499,
-    startDate: '2027-07-09T10:00:00Z',
-    onSaleFrom: '2027-03-01T08:00:00Z',
-    status: 'draft',
-  },
-  {
-    eventId: '5',
-    name: 'Workshop: Ljudteknik',
-    description: 'Praktisk introduktion till ljud för små scener.',
-    category: 'workshop',
-    venueId: 'venue-studion',
-    price: 0,
-    startDate: '2026-10-25T09:00:00Z',
-    endDate: '2026-10-25T15:00:00Z',
-    status: 'cancelled',
-  },
-];
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+interface SectionDto {
+  sectionId: string;
+  name: string;
+  capacity: number;
+  seatingType: SeatingTypeDto;
+}
 
-function totalSeats(sections: VenueSection[]): number {
+// GET /venues/{id}  (GetVenueResponse)
+interface VenueDto {
+  venueId: string;
+  name: string;
+  address: string;
+  capacity: number;
+  sections: SectionDto[];
+}
+
+// GET /venues  (ListVenuesResponse). Obs: andra fältnamn än GET /venues/{id}.
+interface VenueListItemDto {
+  venueId: string;
+  venueName: string;
+  venueAddress: string;
+  venueCapacity: number;
+  sections: SectionDto[];
+}
+
+interface ListVenuesDto {
+  venues: VenueListItemDto[];
+}
+
+// POST /venues  (CreateVenueResponse)
+interface CreateVenueResponseDto {
+  venueId: string;
+}
+
+// GET /events returnerar Event-entiteten, GET /events/{id} returnerar GetEventResponse.
+// sectionPrices är tom i listan eftersom handlern inte hämtar dem där.
+interface EventDto {
+  eventId: string;
+  venueId: string;
+  name: string;
+  description: string | null;
+  startDate: string;
+  endDate: string;
+  onSaleFrom: string;
+  sectionPrices?: { sectionId: string; price: number }[];
+}
+
+// POST /events  (CreateEventResponse)
+interface CreateEventResponseDto {
+  eventId: string;
+}
+
+/* ==========================================================================
+ * 3. MAPPNING DTO <-> UI-modell
+ * ========================================================================== */
+
+function seatingFromApi(value: SeatingTypeDto): SectionSeatingType {
+  return value === 1 || value === 'AssignedSeating' || value === 'assignedSeating'
+    ? 'seated'
+    : 'standing';
+}
+
+// Siffran fungerar även om backend senare får JsonStringEnumConverter (den tar emot siffror också)
+function seatingToApi(value: SectionSeatingType): number {
+  return value === 'seated' ? 1 : 0;
+}
+
+function sectionFromDto(s: SectionDto): VenueSection {
+  return {
+    id: s.sectionId,
+    name: s.name,
+    seatCount: s.capacity,
+    seatingType: seatingFromApi(s.seatingType),
+  };
+}
+
+function venueFromDto(v: VenueDto): Venue {
+  return {
+    id: v.venueId,
+    name: v.name,
+    address: v.address,
+    capacity: v.capacity,
+    sections: v.sections.map(sectionFromDto),
+  };
+}
+
+function venueFromListItem(v: VenueListItemDto): Venue {
+  return {
+    id: v.venueId,
+    name: v.venueName,
+    address: v.venueAddress,
+    capacity: v.venueCapacity,
+    sections: v.sections.map(sectionFromDto),
+  };
+}
+
+function eventFromDto(e: EventDto): EventDetails {
+  return {
+    eventId: e.eventId,
+    venueId: e.venueId,
+    name: e.name,
+    description: e.description ?? '',
+    startDate: e.startDate,
+    endDate: e.endDate,
+    onSaleFrom: e.onSaleFrom,
+    sectionPrices: e.sectionPrices ?? [],
+  };
+}
+
+function sectionRequestBody(s: VenueSectionInput) {
+  // CreateSectionRequest: Name, Capacity, SeatingType
+  return { name: s.name, capacity: s.seatCount, seatingType: seatingToApi(s.seatingType) };
+}
+
+function totalSeats(sections: { seatCount: number }[]): number {
   return sections.reduce((total, s) => total + s.seatCount, 0);
 }
 
+/* ==========================================================================
+ * 4. EVENEMANG
+ * ========================================================================== */
+
+// GET /events
 export async function getEvents(): Promise<EventDetails[]> {
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  return mockEvents;
+  const dtos = await request<EventDto[]>('/events');
+  return dtos.map(eventFromDto);
 }
 
-export async function getVenues(): Promise<Venue[]> {
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  return mockVenues;
-}
-
-
-
-//CRUD for events
-
+// GET /events/{id}
 export async function getEvent(eventId: string): Promise<EventDetails> {
-  await delay(200);
-  const event = mockEvents.find((e) => e.eventId === eventId);
-  if (!event) throw new Error('Evenemanget hittades inte');
-  return event;
+  return eventFromDto(await request<EventDto>(`/events/${eventId}`));
 }
 
-export async function createEvent(data: CreateEventRequest): Promise<EventDetails> {
-  await delay(400);
-  const event: EventDetails = { ...data, eventId: crypto.randomUUID(), status: 'draft' };
-  mockEvents.push(event);
-  return event;
+// POST /events -> 201 { eventId }
+export function createEvent(data: CreateEventRequest): Promise<CreateEventResponseDto> {
+  return sendJson<CreateEventResponseDto>('POST', '/events', {
+    name: data.name,
+    description: data.description,
+    venueId: data.venueId,
+    startDate: data.startDate,
+    endDate: data.endDate,
+    onSaleFrom: data.onSaleFrom,
+    sectionPrices: data.sectionPrices,
+  });
 }
 
-export async function updateEvent(eventId: string, data: CreateEventRequest): Promise<EventDetails> {
-  await delay(400);
-  const index = mockEvents.findIndex((e) => e.eventId === eventId);
-  if (index === -1) throw new Error('Evenemanget hittades inte');
-  const updated: EventDetails = { ...mockEvents[index], ...data };
-  mockEvents[index] = updated;
-  return updated;
+// PUT /events/{id} -> 204
+export function updateEvent(eventId: string, data: UpdateEventRequest): Promise<void> {
+  return sendJson('PUT', `/events/${eventId}`, { eventId, ...data });
 }
 
-export async function deleteEvent(eventId: string): Promise<void> {
-  await delay(400);
-  const index = mockEvents.findIndex((e) => e.eventId === eventId);
-  if (index === -1) throw new Error('Evenemanget hittades inte');
-  mockEvents.splice(index, 1);
+// DELETE /events/{id} -> 204
+export function deleteEvent(eventId: string): Promise<void> {
+  return request(`/events/${eventId}`, { method: 'DELETE' });
 }
 
-//CRUD for venue
+/* ==========================================================================
+ * 5. SCENER OCH SEKTIONER
+ * ========================================================================== */
+
+// GET /venues -> { venues: [...] }
+export async function getVenues(): Promise<Venue[]> {
+  const dto = await request<ListVenuesDto>('/venues');
+  return dto.venues.map(venueFromListItem);
+}
+
+// GET /venues/{id}
 export async function getVenue(venueId: string): Promise<Venue> {
-  await delay(200);
-  const venue = mockVenues.find((v) => v.id === venueId);
-  if (!venue) throw new Error('Scen hittades inte');
-  return venue;
+  return venueFromDto(await request<VenueDto>(`/venues/${venueId}`));
 }
 
-export async function createVenue(data: CreateVenueRequest): Promise<Venue> {
-  await delay(400);
-  const sections = data.sections ?? [];
-  const venue: Venue = {
-    id: crypto.randomUUID(),
+// Backend skapar scen och sektioner med separata anrop och tar emot kapaciteten som
+// ett eget fält. Därför: 1) POST /venues  2) POST /venues/{id}/sections per sektion.
+// Går något fel på vägen tas scenen bort igen så att inget halvfärdigt blir kvar.
+export async function createVenue(data: SaveVenueRequest): Promise<Venue> {
+  const created = await sendJson<CreateVenueResponseDto>('POST', '/venues', {
     name: data.name,
     address: data.address,
-    capacity: sections.reduce((total, s) => total + s.seatCount, 0),
-    sections,
-  };
-  mockVenues.push(venue);
-  return venue;
+    capacity: totalSeats(data.sections),
+  });
+
+  try {
+    for (const section of data.sections) {
+      await sendJson('POST', `/venues/${created.venueId}/sections`, sectionRequestBody(section));
+    }
+  } catch (error) {
+    await request(`/venues/${created.venueId}`, { method: 'DELETE' }).catch(() => undefined);
+    throw error;
+  }
+
+  return getVenue(created.venueId);
 }
 
-export async function updateVenue(venueId: string, data: CreateVenueRequest): Promise<Venue> {
-  await delay(400);
-  const index = mockVenues.findIndex((v) => v.id === venueId);
-  if (index === -1) throw new Error('Scen hittades inte');
-  const sections = data.sections ?? [];
-  const updated: Venue = {
-    id: venueId,
+// PUT /venues/{id} uppdaterar bara namn, adress och kapacitet. Sektioner hanteras så här:
+//  - sektion utan id    -> POST   /venues/{id}/sections
+//  - sektion som tagits bort -> DELETE /venues/{id}/sections/{sectionId}
+//  - ändrade fält på befintlig sektion ignoreras (det finns ingen PUT för sektion)
+// Obs: att ta bort en sektion tar även bort dess priser på evenemang (cascade i databasen).
+export async function updateVenue(venueId: string, data: SaveVenueRequest): Promise<Venue> {
+  const current = await getVenue(venueId);
+  const keptIds = new Set(data.sections.flatMap((s) => (s.id ? [s.id] : [])));
+  const toDelete = current.sections.filter((s) => !keptIds.has(s.id));
+  const toUpdate = data.sections.filter((s) => {
+    const old = current.sections.find((c) => c.id === s.id);
+    return old && (old.name !== s.name || old.seatCount !== s.seatCount || old.seatingType !== s.seatingType);
+  });
+  const toAdd = data.sections.filter((s) => !s.id);
+
+  // Scenen uppdateras först: valideringsfel (t.ex. tomt namn) är vanligast och då
+  // hinner inga sektioner ändras.
+  await sendJson('PUT', `/venues/${venueId}`, {
+    venueId,
     name: data.name,
     address: data.address,
-    capacity: sections.length > 0 ? totalSeats(sections) : data.capacity,
-    sections,
-  };
-  mockVenues[index] = updated;
-  return updated;
+    capacity: totalSeats(data.sections),
+  });
+
+  for (const section of toDelete) {
+    await request(`/venues/${venueId}/sections/${section.id}`, { method: 'DELETE' });
+  }
+  for (const section of toAdd) {
+    await sendJson('POST', `/venues/${venueId}/sections`, sectionRequestBody(section));
+  }
+  for (const s of toUpdate) {
+    await sendJson('PUT', `/venues/${venueId}/sections/${s.id}`, sectionRequestBody(s));
+  }
+
+  return getVenue(venueId);
 }
 
-export async function deleteVenue(venueId: string): Promise<void> {
-  await delay(400);
-  const index = mockVenues.findIndex((v) => v.id === venueId);
-  if (index === -1) throw new Error('Scen hittades inte');
-  if (mockEvents.some((e) => e.venueId === venueId)) {
-    throw new Error('Scenen används av evenemang och kan inte tas bort');
-  }
-  for (let i = mockSeatingMaps.length - 1; i >= 0; i--) {
-    if (mockSeatingMaps[i].venueId === venueId) mockSeatingMaps.splice(i, 1);
-  }
-  mockVenues.splice(index, 1);
+// DELETE /venues/{id} -> 204. Backend ger för tillfället 500 om scenen används av evenemang.
+export function deleteVenue(venueId: string): Promise<void> {
+  return request(`/venues/${venueId}`, { method: 'DELETE' });
 }
 
-//CRUD for Venue Map
+/* ==========================================================================
+ * 6. PLATSKARTOR
+ *    Det finns ännu inga endpoints för platskartor i catalog-API:t.
+ *    Tills de finns ligger de kvar som mock i minnet så att UI:t fungerar.
+ * ========================================================================== */
+
+const mockSeatingMaps: VenueSeatingMap[] = [];
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function getSeatingMaps(venueId: string): Promise<VenueSeatingMap[]> {
   await delay(200);
   return mockSeatingMaps.filter((m) => m.venueId === venueId);
@@ -224,7 +333,6 @@ export async function uploadSeatingMap(
   data: UploadSeatingMapRequest,
 ): Promise<VenueSeatingMap> {
   await delay(400);
-  if (!mockVenues.some((v) => v.id === venueId)) throw new Error('Scen hittades inte');
   const map: VenueSeatingMap = {
     id: crypto.randomUUID(),
     venueId,

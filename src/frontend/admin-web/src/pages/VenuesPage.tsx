@@ -74,7 +74,7 @@ export default function VenuesPage() {
                       <Stack spacing={0.5}>
                         {venue.sections.map((section, index) => (
                           <Typography key={`${section.name}-${index}`} variant="body2">
-                            {section.name} ({section.seatCount}, {seatingTypeLabel[section.seatingType]}) ·{' '}
+                            {section.name} ({section.seatCount}, {seatingTypeLabel[section.seatingType]})
                             
                           </Typography>
                         ))}
