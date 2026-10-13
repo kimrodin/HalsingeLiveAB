@@ -1,14 +1,36 @@
 using EventCatalog.Data;
 using Microsoft.EntityFrameworkCore;
-using EventCatalog.Features.Events.Models;
 
 namespace EventCatalog.Features.Events.ListEvents;
 
 public class ListEventsHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<List<Event>> Handle()
+    public async Task<ListEventsResponse> Handle()
     {
-        return await dbContext.Events
+        var events = await dbContext.Events
+            .AsNoTracking()
+            .Include(e => e.SectionPrices)
+            .OrderBy(e => e.StartDate)
+            .ThenBy(e => e.EventId)
             .ToListAsync();
+
+        return new ListEventsResponse
+        {
+            Events = events.Select(eventItem => new EventListItemResponseDTO
+            {
+                EventId = eventItem.EventId,
+                EventName = eventItem.Name,
+                EventDescription = eventItem.Description,
+                EventDate = eventItem.StartDate,
+                VenueId = eventItem.VenueId,
+                SectionPrices = eventItem.SectionPrices
+                    .Select(price => new SectionPriceResponseDTO
+                    {
+                        SectionId = price.SectionId,
+                        Price = price.Price
+                    })
+                    .ToList()
+            }).ToList()
+        };
     }
 }

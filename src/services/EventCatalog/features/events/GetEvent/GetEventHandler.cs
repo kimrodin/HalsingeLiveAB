@@ -1,6 +1,5 @@
 using EventCatalog.Data;
 using Microsoft.EntityFrameworkCore;
-using EventCatalog.Features.Events.Models;
 
 namespace EventCatalog.Features.Events.GetEvent;
 
@@ -8,21 +7,27 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
 {
     public async Task<GetEventResponse> Handle(GetEventRequest request)
     {
-        return await dbContext.Events
+        var eventItem = await dbContext.Events
+            .AsNoTracking()
+            .Include(e => e.SectionPrices)
             .Where(e => e.EventId == request.EventId)
-            .Select(e => new GetEventResponse(
-                e.EventId,
-                e.Name,
-                e.Description,
-                e.StartDate,
-                e.EndDate,
-                e.OnSaleFrom,
-                e.VenueId,
-                e.SectionPrices
-                    .Select(price => new EventSectionPriceResponse(
-                        price.SectionId,
-                        price.Price))
-                    .ToList()))
             .FirstOrDefaultAsync();
+
+        if (eventItem is null)
+            return null;
+
+        return new GetEventResponse(
+            eventItem.EventId,
+            eventItem.Name,
+            eventItem.Description,
+            eventItem.StartDate,
+            eventItem.EndDate,
+            eventItem.OnSaleFrom,
+            eventItem.VenueId,
+            eventItem.SectionPrices
+                .Select(price => new EventSectionPriceResponse(
+                    price.SectionId,
+                    price.Price))
+                .ToList());
     }
 }

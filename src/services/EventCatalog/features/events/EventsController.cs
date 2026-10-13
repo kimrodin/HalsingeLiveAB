@@ -133,13 +133,16 @@ public class EventsController(
         {
             logger.LogInformation("Updating event {EventId}", id);
 
-            var updated = await updateEventHandler.Handle(request with { EventId = id }, cancellationToken);
+            var result = await updateEventHandler.Handle(id, request, cancellationToken);
 
-            if (!updated)
+            if (result == UpdateEventResult.EventNotFound)
             {
                 logger.LogWarning("Event {EventId} not found for update.", id);
                 return NotFound();
             }
+
+            if (result == UpdateEventResult.InvalidSectionPrices)
+                return BadRequest("Section prices must contain unique sections belonging to the event's venue, with non-negative prices.");
 
             return NoContent();
         }
