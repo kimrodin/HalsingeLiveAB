@@ -1,16 +1,18 @@
 using EventCatalog.Data;
 using EventCatalog.Features.Events.Models;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 
 namespace EventCatalog.Features.Events.UpdateEvent;
 
 public class UpdateEventHandler(EventCatalogDbContext dbContext)
 {
-    public async Task<UpdateEventResult> Handle(Guid eventId, UpdateEventRequest request)
+    public async Task<UpdateEventResult> Handle(Guid eventId, UpdateEventRequest request, CancellationToken cancellationToken = default)
     {
+
         var eventItem = await dbContext.Events
             .Include(e => e.SectionPrices)
-            .FirstOrDefaultAsync(e => e.EventId == eventId);
+            .FirstOrDefaultAsync(e => e.EventId == eventId, cancellationToken);
 
         if (eventItem is null)
             return UpdateEventResult.EventNotFound;
@@ -42,10 +44,19 @@ public class UpdateEventHandler(EventCatalogDbContext dbContext)
         if (matchingSectionCount != sectionIds.Length)
             return UpdateEventResult.InvalidSectionPrices;
 
+        var linkedSectionIds = eventItem.SectionPrices.Select(price => price.SectionId).ToHashSet();
+        if (sectionIds.Any(id => !linkedSectionIds.Contains(id)))
+            throw new ValidationException("Every section to remove must be linked to this event.");
+
+        // Radera endast detta evenemangs kopplingar. Sektionen, stolarna och andra
+        // evenemangs priser finns kvar.
+
         eventItem.Name = request.Name;
         eventItem.Description = request.Description;
         eventItem.StartDate = request.StartDate;
         eventItem.EndDate = request.EndDate;
+        eventItem.VenueId = request.VenueId;
+        eventItem.OnSaleFrom = request.OnSaleFrom;
         eventItem.VenueId = request.VenueId;
         eventItem.OnSaleFrom = request.OnSaleFrom;
 
@@ -76,7 +87,7 @@ public class UpdateEventHandler(EventCatalogDbContext dbContext)
             }
         }
 
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return UpdateEventResult.Updated;
     }

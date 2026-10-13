@@ -21,7 +21,9 @@ public class ListEventsHandler(EventCatalogDbContext dbContext)
                 EventId = eventItem.EventId,
                 EventName = eventItem.Name,
                 EventDescription = eventItem.Description,
-                EventDate = eventItem.StartDate,
+                StartDate = eventItem.StartDate,
+                EndDate = eventItem.EndDate,
+                OnSaleFrom = eventItem.OnSaleFrom,
                 VenueId = eventItem.VenueId,
                 SectionPrices = eventItem.SectionPrices
                     .Select(price => new SectionPriceResponseDTO

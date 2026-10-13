@@ -9,7 +9,9 @@ public record UpdateEventRequest(
     [Required] DateTime EndDate,
     [Required] Guid VenueId,
     [Required] DateTime OnSaleFrom,
-    [Required, MinLength(1)] List<UpdateEventSectionPriceRequest> SectionPrices);
+    [Required, MinLength(1)] List<UpdateEventSectionPriceRequest> SectionPrices,
+    // Utelämnat eller tomt: behåll kopplingarna. Id:n här tas bara bort från detta evenemang.
+    IReadOnlyList<Guid> SectionIdsToRemove = null);
 
 public record UpdateEventSectionPriceRequest(
     [Required] Guid? SectionId,

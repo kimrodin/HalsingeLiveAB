@@ -8,6 +8,8 @@ public class GetVenueHandler(EventCatalogDbContext dbContext)
 {
     public async Task<GetVenueResponse> Handle(GetVenueRequest request)
     {
+        VenueValidation.ValidateId(request.VenueId, nameof(request.VenueId));
+
         return await dbContext.Venues
             .Where(v => v.VenueId == request.VenueId)
             .Select(v => new GetVenueResponse(

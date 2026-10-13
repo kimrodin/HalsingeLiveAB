@@ -8,6 +8,7 @@ using EventCatalog.Features.Venues.UpdateVenue;
 using EventCatalog.Features.Venues.DeleteVenue;
 using EventCatalog.Features.Venues.CreateSection;
 using EventCatalog.Features.Venues.DeleteSection;
+using EventCatalog.Features.Venues.UpdateSection;
 
 namespace EventCatalog.Features.Venues;
 
@@ -21,6 +22,7 @@ public class VenuesController(
     DeleteVenueHandler deleteVenueHandler,
     CreateSectionHandler createSectionHandler,
     DeleteSectionHandler deleteSectionHandler,
+    UpdateSectionHandler updateSectionHandler,
     ILogger<VenuesController> logger) : ControllerBase
 {
     [HttpPost]
@@ -30,7 +32,7 @@ public class VenuesController(
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CreateVenue([FromBody] CreateVenueRequest request, CancellationToken cancellationToken)
     {
-        // ApiController returnerar automatiskt 400 med fältfel för ogiltig request.
+        // ApiController hanterar bindningsfel; handlern validerar requestens värden.
         try
         {
             logger.LogInformation("Creating venue {VenueName}", request.Name);
@@ -48,6 +50,10 @@ public class VenuesController(
             // Låt ett avbrutet anrop fortsätta som avbrott i stället för ett 500-fel.
             throw;
         }
+        catch (VenueValidationException ex)
+        {
+            return RequestValidationProblem(ex);
+        }
         catch (Exception ex)
         {
             // Logga det tekniska felet och returnera ett generellt felmeddelande till klienten.
@@ -60,15 +66,11 @@ public class VenuesController(
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(GetVenueResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetVenue([FromRoute] Guid id)
     {
-        // Ett GUID med enbart nollor är giltigt i routen men avvisas med 400 här.
-        if (id == Guid.Empty)
-            return BadRequest("VenueId must not be empty.");
-
         try
         {
             logger.LogInformation("Retrieving venue {VenueId}", id);
@@ -80,6 +82,10 @@ public class VenuesController(
                 return NotFound();
 
             return Ok(venue);
+        }
+        catch (VenueValidationException ex)
+        {
+            return RequestValidationProblem(ex);
         }
         catch (Exception ex)
         {
@@ -119,21 +125,18 @@ public class VenuesController(
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> UpdateVenue([FromRoute] Guid id, [FromBody] UpdateVenueRequest request)
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateVenue([FromRoute] Guid id, [FromBody] UpdateVenueRequest request, CancellationToken cancellationToken)
     {
-        // Avvisa ett tomt lokal-id innan handlern anropas.
-        if (id == Guid.Empty)
-            return BadRequest("VenueId must not be empty.");
-
         try
         {
             logger.LogInformation("Updating venue {VenueId}", id);
 
             // Använd id från URL:en även om requesten innehåller ett annat VenueId.
-            var updated = await updateVenueHandler.Handle(request with { VenueId = id });
+            var updated = await updateVenueHandler.Handle(request with { VenueId = id }, cancellationToken);
 
             // Handlern returnerar false när lokalen saknas, vilket ger 404.
             if (!updated)
@@ -144,6 +147,21 @@ public class VenuesController(
 
             // En lyckad uppdatering ger 204 utan svarskropp.
             return NoContent();
+        }
+        catch (VenueValidationException ex)
+        {
+            return RequestValidationProblem(ex);
+        }
+        catch (VenueCapacityConflictException ex)
+        {
+            return Problem(
+                title: "The capacity conflicts with the existing venue configuration.",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -158,27 +176,39 @@ public class VenuesController(
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteVenue([FromRoute] Guid id)
     {
-        // Avvisa ett tomt lokal-id innan handlern anropas.
-        if (id == Guid.Empty)
-            return BadRequest("VenueId must not be empty.");
-
         try
         {
             logger.LogInformation("Deleting venue {VenueId}", id);
 
             var request = new DeleteVenueRequest(id);
-            await deleteVenueHandler.Handle(request);
+            var result = await deleteVenueHandler.Handle(request);
 
-            // När handlern har slutförts returneras 204 utan svarskropp.
+            if (result == DeleteVenueResult.NotFound)
+                return NotFound();
+
+            if (result == DeleteVenueResult.InUse)
+            {
+                return Problem(
+                    title: "The venue cannot be deleted.",
+                    detail: "The venue is used by events and cannot be deleted.",
+                    statusCode: StatusCodes.Status409Conflict);
+            }
+
+            // Returnera 204 först när lokalen har tagits bort.
             return NoContent();
+        }
+        catch (VenueValidationException ex)
+        {
+            return RequestValidationProblem(ex);
         }
         catch (Exception ex)
         {
-            // Nuvarande felhantering loggar alla undantag och returnerar 500.
+            // Oväntade fel loggas och returneras som 500.
             logger.LogError(ex, "Failed to delete venue {VenueId}", id);
             return Problem(
                 title: "An error occurred while deleting the venue.",
@@ -186,20 +216,18 @@ public class VenuesController(
         }
     }
 
-    [HttpPost("{venueId:guid}/sections")]
+    [HttpPost("{venueId:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(typeof(CreateSectionResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateSection(
         [FromRoute] Guid venueId,
         [FromBody] CreateSectionRequest request,
         CancellationToken cancellationToken)
     {
-        if (venueId == Guid.Empty)
-            return BadRequest("VenueId must not be empty.");
-
         try
         {
             var response = await createSectionHandler.Handle(venueId, request, cancellationToken);
@@ -212,6 +240,17 @@ public class VenuesController(
         {
             throw;
         }
+        catch (VenueValidationException ex)
+        {
+            return RequestValidationProblem(ex);
+        }
+        catch (VenueCapacityConflictException ex)
+        {
+            return Problem(
+                title: "The capacity conflicts with the existing venue configuration.",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status409Conflict);
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create section for venue {VenueId}", venueId);
@@ -221,30 +260,45 @@ public class VenuesController(
         }
     }
 
-    [HttpDelete("{venueId:guid}/sections/{sectionId:guid}")]
+    [HttpDelete("{venueId:guid}/{sectionId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DeleteSection(
         [FromRoute] Guid venueId,
         [FromRoute] Guid sectionId,
         CancellationToken cancellationToken)
     {
-        if (venueId == Guid.Empty)
-            return BadRequest("VenueId must not be empty.");
-
-        if (sectionId == Guid.Empty)
-            return BadRequest("SectionId must not be empty.");
-
         try
         {
-            var deleted = await deleteSectionHandler.Handle(
+            var result = await deleteSectionHandler.Handle(
                 new DeleteSectionRequest(venueId, sectionId),
                 cancellationToken);
 
-            if (!deleted)
+            if (result == DeleteSectionResult.InvalidVenueId)
+            {
+                ModelState.AddModelError(nameof(DeleteSectionRequest.VenueId), "VenueId must not be empty.");
+                return ValidationProblem(ModelState);
+            }
+
+            if (result == DeleteSectionResult.InvalidSectionId)
+            {
+                ModelState.AddModelError(nameof(DeleteSectionRequest.SectionId), "SectionId must not be empty.");
+                return ValidationProblem(ModelState);
+            }
+
+            if (result == DeleteSectionResult.NotFound)
                 return NotFound();
+
+            if (result == DeleteSectionResult.InUse)
+            {
+                return Problem(
+                    title: "The section cannot be deleted.",
+                    detail: "The section is used by an event. Remove its event connections first.",
+                    statusCode: StatusCodes.Status409Conflict);
+            }
 
             return NoContent();
         }
@@ -265,4 +319,64 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
+    [HttpPut("{venueId:guid}/{sectionId:guid}")]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateSection(
+        [FromRoute] Guid venueId,
+        [FromRoute] Guid sectionId,
+        [FromBody] UpdateSectionRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await updateSectionHandler.Handle(venueId, sectionId, request, cancellationToken);
+            if (result == UpdateSectionResult.NotFound)
+                return NotFound();
+
+            var conflict = result switch
+            {
+                UpdateSectionResult.InUse => "Capacity and seating type cannot be changed while the section is used by an event.",
+                UpdateSectionResult.CapacityExceeded => "The combined section capacity cannot exceed the venue capacity.",
+                UpdateSectionResult.SeatConflict => "Capacity cannot be lower than the number of seats, and seating type cannot change while seats exist.",
+                _ => null
+            };
+
+            if (conflict is not null)
+                return Problem(title: "The section cannot be updated.", detail: conflict,
+                    statusCode: StatusCodes.Status409Conflict);
+
+            return NoContent();
+        }
+        catch (VenueValidationException ex)
+        {
+            return RequestValidationProblem(ex);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to update section {SectionId} for venue {VenueId}", sectionId, venueId);
+            return Problem(title: "An error occurred while updating the section.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private IActionResult RequestValidationProblem(VenueValidationException exception)
+    {
+        foreach (var (field, messages) in exception.Errors)
+        {
+            foreach (var message in messages)
+                ModelState.AddModelError(field, message);
+        }
+
+        return ValidationProblem(ModelState);
+    }
+
 }

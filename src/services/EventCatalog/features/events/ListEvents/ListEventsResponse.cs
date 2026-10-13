@@ -15,7 +15,9 @@ public class EventListItemResponseDTO
     public required string EventName { get; init; }
     public required string EventDescription { get; init; }
     public IReadOnlyList<SectionPriceResponseDTO> SectionPrices { get; init; } = [];
-    public DateTime EventDate { get; init; }
+    public DateTime StartDate { get; init; }
+    public DateTime EndDate { get; init; }
+    public DateTime OnSaleFrom { get; init; }
     public Guid VenueId { get; init; }
 
 }

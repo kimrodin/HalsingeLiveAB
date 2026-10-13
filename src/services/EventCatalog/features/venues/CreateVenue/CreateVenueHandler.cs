@@ -8,6 +8,8 @@ public class CreateVenueHandler(EventCatalogDbContext dbContext)
 {
     public async Task<CreateVenueResponse> Handle(CreateVenueRequest request, CancellationToken cancellationToken = default)
     {
+        VenueValidation.ValidateVenue(request.Name, request.Address, request.Capacity);
+
         var venue = new Venue
         {
             VenueId = Guid.NewGuid(),

@@ -114,9 +114,7 @@ namespace EventCatalog.data.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("SectionCapacity")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1);
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("VenueId")
                         .HasColumnType("uuid");
@@ -125,7 +123,10 @@ namespace EventCatalog.data.Migrations
 
                     b.HasIndex("VenueId");
 
-                    b.ToTable("Sections");
+                    b.ToTable("Sections", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Sections_PositiveCapacity", "\"SectionCapacity\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("EventCatalog.Features.Venues.Models.Venue", b =>
@@ -149,7 +150,10 @@ namespace EventCatalog.data.Migrations
 
                     b.HasKey("VenueId");
 
-                    b.ToTable("Venues");
+                    b.ToTable("Venues", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Venues_PositiveCapacity", "\"VenueCapacity\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("EventCatalog.Features.Venues.Models.VenueSeatingMap", b =>
@@ -206,7 +210,7 @@ namespace EventCatalog.data.Migrations
                     b.HasOne("EventCatalog.Features.Venues.Models.Section", "Section")
                         .WithMany("EventPrices")
                         .HasForeignKey("SectionId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Event");
