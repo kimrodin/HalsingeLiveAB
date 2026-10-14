@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using EventCatalog.Data;
 using EventCatalog.Features.Events.CreateEvent;
@@ -37,6 +39,32 @@ builder.Services.AddScoped<GetVenueHandler>();
 builder.Services.AddScoped<ListVenuesHandler>();
 builder.Services.AddScoped<UpdateVenueHandler>();
 builder.Services.AddScoped<UpdateSectionHandler>();
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = "http://localhost:8180/realms/halsingelive";
+        options.Audience = "eventcatalog";
+
+        // HTTP tillåts bara för den lokala utvecklingsmiljön.
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            NameClaimType = "preferred_username",
+            RoleClaimType = "roles"
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("admin");
+    });
+});
 
 var app = builder.Build();
 
@@ -55,8 +83,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.MapControllers();
+app.UseAuthentication();
+app.UseAuthorization();
 
+app.MapControllers();
 // Endpoints
 // --------------------------------------------------
 

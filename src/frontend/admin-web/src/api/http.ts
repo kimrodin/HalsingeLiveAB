@@ -1,3 +1,4 @@
+import keycloak from '../auth/keycloak';
 // Gemensam fetch-hjälpare för alla anrop mot EventCatalog.
 //
 // I utveckling går anropen till /api/... och Vite-servern skickar dem vidare till
@@ -41,10 +42,38 @@ async function readErrorMessage(res: Response): Promise<string> {
   }
 }
 
-export async function request<T = void>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, init);
-  if (!res.ok) throw new ApiError(res.status, await readErrorMessage(res));
-  if (res.status === 204) return undefined as T; // NoContent: ingen JSON att läsa
+export async function request<T = void>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  if (!keycloak.authenticated) {
+    throw new ApiError(401, 'Du behöver logga in.');
+  }
+
+  try {
+    await keycloak.updateToken(30);
+  } catch {
+    keycloak.clearToken();
+    throw new ApiError(401, 'Din session har gått ut. Logga in igen.');
+  }
+
+  if (!keycloak.token) {
+    throw new ApiError(401, 'Ingen giltig inloggning finns.');
+  }
+
+  const headers = new Headers(init.headers);
+  headers.set('Authorization', `Bearer ${keycloak.token}`);
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new ApiError(res.status, await readErrorMessage(res));
+  }
+
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 

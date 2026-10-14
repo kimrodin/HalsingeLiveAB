@@ -9,6 +9,7 @@ using EventCatalog.Features.Venues.DeleteVenue;
 using EventCatalog.Features.Venues.CreateSection;
 using EventCatalog.Features.Venues.DeleteSection;
 using EventCatalog.Features.Venues.UpdateSection;
+using Microsoft.AspNetCore.Authorization;
 
 namespace EventCatalog.Features.Venues;
 
@@ -25,6 +26,7 @@ public class VenuesController(
     UpdateSectionHandler updateSectionHandler,
     ILogger<VenuesController> logger) : ControllerBase
 {
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost]
     [Consumes("application/json")] //Ingen fil eller sökväg i projektet. Den betyder att innehållet är JSON.
     [ProducesResponseType(typeof(CreateVenueResponse), StatusCodes.Status201Created)]
@@ -121,7 +123,7 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
-
+    [Authorize(Policy = "AdminOnly")]
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -172,7 +174,7 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
-
+    [Authorize(Policy = "AdminOnly")]
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -215,7 +217,7 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
-
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost("{venueId:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(typeof(CreateSectionResponse), StatusCodes.Status201Created)]
@@ -260,6 +262,7 @@ public class VenuesController(
         }
     }
 
+    [Authorize(Policy = "AdminOnly")]
     [HttpDelete("{venueId:guid}/{sectionId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -319,6 +322,7 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
+    [Authorize(Policy = "AdminOnly")]
     [HttpPut("{venueId:guid}/{sectionId:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

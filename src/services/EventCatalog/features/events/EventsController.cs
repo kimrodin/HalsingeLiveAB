@@ -7,6 +7,7 @@ using EventCatalog.Features.Events.GetEvent;
 using EventCatalog.Features.Events.ListEvents;
 using EventCatalog.Features.Events.UpdateEvent;
 using EventCatalog.Features.Events.DeleteEvent;
+using Microsoft.AspNetCore.Authorization;
 
 namespace EventCatalog.Features.Events;
 
@@ -20,6 +21,7 @@ public class EventsController(
     DeleteEventHandler deleteEventHandler,
     ILogger<EventsController> logger) : ControllerBase
 {
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(CreateEventResponse))]
@@ -110,7 +112,7 @@ public class EventsController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
-
+    [Authorize(Policy = "AdminOnly")]
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -151,7 +153,7 @@ public class EventsController(
     }
 
     // TODO: Kräv administratörsbehörighet enligt projektets behörighetsmodell.
-
+    [Authorize(Policy = "AdminOnly")]
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
