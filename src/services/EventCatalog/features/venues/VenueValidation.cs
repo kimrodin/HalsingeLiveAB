@@ -24,6 +24,30 @@ public static class VenueValidation
         ThrowIfInvalid(errors);
     }
 
+    public static void ValidateSeatingMap(string name, string fileName, long fileSize, long maxFileSize,
+        string extension, string detectedContentType)
+    {
+        var errors = new Dictionary<string, string[]>();
+        ValidateText(errors, "Name", name, 200);
+        if (fileSize <= 0)
+            errors["File"] = ["Choose a non-empty file."];
+        else if (fileSize > maxFileSize)
+            errors["File"] = [$"The file must be no larger than {maxFileSize / (1024 * 1024)} MB."];
+
+        var expectedType = extension.ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".pdf" => "application/pdf",
+            _ => null
+        };
+        if (expectedType is null || expectedType != detectedContentType)
+            errors["File"] = ["Upload a valid PNG, JPEG, or PDF file whose extension matches its contents."];
+        if (string.IsNullOrWhiteSpace(fileName))
+            errors["File"] = ["The uploaded file must have a filename."];
+        ThrowIfInvalid(errors);
+    }
+
     public static void ValidateId(Guid id, string fieldName)
     {
         if (id == Guid.Empty)

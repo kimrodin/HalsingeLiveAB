@@ -1,4 +1,5 @@
 using EventCatalog.Data;
+using EventCatalog.Features.Events;
 using EventCatalog.Features.Events.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,17 +10,13 @@ public class CreateEventHandler(EventCatalogDbContext dbContext)
     public async Task<CreateEventResponse> Handle(
         CreateEventRequest request, CancellationToken cancellationToken)
     {
+        EventValidation.ValidateCreateEvent(request);
+
         var venueId = request.VenueId!.Value;
         var requestedSectionPrices = request.SectionPrices!;
         var sectionIds = requestedSectionPrices
             .Select(sectionPrice => sectionPrice.SectionId!.Value)
             .ToArray();
-
-        if (sectionIds.Any(sectionId => sectionId == Guid.Empty)
-            || sectionIds.Distinct().Count() != sectionIds.Length)
-        {
-            throw new ArgumentException("Section IDs must be non-empty and unique.", nameof(request));
-        }
 
         var venueExists = await dbContext.Venues
             .AnyAsync(venue => venue.VenueId == venueId, cancellationToken);
@@ -61,4 +58,5 @@ public class CreateEventHandler(EventCatalogDbContext dbContext)
 
         return new CreateEventResponse(newEvent.EventId);
     }
+
 }
