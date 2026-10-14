@@ -4,8 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Alert, Box, Button, CircularProgress, MenuItem, Paper, Stack, TextField, Typography,
 } from '@mui/material';
+import { ApiError } from '../api/http';
 import { createVenue, getVenue, updateVenue } from '../api/catalog';
-import type { CreateVenueRequest, SectionSeatingType, Venue } from '../api/catalog';
+import type { SaveVenueRequest, SectionSeatingType, Venue } from '../api/catalog';
 import SeatingMapsSection from '../components/SeatingMapsSection';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import SeatingMapViewer from '../components/SeatingMapViewer';
@@ -15,9 +16,11 @@ const seatingTypeLabel: Record<SectionSeatingType, string> = {
     seated: 'Sittplats',
 };
 
-// id är bara en lokal nyckel för React-listan, det skickas inte till API:t
+// id är bara en lokal nyckel för React-listan.
+// sectionId finns bara på sektioner som redan är sparade i backend.
 interface SectionFormValues {
     id: string;
+    sectionId?: string;
     name: string;
     seatCount: string;
     seatingType: SectionSeatingType;
@@ -30,6 +33,27 @@ interface VenueFormValues {
 }
 
 type FormErrors = Record<string, string>;
+
+function saveErrorMessage(error: Error): string {
+    if (error instanceof ApiError && error.status === 409) {
+        const detail = error.message.toLowerCase();
+
+        if (detail.includes('cannot be deleted') || detail.includes('used by an event')) {
+            return 'Sektionen används av ett evenemang och kan inte tas bort förrän kopplingen till evenemanget har tagits bort. Priser tas inte bort automatiskt.';
+        }
+        if (detail.includes('cannot be updated') || detail.includes('capacity and seating type')) {
+            return 'Kapacitet och platsform kan inte ändras medan sektionen används av ett evenemang. Sektionsnamnet kan fortfarande ändras.';
+        }
+        if (detail.includes('combined section capacity')) {
+            return 'Sektionernas sammanlagda kapacitet får inte överstiga scenens kapacitet.';
+        }
+        if (detail.includes('capacity cannot be lower')) {
+            return 'Kapaciteten kan inte sänkas under antalet befintliga stolar, och platsformen kan inte ändras medan stolar finns.';
+        }
+    }
+
+    return error.message || 'Försök igen.';
+}
 
 function createSection(): SectionFormValues {
     return {
@@ -46,10 +70,11 @@ function toFormValues(venue?: Venue): VenueFormValues {
     }
     return {
         name: venue.name,
-        address: venue.address ?? '',
-        sections: venue.sections?.length
+        address: venue.address,
+        sections: venue.sections.length
             ? venue.sections.map((s) => ({
                 id: crypto.randomUUID(),
+                sectionId: s.id,
                 name: s.name,
                 seatCount: String(s.seatCount),
                 seatingType: s.seatingType,
@@ -61,11 +86,14 @@ function toFormValues(venue?: Venue): VenueFormValues {
 function validate(v: VenueFormValues): FormErrors {
     const errors: FormErrors = {};
     if (!v.name.trim()) errors.name = 'Scennamn krävs';
+    else if (v.name.length > 200) errors.name = 'Max 200 tecken';
     if (!v.address.trim()) errors.address = 'Adress krävs';
+    else if (v.address.length > 500) errors.address = 'Max 500 tecken';
     if (v.sections.length === 0) errors.sections = 'Lägg till minst en sektion';
 
     v.sections.forEach((section) => {
         if (!section.name.trim()) errors[`section-${section.id}-name`] = 'Namn krävs';
+        else if (section.name.length > 100) errors[`section-${section.id}-name`] = 'Max 100 tecken';
 
         const seatCount = Number(section.seatCount);
         if (!Number.isInteger(seatCount) || seatCount < 1) {
@@ -87,7 +115,7 @@ function VenueForm({ venue }: { venue?: Venue }) {
     const [errors, setErrors] = useState<FormErrors>({});
 
     const mutation = useMutation({
-        mutationFn: (data: CreateVenueRequest) =>
+        mutationFn: (data: SaveVenueRequest) =>
             isEdit ? updateVenue(venue.id, data) : createVenue(data),
         onSuccess: async (savedVenue) => {
             await queryClient.invalidateQueries({ queryKey: ['venues'] });
@@ -105,7 +133,7 @@ function VenueForm({ venue }: { venue?: Venue }) {
         };
 
     const handleSectionChange =
-        (sectionId: string, field: keyof Omit<SectionFormValues, 'id'>) =>
+        (sectionId: string, field: keyof Omit<SectionFormValues, 'id' | 'sectionId'>) =>
             (e: ChangeEvent<HTMLInputElement>) => {
                 setValues((prev) => ({
                     ...prev,
@@ -136,6 +164,7 @@ function VenueForm({ venue }: { venue?: Venue }) {
             name: values.name.trim(),
             address: values.address.trim(),
             sections: values.sections.map((s) => ({
+                id: s.sectionId,
                 name: s.name.trim(),
                 seatCount: Number(s.seatCount),
                 seatingType: s.seatingType,
@@ -187,53 +216,64 @@ function VenueForm({ venue }: { venue?: Venue }) {
                                 <Button onClick={addSection}>Lägg till sektion</Button>
                             </Box>
 
+                            {isEdit && (
+                                <Alert severity="info" sx={{ mb: 2 }}>
+                                    Sektionsnamn kan ändras. Kapacitet och platsform kan inte ändras medan sektionen används
+                                    av ett evenemang eller har stolar som hindrar ändringen. En sektion kan inte tas bort
+                                    medan den används av ett evenemang; ta först bort kopplingen till sektionen från evenemanget.
+                                    Borttagning raderar inte priser automatiskt.
+                                </Alert>
+                            )}
+
                             {errors.sections && <Alert severity="error" sx={{ mb: 2 }}>{errors.sections}</Alert>}
 
                             <Stack spacing={2}>
-                                {values.sections.map((section, index) => (
-                                    <Paper key={section.id} variant="outlined" sx={{ p: 2 }}>
-                                        <Stack spacing={2}>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Typography variant="subtitle1">Sektion {index + 1}</Typography>
-                                                <Button
-                                                    color="error"
-                                                    disabled={values.sections.length === 1}
-                                                    onClick={() => removeSection(section.id)}
-                                                >
-                                                    Ta bort
-                                                </Button>
-                                            </Box>
+                                {values.sections.map((section, index) => {
+                                    return (
+                                        <Paper key={section.id} variant="outlined" sx={{ p: 2 }}>
+                                            <Stack spacing={2}>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Typography variant="subtitle1">Sektion {index + 1}</Typography>
+                                                    <Button
+                                                        color="error"
+                                                        disabled={values.sections.length === 1}
+                                                        onClick={() => removeSection(section.id)}
+                                                    >
+                                                        Ta bort
+                                                    </Button>
+                                                </Box>
 
-                                            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                                                <TextField
-                                                    label="Sektionsnamn" required fullWidth value={section.name}
-                                                    onChange={handleSectionChange(section.id, 'name')}
-                                                    error={!!errors[`section-${section.id}-name`]}
-                                                    helperText={errors[`section-${section.id}-name`]}
-                                                />
-                                                <TextField
-                                                    label="Antal platser" required type="number" fullWidth
-                                                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
-                                                    value={section.seatCount}
-                                                    onChange={handleSectionChange(section.id, 'seatCount')}
-                                                    error={!!errors[`section-${section.id}-seatCount`]}
-                                                    helperText={errors[`section-${section.id}-seatCount`]}
-                                                />
-                                            </Stack>
+                                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                                                    <TextField
+                                                        label="Sektionsnamn" required fullWidth value={section.name}
+                                                        onChange={handleSectionChange(section.id, 'name')}
+                                                        error={!!errors[`section-${section.id}-name`]}
+                                                        helperText={errors[`section-${section.id}-name`]}
+                                                    />
+                                                    <TextField
+                                                        label="Antal platser" required type="number" fullWidth
+                                                        slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                                                        value={section.seatCount}
+                                                        onChange={handleSectionChange(section.id, 'seatCount')}
+                                                        error={!!errors[`section-${section.id}-seatCount`]}
+                                                        helperText={errors[`section-${section.id}-seatCount`]}
+                                                    />
+                                                </Stack>
 
-                                            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                                                <TextField
-                                                    select label="Platsform" fullWidth value={section.seatingType}
-                                                    onChange={handleSectionChange(section.id, 'seatingType')}
-                                                >
-                                                    {Object.entries(seatingTypeLabel).map(([type, label]) => (
-                                                        <MenuItem key={type} value={type}>{label}</MenuItem>
-                                                    ))}
-                                                </TextField>
+                                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                                                    <TextField
+                                                        select label="Platsform" fullWidth value={section.seatingType}
+                                                        onChange={handleSectionChange(section.id, 'seatingType')}
+                                                    >
+                                                        {Object.entries(seatingTypeLabel).map(([type, label]) => (
+                                                            <MenuItem key={type} value={type}>{label}</MenuItem>
+                                                        ))}
+                                                    </TextField>
+                                                </Stack>
                                             </Stack>
-                                        </Stack>
-                                    </Paper>
-                                ))}
+                                        </Paper>
+                                    );
+                                })}
                             </Stack>
 
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -243,7 +283,7 @@ function VenueForm({ venue }: { venue?: Venue }) {
 
                         {mutation.isError && (
                             <Alert severity="error">
-                                Kunde inte spara scenen. {mutation.error.message || 'Försök igen.'}
+                                Kunde inte spara scenen. {saveErrorMessage(mutation.error)}
                             </Alert>
                         )}
 

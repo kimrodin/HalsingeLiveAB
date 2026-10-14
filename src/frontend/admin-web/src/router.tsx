@@ -16,7 +16,6 @@ export const router = createBrowserRouter([
       { path: 'events/new', element: <EventFormPage /> },
       { path: 'events/:id', element: <EventFormPage /> },
       { path: 'venues', element: <VenuesPage /> },
-      { path: 'venues', element: <VenuesPage /> },
       { path: 'venues/new', element: <VenueFormPage /> },
       { path: 'venues/:id', element: <VenueFormPage /> },
       { path: '*', element: <NotFoundPage /> },

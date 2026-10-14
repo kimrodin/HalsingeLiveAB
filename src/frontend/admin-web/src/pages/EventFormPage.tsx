@@ -1,21 +1,16 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert, Button, CircularProgress, MenuItem, Paper, Stack, TextField, Typography,
 } from '@mui/material';
-import {
-  createEvent, getEvent, getVenues, updateEvent,
-} from '../api/catalog';
-import type { CreateEventRequest, EventCategory, EventDetails } from '../api/catalog';
+import { createEvent, getEvent, getVenues, updateEvent } from '../api/catalog';
+import type { EventDetails } from '../api/catalog';
 
-const categoryLabel: Record<EventCategory, string> = {
-  concert: 'Konsert',
-  standup: 'Ståuppshow',
-  conference: 'Konferens',
-  workshop: 'Workshop',
-};
+// Gränserna kommer från backend.
+const MAX_NAME = 200;
+const MAX_DESCRIPTION = 2000;
 
 // ISO (UTC) -> värde för <input type="datetime-local"> i lokal tid
 function toInputValue(iso?: string): string {
@@ -26,40 +21,59 @@ function toInputValue(iso?: string): string {
 }
 
 // lokal tid från inputfältet -> ISO (UTC)
-function toIso(value: string): string | undefined {
-  return value ? new Date(value).toISOString() : undefined;
+function toIso(value: string): string {
+  return new Date(value).toISOString();
 }
 
 interface FormValues {
   name: string;
   description: string;
-  category: EventCategory | '';
   venueId: string;
-  price: string;
   startDate: string;
   endDate: string;
   onSaleFrom: string;
+  prices: Record<string, string>; // sectionId -> pris som text
 }
 
-type FormErrors = Partial<Record<keyof FormValues, string>>;
+type FormErrors = Record<string, string>;
 
-function validate(v: FormValues): FormErrors {
+function validate(v: FormValues, sectionIds: string[], isEdit: boolean): FormErrors {
   const errors: FormErrors = {};
+
   if (!v.name.trim()) errors.name = 'Namn krävs';
-  else if (v.name.length > 200) errors.name = 'Max 200 tecken';
-  if (!v.category) errors.category = 'Välj kategori';
-  if (!v.venueId) errors.venueId = 'Välj scen';
-  if (!v.price.trim()) errors.price = 'Pris krävs';
-  else if (!Number.isFinite(Number(v.price)) || Number(v.price) < 0) {
-    errors.price = 'Ange ett giltigt pris i kronor';
-  }
+  else if (v.name.length > MAX_NAME) errors.name = `Max ${MAX_NAME} tecken`;
+
+  if (!v.description.trim()) errors.description = 'Beskrivning krävs';
+  else if (v.description.length > MAX_DESCRIPTION) errors.description = `Max ${MAX_DESCRIPTION} tecken`;
+
   if (!v.startDate) errors.startDate = 'Starttid krävs';
-  if (v.endDate && v.startDate && v.endDate <= v.startDate) {
-    errors.endDate = 'Sluttid måste vara efter starttid';
-  }
-  if (v.onSaleFrom && v.startDate && v.onSaleFrom >= v.startDate) {
+
+  if (!v.endDate) errors.endDate = 'Sluttid krävs';
+  else if (v.startDate && v.endDate <= v.startDate) errors.endDate = 'Sluttid måste vara efter starttid';
+
+  if (!v.onSaleFrom) errors.onSaleFrom = 'Biljettsläpp krävs';
+  else if (v.startDate && v.onSaleFrom >= v.startDate) {
     errors.onSaleFrom = 'Försäljningen måste starta före evenemanget';
   }
+
+  if (isEdit && sectionIds.length === 0) {
+    errors.sectionPrices = 'Minst en sektion måste vara kopplad till evenemanget';
+  }
+
+  // Scen and prices are initially selected only when creating an event
+  if (!isEdit) {
+    if (!v.venueId) errors.venueId = 'Välj scen';
+
+  }
+
+  sectionIds.forEach((id) => {
+    const raw = v.prices[id]?.trim() ?? '';
+    const price = Number(raw);
+    if (!raw || !Number.isFinite(price) || price < 0) {
+      errors[`price-${id}`] = 'Ange ett pris (0 eller mer)';
+    }
+  });
+
   return errors;
 }
 
@@ -73,18 +87,45 @@ function EventForm({ event }: { event?: EventDetails }) {
   const [values, setValues] = useState<FormValues>({
     name: event?.name ?? '',
     description: event?.description ?? '',
-    category: event?.category ?? '',
     venueId: event?.venueId ?? '',
-    price: event?.price.toString() ?? '',
     startDate: toInputValue(event?.startDate),
     endDate: toInputValue(event?.endDate),
     onSaleFrom: toInputValue(event?.onSaleFrom),
+    prices: Object.fromEntries((event?.sectionPrices ?? []).map((p) => [p.sectionId, String(p.price)])),
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
+  // Sektionerna kommer med i scenlistan, så ingen extra hämtning behövs
+  const venue = venues?.find((v) => v.id === values.venueId);
+  const sections = venue?.sections ?? [];
+
   const mutation = useMutation({
-    mutationFn: (data: CreateEventRequest) =>
-      isEdit ? updateEvent(event.eventId, data) : createEvent(data),
+    mutationFn: async (v: FormValues) => {
+      const common = {
+        name: v.name.trim(),
+        description: v.description.trim(),
+        startDate: toIso(v.startDate),
+        endDate: toIso(v.endDate),
+      };
+
+      if (isEdit) {
+        return updateEvent(event.eventId, {
+          ...common,
+          onSaleFrom: toIso(v.onSaleFrom),
+          sectionPrices: Object.entries(v.prices).map(([sectionId, price]) => ({
+            sectionId,
+            price: Number(price),
+          })),
+        });
+      }
+
+      return createEvent({
+        ...common,
+        venueId: v.venueId,
+        onSaleFrom: toIso(v.onSaleFrom),
+        sectionPrices: sections.map((s) => ({ sectionId: s.id, price: Number(v.prices[s.id]) })),
+      });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['events'] });
       navigate('/events');
@@ -92,29 +133,31 @@ function EventForm({ event }: { event?: EventDetails }) {
   });
 
   const handleChange =
-    (field: keyof FormValues) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    (field: Exclude<keyof FormValues, 'prices' | 'venueId'>) => (e: ChangeEvent<HTMLInputElement>) => {
       setValues((prev) => ({ ...prev, [field]: e.target.value }));
     };
 
+  // Byter man scen hör de gamla priserna till andra sektioner, så de nollställs
+  const handleVenueChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setValues((prev) => ({ ...prev, venueId: e.target.value, prices: {} }));
+  };
+
+  const handlePriceChange = (sectionId: string) => (e: ChangeEvent<HTMLInputElement>) => {
+    setValues((prev) => ({ ...prev, prices: { ...prev.prices, [sectionId]: e.target.value } }));
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const found = validate(values);
+    const sectionIds = isEdit ? Object.keys(values.prices) : sections.map((s) => s.id);
+    const found = validate(values, sectionIds, isEdit);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
-    mutation.mutate({
-      name: values.name.trim(),
-      description: values.description.trim() || undefined,
-      category: values.category as EventCategory,
-      venueId: values.venueId,
-      price: Number(values.price),
-      startDate: toIso(values.startDate)!,
-      endDate: toIso(values.endDate),
-      onSaleFrom: toIso(values.onSaleFrom),
-    });
+    mutation.mutate(values);
   };
 
   const dateFieldProps = { type: 'datetime-local', slotProps: { inputLabel: { shrink: true } } };
+  const venueHasNoSections = !isEdit && venue !== undefined && sections.length === 0;
 
   return (
     <>
@@ -124,60 +167,106 @@ function EventForm({ event }: { event?: EventDetails }) {
 
       <Paper component="form" onSubmit={handleSubmit} noValidate sx={{ p: 3, maxWidth: 640 }}>
         <Stack spacing={2}>
+          {isEdit && (
+            <Alert severity="info">
+              Scenen kan inte bytas här. Biljettsläpp och priser kan ändras. Du kan ta bort en sektionskoppling
+              för att kunna ta bort sektionen från scenen, men minst en sektion måste vara kopplad till evenemanget.
+            </Alert>
+          )}
+
           <TextField
             label="Namn" required value={values.name} onChange={handleChange('name')}
             error={!!errors.name} helperText={errors.name}
           />
           <TextField
-            label="Beskrivning" multiline minRows={3}
+            label="Beskrivning" required multiline minRows={3}
             value={values.description} onChange={handleChange('description')}
+            error={!!errors.description}
+            helperText={errors.description ?? `${values.description.length}/${MAX_DESCRIPTION}`}
           />
           <TextField
-            select label="Kategori" required value={values.category}
-            onChange={handleChange('category')}
-            error={!!errors.category} helperText={errors.category}
-          >
-            {Object.entries(categoryLabel).map(([value, label]) => (
-              <MenuItem key={value} value={value}>{label}</MenuItem>
-            ))}
-          </TextField>
-          <TextField
             select label="Scen" required value={values.venueId}
-            onChange={handleChange('venueId')} disabled={!venues}
+            onChange={handleVenueChange} disabled={!venues || isEdit}
             error={!!errors.venueId} helperText={errors.venueId}
           >
             {venues?.map((v) => (
               <MenuItem key={v.id} value={v.id}>{v.name}</MenuItem>
             ))}
           </TextField>
-          <TextField
-            label="Pris (kr)" required type="number" slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-            value={values.price} onChange={handleChange('price')}
-            error={!!errors.price} helperText={errors.price}
-          />
+
+          {venueHasNoSections && (
+            <Alert severity="warning">
+              Scenen har inga sektioner. Lägg till minst en sektion på scenen innan du skapar ett evenemang.
+            </Alert>
+          )}
+
+          {venue && (isEdit ? Object.keys(values.prices).length > 0 : sections.length > 0) && (
+            <Stack spacing={2}>
+              <Typography variant="h6">Priser per sektion</Typography>
+              {sections
+                .filter((section) => !isEdit || values.prices[section.id] !== undefined)
+                .map((section) => (
+                  <Stack key={section.id} direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+                    <TextField
+                      label={`${section.name} (kr)`}
+                      required
+                      type="number"
+                      fullWidth
+                      slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                      value={values.prices[section.id] ?? ''}
+                      onChange={handlePriceChange(section.id)}
+                      error={!!errors[`price-${section.id}`]}
+                      helperText={errors[`price-${section.id}`]}
+                    />
+                    {isEdit && (
+                      <Button
+                        color="error"
+                        disabled={Object.keys(values.prices).length <= 1}
+                        onClick={() => {
+                          setValues((prev) => {
+                            const prices = { ...prev.prices };
+                            delete prices[section.id];
+                            return { ...prev, prices };
+                          });
+                        }}
+                      >
+                        Ta bort koppling
+                      </Button>
+                    )}
+                  </Stack>
+                ))}
+            </Stack>
+          )}
+          {errors.sectionPrices && <Alert severity="error">{errors.sectionPrices}</Alert>}
+
           <TextField
             {...dateFieldProps} label="Start" required value={values.startDate}
             onChange={handleChange('startDate')}
             error={!!errors.startDate} helperText={errors.startDate}
           />
           <TextField
-            {...dateFieldProps} label="Slut" value={values.endDate}
+            {...dateFieldProps} label="Slut" required value={values.endDate}
             onChange={handleChange('endDate')}
             error={!!errors.endDate} helperText={errors.endDate}
           />
           <TextField
-            {...dateFieldProps} label="Biljettsläpp (försäljning startar)" value={values.onSaleFrom}
-            onChange={handleChange('onSaleFrom')}
+            {...dateFieldProps} label="Biljettsläpp (försäljning startar)" required
+            value={values.onSaleFrom} onChange={handleChange('onSaleFrom')}
             error={!!errors.onSaleFrom} helperText={errors.onSaleFrom}
           />
 
           {mutation.isError && (
-            <Alert severity="error">Kunde inte spara evenemanget. Försök igen.</Alert>
+            <Alert severity="error">
+              Kunde inte spara evenemanget. {mutation.error.message || 'Försök igen.'}
+            </Alert>
           )}
 
           <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>
-            <Button onClick={() => navigate('/events')}>Avbryt</Button>
-            <Button type="submit" variant="contained" disabled={mutation.isPending}>
+            <Button onClick={() => navigate('/events')} disabled={mutation.isPending}>Avbryt</Button>
+            <Button
+              type="submit" variant="contained"
+              disabled={mutation.isPending || venueHasNoSections}
+            >
               {mutation.isPending ? 'Sparar…' : 'Spara'}
             </Button>
           </Stack>
