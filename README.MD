@@ -103,3 +103,50 @@ Kör sedan `dotnet ef database update` enligt första-start-steget.
 ## Admin-webb
 
 Admin-webbklienten ligger i `src/frontend/admin-web` och startas inte av Compose-konfigurationen i `src/Services/Compose.yaml`. Den använder för närvarande mockdata i stället för EventCatalog API:t.
+
+
+## Testdata (seed) och återställning
+
+SQL-filerna ligger i `src/services/EventCatalog/Database/`:
+
+- `reset.sql` raderar all data men behåller tabellen `__EFMigrationsHistory`.
+- `seed.sql` lägger in scener, sektioner, event, priser och stolar.
+- `seed-seating-maps.sql` lägger in platskartornas metadata. Själva bildfilerna lagras inte av filen.
+
+Förutsättning: PostgreSQL-containern körs och migrationerna är applicerade (se "Första starten").
+
+### Kör filerna
+
+Kör från repositoryts rotmapp. Filerna kopieras in i containern och läses av `psql` direkt. Använd **inte** `Get-Content ... | docker compose exec ...`: PowerShell kodar om texten på vägen och å, ä och ö blir trasiga.
+
+```powershell
+$compose = "src/Services/Compose.yaml"
+$dir = "src/services/EventCatalog/Database"
+
+foreach ($f in "reset.sql", "seed.sql", "seed-seating-maps.sql") {
+  docker compose -f $compose cp "$dir/$f" "eventcatalog-db:/tmp/$f"
+}
+
+docker compose -f $compose exec eventcatalog-db psql -U postgres -d eventcatalog_dev -v ON_ERROR_STOP=1 -f /tmp/reset.sql
+docker compose -f $compose exec eventcatalog-db psql -U postgres -d eventcatalog_dev -v ON_ERROR_STOP=1 -f /tmp/seed.sql
+docker compose -f $compose exec eventcatalog-db psql -U postgres -d eventcatalog_dev -v ON_ERROR_STOP=1 -f /tmp/seed-seating-maps.sql
+```
+
+Hoppa över `reset.sql` om du vill behålla befintlig data. Kör den däremot alltid innan en ny seed, annars får du dubbletter eller primärnyckelfel.
+
+### Kontrollera teckenkodningen
+
+Kör i `psql` (`docker compose -f src/Services/Compose.yaml exec eventcatalog-db psql -U postgres -d eventcatalog_dev`):
+
+```sql
+SELECT "VenueName", encode(convert_to("VenueName", 'UTF8'), 'hex') AS hex
+FROM "Venues" WHERE "VenueId" = 'a1000000-0000-4000-8000-000000000001';
+```
+
+`Hälsinge Arena` ska ha `c3a4` efter `48`. Ser du `c383c2a4` är texten dubbelkodad: kör `reset.sql` och seeden igen enligt stegen ovan.
+
+SQL-filerna ska vara sparade som UTF-8. I VS Code visas kodningen längst ner till höger.
+
+### Platskartor
+
+Bildfilerna måste läggas manuellt under respektive `StorageKey` tills backend har fillagring för platskartor.
