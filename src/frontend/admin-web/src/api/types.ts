@@ -60,12 +60,12 @@ export type UpdateEventRequest = Pick<
 >;
 
 export interface VenueSeatingMap {
-  id: string;
+  venueSeatingMapId: string;
   venueId: string;
   name: string;
   fileName: string;
   contentType: string;
-  url: string;
+  downloadUrl: string;
 }
 
 export interface UploadSeatingMapRequest {

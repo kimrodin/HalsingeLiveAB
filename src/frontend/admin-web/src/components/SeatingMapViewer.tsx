@@ -18,7 +18,7 @@ export default function SeatingMapViewer({ venueId }: { venueId: string }) {
   });
 
   // Finns inget giltigt val (t.ex. efter radering) visas första kartan
-  const selected = maps?.find((m) => m.id === selectedId) ?? maps?.[0];
+  const selected = maps?.find((m) => m.venueSeatingMapId === selectedId) ?? maps?.[0];
   const isImage = selected?.contentType.startsWith('image/') ?? false;
   const isPdf = selected?.contentType === 'application/pdf';
 
@@ -37,13 +37,13 @@ export default function SeatingMapViewer({ venueId }: { venueId: string }) {
 
       {maps && maps.length > 1 && selected && (
         <Tabs
-          value={selected.id}
+          value={selected.venueSeatingMapId}
           onChange={(_, value: string) => setSelectedId(value)}
           variant="scrollable"
           sx={{ mb: 1 }}
         >
           {maps.map((m) => (
-            <Tab key={m.id} value={m.id} label={m.name} />
+            <Tab key={m.venueSeatingMapId} value={m.venueSeatingMapId} label={m.name} />
           ))}
         </Tabs>
       )}
@@ -62,7 +62,7 @@ export default function SeatingMapViewer({ venueId }: { venueId: string }) {
             >
               <Box
                 component="img"
-                src={selected.url}
+                src={selected.downloadUrl}
                 alt={selected.name}
                 sx={{ width: '100%', maxHeight: 360, objectFit: 'contain', cursor: 'zoom-in' }}
               />
@@ -72,7 +72,7 @@ export default function SeatingMapViewer({ venueId }: { venueId: string }) {
           {isPdf && (
             <Box
               component="iframe"
-              src={selected.url}
+              src={selected.downloadUrl}
               title={selected.name}
               sx={{ width: '100%', height: 400, border: 0 }}
             />
@@ -86,7 +86,7 @@ export default function SeatingMapViewer({ venueId }: { venueId: string }) {
           <DialogContent>
             <Box
               component="img"
-              src={selected.url}
+              src={selected.downloadUrl}
               alt={selected.name}
               sx={{ width: '100%', height: 'auto' }}
             />
