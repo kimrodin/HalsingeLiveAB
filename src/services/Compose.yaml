@@ -7,8 +7,11 @@ services:
     environment:
       ConnectionStrings__EventCatalog: "Host=eventcatalog-db;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
       ASPNETCORE_ENVIRONMENT: Development
+      VenueMapStorage__RootPath: /app/uploads/venue-maps
     ports:
       - "8080:8080"
+    volumes:
+      - venue-maps-data:/app/uploads/venue-maps
     depends_on:
       eventcatalog-db:
         condition: service_healthy
@@ -31,3 +34,4 @@ services:
 
 volumes:
   eventcatalog-data:
+  venue-maps-data:
