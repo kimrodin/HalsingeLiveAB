@@ -2,7 +2,7 @@ services:
 
   eventcatalog:
     build:
-      context: ./EventCatalog
+      context: ./Services/EventCatalog
       dockerfile: Dockerfile
     environment:
       ConnectionStrings__EventCatalog: "Host=eventcatalog-db;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
@@ -31,6 +31,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      API_PROXY_TARGET: eventcatalog:8080
+    ports:
+      - "5173:80"
+    depends_on:
+      - eventcatalog
 
 volumes:
   eventcatalog-data:
