@@ -3,7 +3,7 @@
 // I utveckling går anropen till /api/... och Vite-servern skickar dem vidare till
 // catalog-API:t (se vite.config.ts). Då behövs ingen CORS och inga hårdkodade portar.
 // Sätt VITE_CATALOG_API_URL om API:t ska anropas på en annan adress.
-const BASE_URL: string = import.meta.env.VITE_CATALOG_API_URL ?? '/api';
+export const BASE_URL: string = import.meta.env.VITE_CATALOG_API_URL ?? '/api';
 
 export class ApiError extends Error {
   status: number;

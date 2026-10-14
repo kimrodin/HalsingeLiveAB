@@ -125,12 +125,12 @@ export default function SeatingMapsSection({ venueId }: { venueId: string }) {
         )}
 
         {maps?.map((map) => (
-          <Paper key={map.id} variant="outlined" sx={{ p: 2 }}>
+          <Paper key={map.venueSeatingMapId} variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               {map.contentType.startsWith('image/') && (
                 <Box
                   component="img"
-                  src={map.url}
+                  src={map.downloadUrl}
                   alt={map.name}
                   sx={{ height: 64, maxWidth: 120, objectFit: 'contain', borderRadius: 1 }}
                 />
@@ -139,7 +139,7 @@ export default function SeatingMapsSection({ venueId }: { venueId: string }) {
                 <Typography variant="subtitle1">{map.name}</Typography>
                 <Typography variant="body2" color="text.secondary">{map.fileName}</Typography>
                 {map.contentType === 'application/pdf' && (
-                  <Link href={map.url} target="_blank" rel="noopener">Öppna PDF</Link>
+                  <Link href={map.downloadUrl} target="_blank" rel="noopener">Öppna PDF</Link>
                 )}
               </Box>
               <Button
@@ -181,7 +181,7 @@ export default function SeatingMapsSection({ venueId }: { venueId: string }) {
             variant="contained"
             disabled={deleteMutation.isPending}
             onClick={() => {
-              if (mapToDelete) deleteMutation.mutate(mapToDelete.id);
+              if (mapToDelete) deleteMutation.mutate(mapToDelete.venueSeatingMapId);
             }}
           >
             Ta bort

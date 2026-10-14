@@ -3,10 +3,11 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Alert, Button, CircularProgress, MenuItem, Paper, Stack, TextField, Typography,
+  Alert, Box, Button, CircularProgress, MenuItem, Paper, Stack, TextField, Typography,
 } from '@mui/material';
 import { createEvent, getEvent, getVenues, updateEvent } from '../api/catalog';
 import type { EventDetails } from '../api/catalog';
+import SeatingMapViewer from '../components/SeatingMapViewer';
 
 // Gränserna kommer från backend.
 const MAX_NAME = 200;
@@ -165,113 +166,139 @@ function EventForm({ event }: { event?: EventDetails }) {
         {isEdit ? 'Redigera evenemang' : 'Nytt evenemang'}
       </Typography>
 
-      <Paper component="form" onSubmit={handleSubmit} noValidate sx={{ p: 3, maxWidth: 640 }}>
-        <Stack spacing={2}>
-          {isEdit && (
-            <Alert severity="info">
-              Scenen kan inte bytas här. Biljettsläpp och priser kan ändras. Du kan ta bort en sektionskoppling
-              för att kunna ta bort sektionen från scenen, men minst en sektion måste vara kopplad till evenemanget.
-            </Alert>
-          )}
+      <Stack
+        direction={{ xs: 'column', lg: 'row' }}
+        spacing={3}
+        sx={{ alignItems: { xs: 'stretch', lg: 'flex-start' } }}
+      >
+        <Paper
+          component="form"
+          onSubmit={handleSubmit}
+          noValidate
+          sx={{ p: 3, flex: 1, minWidth: 0, maxWidth: 640 }}
+        >
+          <Stack spacing={2}>
+            {isEdit && (
+              <Alert severity="info">
+                Scenen kan inte bytas här. Biljettsläpp och priser kan ändras. Du kan ta bort en sektionskoppling
+                för att kunna ta bort sektionen från scenen, men minst en sektion måste vara kopplad till evenemanget.
+              </Alert>
+            )}
 
-          <TextField
-            label="Namn" required value={values.name} onChange={handleChange('name')}
-            error={!!errors.name} helperText={errors.name}
-          />
-          <TextField
-            label="Beskrivning" required multiline minRows={3}
-            value={values.description} onChange={handleChange('description')}
-            error={!!errors.description}
-            helperText={errors.description ?? `${values.description.length}/${MAX_DESCRIPTION}`}
-          />
-          <TextField
-            select label="Scen" required value={values.venueId}
-            onChange={handleVenueChange} disabled={!venues || isEdit}
-            error={!!errors.venueId} helperText={errors.venueId}
-          >
-            {venues?.map((v) => (
-              <MenuItem key={v.id} value={v.id}>{v.name}</MenuItem>
-            ))}
-          </TextField>
-
-          {venueHasNoSections && (
-            <Alert severity="warning">
-              Scenen har inga sektioner. Lägg till minst en sektion på scenen innan du skapar ett evenemang.
-            </Alert>
-          )}
-
-          {venue && (isEdit ? Object.keys(values.prices).length > 0 : sections.length > 0) && (
-            <Stack spacing={2}>
-              <Typography variant="h6">Priser per sektion</Typography>
-              {sections
-                .filter((section) => !isEdit || values.prices[section.id] !== undefined)
-                .map((section) => (
-                  <Stack key={section.id} direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-                    <TextField
-                      label={`${section.name} (kr)`}
-                      required
-                      type="number"
-                      fullWidth
-                      slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                      value={values.prices[section.id] ?? ''}
-                      onChange={handlePriceChange(section.id)}
-                      error={!!errors[`price-${section.id}`]}
-                      helperText={errors[`price-${section.id}`]}
-                    />
-                    {isEdit && (
-                      <Button
-                        color="error"
-                        disabled={Object.keys(values.prices).length <= 1}
-                        onClick={() => {
-                          setValues((prev) => {
-                            const prices = { ...prev.prices };
-                            delete prices[section.id];
-                            return { ...prev, prices };
-                          });
-                        }}
-                      >
-                        Ta bort koppling
-                      </Button>
-                    )}
-                  </Stack>
-                ))}
-            </Stack>
-          )}
-          {errors.sectionPrices && <Alert severity="error">{errors.sectionPrices}</Alert>}
-
-          <TextField
-            {...dateFieldProps} label="Start" required value={values.startDate}
-            onChange={handleChange('startDate')}
-            error={!!errors.startDate} helperText={errors.startDate}
-          />
-          <TextField
-            {...dateFieldProps} label="Slut" required value={values.endDate}
-            onChange={handleChange('endDate')}
-            error={!!errors.endDate} helperText={errors.endDate}
-          />
-          <TextField
-            {...dateFieldProps} label="Biljettsläpp (försäljning startar)" required
-            value={values.onSaleFrom} onChange={handleChange('onSaleFrom')}
-            error={!!errors.onSaleFrom} helperText={errors.onSaleFrom}
-          />
-
-          {mutation.isError && (
-            <Alert severity="error">
-              Kunde inte spara evenemanget. {mutation.error.message || 'Försök igen.'}
-            </Alert>
-          )}
-
-          <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>
-            <Button onClick={() => navigate('/events')} disabled={mutation.isPending}>Avbryt</Button>
-            <Button
-              type="submit" variant="contained"
-              disabled={mutation.isPending || venueHasNoSections}
+            <TextField
+              label="Namn" required value={values.name} onChange={handleChange('name')}
+              error={!!errors.name} helperText={errors.name}
+            />
+            <TextField
+              label="Beskrivning" required multiline minRows={3}
+              value={values.description} onChange={handleChange('description')}
+              error={!!errors.description}
+              helperText={errors.description ?? `${values.description.length}/${MAX_DESCRIPTION}`}
+            />
+            <TextField
+              select label="Scen" required value={values.venueId}
+              onChange={handleVenueChange} disabled={!venues || isEdit}
+              error={!!errors.venueId} helperText={errors.venueId}
             >
-              {mutation.isPending ? 'Sparar…' : 'Spara'}
-            </Button>
+              {venues?.map((v) => (
+                <MenuItem key={v.id} value={v.id}>{v.name}</MenuItem>
+              ))}
+            </TextField>
+
+            {venueHasNoSections && (
+              <Alert severity="warning">
+                Scenen har inga sektioner. Lägg till minst en sektion på scenen innan du skapar ett evenemang.
+              </Alert>
+            )}
+
+            {venue && (isEdit ? Object.keys(values.prices).length > 0 : sections.length > 0) && (
+              <Stack spacing={2}>
+                <Typography variant="h6">Priser per sektion</Typography>
+                {sections
+                  .filter((section) => !isEdit || values.prices[section.id] !== undefined)
+                  .map((section) => (
+                    <Stack key={section.id} direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+                      <TextField
+                        label={`${section.name} (kr)`}
+                        required
+                        type="number"
+                        fullWidth
+                        slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                        value={values.prices[section.id] ?? ''}
+                        onChange={handlePriceChange(section.id)}
+                        error={!!errors[`price-${section.id}`]}
+                        helperText={errors[`price-${section.id}`]}
+                      />
+                      {isEdit && (
+                        <Button
+                          color="error"
+                          disabled={Object.keys(values.prices).length <= 1}
+                          onClick={() => {
+                            setValues((prev) => {
+                              const prices = { ...prev.prices };
+                              delete prices[section.id];
+                              return { ...prev, prices };
+                            });
+                          }}
+                        >
+                          Ta bort koppling
+                        </Button>
+                      )}
+                    </Stack>
+                  ))}
+              </Stack>
+            )}
+            {errors.sectionPrices && <Alert severity="error">{errors.sectionPrices}</Alert>}
+
+            <TextField
+              {...dateFieldProps} label="Start" required value={values.startDate}
+              onChange={handleChange('startDate')}
+              error={!!errors.startDate} helperText={errors.startDate}
+            />
+            <TextField
+              {...dateFieldProps} label="Slut" required value={values.endDate}
+              onChange={handleChange('endDate')}
+              error={!!errors.endDate} helperText={errors.endDate}
+            />
+            <TextField
+              {...dateFieldProps} label="Biljettsläpp (försäljning startar)" required
+              value={values.onSaleFrom} onChange={handleChange('onSaleFrom')}
+              error={!!errors.onSaleFrom} helperText={errors.onSaleFrom}
+            />
+
+            {mutation.isError && (
+              <Alert severity="error">
+                Kunde inte spara evenemanget. {mutation.error.message || 'Försök igen.'}
+              </Alert>
+            )}
+
+            <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end' }}>
+              <Button onClick={() => navigate('/events')} disabled={mutation.isPending}>Avbryt</Button>
+              <Button
+                type="submit" variant="contained"
+                disabled={mutation.isPending || venueHasNoSections}
+              >
+                {mutation.isPending ? 'Sparar…' : 'Spara'}
+              </Button>
+            </Stack>
           </Stack>
-        </Stack>
-      </Paper>
+        </Paper>
+
+        {values.venueId && (
+          <Box
+            sx={{
+              position: 'sticky',
+              top: 88,
+              width: { xs: '100%', lg: 420 },
+              flexShrink: 0,
+              maxHeight: 'calc(100vh - 104px)',
+              overflow: 'auto',
+            }}
+          >
+            <SeatingMapViewer venueId={values.venueId} />
+          </Box>
+        )}
+      </Stack>
     </>
   );
 }
