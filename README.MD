@@ -102,7 +102,7 @@ Kör sedan `dotnet ef database update` enligt första-start-steget.
 
 ## Admin-webb
 
-Admin-webbklienten ligger i `src/frontend/admin-web` och startas inte av Compose-konfigurationen i `src/Services/Compose.yaml`. Den använder för närvarande mockdata i stället för EventCatalog API:t.
+Admin-webbklienten ligger i `src/frontend/admin-web` och startas inte av Compose-konfigurationen i `src/Compose.yaml`. Den använder för närvarande mockdata i stället för EventCatalog API:t.
 
 
 ## Testdata (seed) och återställning
@@ -120,7 +120,7 @@ Förutsättning: PostgreSQL-containern körs och migrationerna är applicerade (
 Kör från repositoryts rotmapp. Filerna kopieras in i containern och läses av `psql` direkt. Använd **inte** `Get-Content ... | docker compose exec ...`: PowerShell kodar om texten på vägen och å, ä och ö blir trasiga.
 
 ```powershell
-$compose = "src/Services/Compose.yaml"
+$compose = "src/Compose.yaml"
 $dir = "src/services/EventCatalog/Database"
 
 foreach ($f in "reset.sql", "seed.sql", "seed-seating-maps.sql") {
