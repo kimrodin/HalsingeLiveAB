@@ -1,6 +1,6 @@
 # HälsingeLiveAB
 
-Repositoryt innehåller EventCatalog API:t och en separat admin-webbklient. Docker Compose-konfigurationen startar EventCatalog och PostgreSQL; admin-webbklienten ingår inte i Compose-flödet.
+Repositoryt innehåller EventCatalog API:t och en separat admin-webbklient. Compose-filen `src/Compose.yaml` startar EventCatalog, PostgreSQL och admin-webbklienten.
 
 ## Starta EventCatalog med Docker och Swagger
 
@@ -21,7 +21,7 @@ Kör kommandona nedan från repositoryts rotmapp.
 1. Starta PostgreSQL-containern:
 
    ```powershell
-   docker compose -f src/Services/Compose.yaml up -d eventcatalog-db
+   docker compose -f src/Compose.yaml up -d eventcatalog-db
    ```
 
 2. Applicera projektets EF Core-migrationer på databasen `eventcatalog_dev`. Migrationen körs från värddatorn, så anslutningen använder `localhost`:
@@ -40,7 +40,7 @@ Kör kommandona nedan från repositoryts rotmapp.
 3. Bygg och starta API:t och databasen:
 
    ```powershell
-   docker compose -f src/Services/Compose.yaml up -d --build
+   docker compose -f src/Compose.yaml up -d --build
    ```
 
 4. Öppna Swagger UI:
@@ -49,12 +49,42 @@ Kör kommandona nedan från repositoryts rotmapp.
 
 Compose sätter `ASPNETCORE_ENVIRONMENT=Development`, vilket aktiverar Swagger. API:t lyssnar på port `8080`; PostgreSQL publiceras på port `5432`.
 
+### Automatisk migration vid uppstart (valfritt)
+
+Som standard körs migrationerna manuellt enligt stegen ovan. Om du vill att API:t ska applicera väntande EF Core-migrationer automatiskt när Compose startar behöver du aktivera det i API:ts `program.cs`:
+
+1. Kontrollera att filen har `using Microsoft.EntityFrameworkCore;` och `using EventCatalog.Data;`. Direkt efter `var app = builder.Build();` lägger du till:
+
+   ```csharp
+   using (var scope = app.Services.CreateScope())
+   {
+       var db = scope.ServiceProvider.GetRequiredService<EventCatalogDbContext>();
+       await db.Database.MigrateAsync();
+   }
+   ```
+
+2. Kontrollera att `src/Compose.yaml` startar API:t först när PostgreSQL är redo:
+
+   ```yaml
+   depends_on:
+     eventcatalog-db:
+       condition: service_healthy
+   ```
+
+3. Bygg om och starta tjänsterna:
+
+   ```powershell
+   docker compose -f src/Compose.yaml up -d --build
+   ```
+
+Vid API-start kontrollerar `MigrateAsync()` `__EFMigrationsHistory` och applicerar väntande migrationer. Använd EF Core-migrationer för databasschemat och blanda inte `EnsureCreated()` med migrationer.
+
 ### Senare starter
 
 När databasen redan har skapats och migrationerna har applicerats startar du tjänsterna så här:
 
 ```powershell
-docker compose -f src/Services/Compose.yaml up -d
+docker compose -f src/Compose.yaml up -d
 ```
 
 Lägg till `--build` efter kodändringar som ska byggas in i API-containern.
@@ -62,25 +92,25 @@ Lägg till `--build` efter kodändringar som ska byggas in i API-containern.
 Visa status och loggar:
 
 ```powershell
-docker compose -f src/Services/Compose.yaml ps
-docker compose -f src/Services/Compose.yaml logs -f eventcatalog
-docker compose -f src/Services/Compose.yaml logs -f eventcatalog-db
+docker compose -f src/Compose.yaml ps
+docker compose -f src/Compose.yaml logs -f eventcatalog
+docker compose -f src/Compose.yaml logs -f eventcatalog-db
 ```
 
 Stoppa containrarna utan att ta bort databasen:
 
 ```powershell
-docker compose -f src/Services/Compose.yaml down
+docker compose -f src/Compose.yaml down
 ```
 
-PostgreSQL-data sparas i den namngivna volymen `eventcatalog-data`. Om du uttryckligen vill radera all lokal databasdata kan du ta bort volymen med `docker compose -f src/Services/Compose.yaml down -v`. Det går inte att ångra.
+PostgreSQL-data sparas i den namngivna volymen `eventcatalog-data`. Om du uttryckligen vill radera all lokal databasdata kan du ta bort volymen med `docker compose -f src/Compose.yaml down -v`. Det går inte att ångra.
 
 ### Köra API:t från IDE i stället för som container
 
 Starta PostgreSQL med Compose och kör sedan:
 
 ```powershell
-docker compose -f src/Services/Compose.yaml up -d eventcatalog-db
+docker compose -f src/Compose.yaml up -d eventcatalog-db
 dotnet run --project src/Services/EventCatalog/EventCatalog.csproj --launch-profile EventCatalog
 ```
 
@@ -95,19 +125,19 @@ PostgreSQL-imagets `POSTGRES_DB` används när datavolymen initieras första gå
 Om loggen visar att `eventcatalog_dev` saknas trots att PostgreSQL-containern körs kan du skapa databasen manuellt:
 
 ```powershell
-docker compose -f src/Services/Compose.yaml exec eventcatalog-db psql -U postgres -d postgres -c 'CREATE DATABASE eventcatalog_dev;'
+docker compose -f src/Compose.yaml exec eventcatalog-db psql -U postgres -d postgres -c 'CREATE DATABASE eventcatalog_dev;'
 ```
 
 Kör sedan `dotnet ef database update` enligt första-start-steget.
 
 ## Admin-webb
 
-Admin-webbklienten ligger i `src/frontend/admin-web` och startas inte av Compose-konfigurationen i `src/Compose.yaml`. Den använder för närvarande mockdata i stället för EventCatalog API:t.
+Admin-webbklienten ligger i `src/frontend/admin-web` och startas av Compose-konfigurationen i `src/Compose.yaml`. Den använder för närvarande mockdata i stället för EventCatalog API:t.
 
 
 ## Testdata (seed) och återställning
 
-SQL-filerna ligger i `src/services/EventCatalog/Database/`:
+SQL-filerna ligger i `src/Services/EventCatalog/Database/`:
 
 - `reset.sql` raderar all data men behåller tabellen `__EFMigrationsHistory`.
 - `seed.sql` lägger in scener, sektioner, event, priser och stolar.
@@ -136,7 +166,7 @@ Hoppa över `reset.sql` om du vill behålla befintlig data. Kör den däremot al
 
 ### Kontrollera teckenkodningen
 
-Kör i `psql` (`docker compose -f src/Services/Compose.yaml exec eventcatalog-db psql -U postgres -d eventcatalog_dev`):
+Kör i `psql` (`docker compose -f src/Compose.yaml exec eventcatalog-db psql -U postgres -d eventcatalog_dev`):
 
 ```sql
 SELECT "VenueName", encode(convert_to("VenueName", 'UTF8'), 'hex') AS hex
