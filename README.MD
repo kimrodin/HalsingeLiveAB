@@ -16,6 +16,28 @@ Repositoryt innehåller EventCatalog API:t och en separat admin-webbklient. Comp
 
 Kör kommandona nedan från repositoryts rotmapp.
 
+### Starta med script
+
+När förutsättningarna ovan är uppfyllda kan du köra ett av följande kommandon från repositoryts rotmapp.
+
+Windows (PowerShell):
+
+```powershell
+.\scripts\start-docker.ps1
+```
+
+Windows (Om det inte fungerar):
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-docker.ps1
+```
+Mac (Terminal):
+
+```bash
+bash scripts/start-docker.sh
+```
+
+Scripten startar PostgreSQL, väntar tills databasen är redo, applicerar EF Core-migrationerna och bygger och startar alla tjänster. De kan även köras vid senare starter.
+
 ### Första starten
 
 1. Starta PostgreSQL-containern:
