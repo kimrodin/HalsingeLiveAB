@@ -15,11 +15,11 @@ BEGIN;
 -- ---------------------------------------------------------------
 -- 1. Scener (Venues)
 -- ---------------------------------------------------------------
-INSERT INTO "Venues" ("VenueId", "VenueName", "VenueAddress", "VenueCapacity") VALUES
-  ('a1000000-0000-4000-8000-000000000001', 'Hälsinge Arena',  'Arenavägen 1, 824 30 Hudiksvall',   1200),
-  ('a1000000-0000-4000-8000-000000000002', 'Stadsteatern',    'Teatergatan 5, 826 30 Söderhamn',    400),
-  ('a1000000-0000-4000-8000-000000000003', 'Klubb Rosen',     'Storgatan 12, 824 40 Hudiksvall',    300),
-  ('a1000000-0000-4000-8000-000000000004', 'Gamla Bryggan',   'Hamngatan 3, 824 31 Hudiksvall',     100);  -- inga event, för att testa radering
+INSERT INTO "Venues" ("VenueId", "VenueName", "VenueStreetAddress", "VenuePostalCode", "VenueCity", "VenueCapacity") VALUES
+  ('a1000000-0000-4000-8000-000000000001', 'Hälsinge Arena', 'Arenavägen 1', '824 30', 'Hudiksvall', 1200),
+  ('a1000000-0000-4000-8000-000000000002', 'Stadsteatern', 'Teatergatan 5', '826 30', 'Söderhamn', 400),
+  ('a1000000-0000-4000-8000-000000000003', 'Klubb Rosen', 'Storgatan 12', '824 40', 'Hudiksvall', 300),
+  ('a1000000-0000-4000-8000-000000000004', 'Gamla Bryggan', 'Hamngatan 3', '824 31', 'Hudiksvall', 100);  -- inga event, för att testa radering
 
 -- ---------------------------------------------------------------
 -- 2. Sektioner (Sections)
