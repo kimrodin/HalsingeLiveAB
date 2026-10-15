@@ -12,7 +12,9 @@ public sealed class Venue
     [Key]
     public Guid VenueId { get; set; }
     public string VenueName { get; set; } = string.Empty;
-    public string VenueAddress { get; set; } = string.Empty;
+    public string VenueStreetAddress { get; set; } = string.Empty;
+    public string VenuePostalCode { get; set; } = string.Empty;
+    public string VenueCity { get; set; } = string.Empty;
     public int VenueCapacity { get; set; }
     public List<Section> VenueSections { get; set; } = new List<Section>();
     public List<VenueSeatingMap> SeatingMaps { get; set; } = new List<VenueSeatingMap>();

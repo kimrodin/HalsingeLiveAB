@@ -171,10 +171,20 @@ public class EventCatalogDbContext : DbContext
             .IsRequired()
             .HasMaxLength(200);
 
-        // Lokalens adress får inte vara NULL och får innehålla högst 500 tecken.
+        // Gatuadress, postnummer och ort lagras separat.
         modelBuilder.Entity<Venue>()
-            .Property(v => v.VenueAddress)
+            .Property(v => v.VenueStreetAddress)
             .IsRequired()
             .HasMaxLength(500);
+
+        modelBuilder.Entity<Venue>()
+            .Property(v => v.VenuePostalCode)
+            .IsRequired()
+            .HasMaxLength(20);
+
+        modelBuilder.Entity<Venue>()
+            .Property(v => v.VenueCity)
+            .IsRequired()
+            .HasMaxLength(100);
     }
 }
