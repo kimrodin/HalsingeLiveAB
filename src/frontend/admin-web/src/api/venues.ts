@@ -19,7 +19,9 @@ interface SectionDto {
 interface VenueDto {
   venueId: string;
   name: string;
-  address: string;
+  venuestreetAddress: string;
+  venueCity: string;
+  venuePostalCode: string;
   capacity: number;
   sections: SectionDto[];
 }
@@ -27,7 +29,9 @@ interface VenueDto {
 interface VenueListItemDto {
   venueId: string;
   venueName: string;
-  venueAddress: string;
+  venueStreetAddress: string;
+  venueCity: string;
+  venuePostalCode: string;
   venueCapacity: number;
   sections: SectionDto[];
 }
@@ -63,7 +67,9 @@ function venueFromDto(venue: VenueDto): Venue {
   return {
     id: venue.venueId,
     name: venue.name,
-    address: venue.address,
+    streetAddress: venue.venuestreetAddress,
+    city: venue.venueCity,
+    postalCode: venue.venuePostalCode,
     capacity: venue.capacity,
     sections: venue.sections.map(sectionFromDto),
   };
@@ -73,7 +79,9 @@ function venueFromListItem(venue: VenueListItemDto): Venue {
   return {
     id: venue.venueId,
     name: venue.venueName,
-    address: venue.venueAddress,
+    streetAddress: venue.venueStreetAddress,
+    city: venue.venueCity,
+    postalCode: venue.venuePostalCode,
     capacity: venue.venueCapacity,
     sections: venue.sections.map(sectionFromDto),
   };
@@ -103,7 +111,9 @@ export async function getVenue(venueId: string): Promise<Venue> {
 export async function createVenue(data: SaveVenueRequest): Promise<Venue> {
   const created = await sendJson<CreateVenueResponseDto>('POST', '/CreateVenue', {
     name: data.name,
-    address: data.address,
+    streetAddress: data.streetAddress,
+    postalCode: data.postalCode,
+    city: data.city,
     capacity: totalSeats(data.sections),
   });
 
@@ -136,7 +146,9 @@ export async function updateVenue(venueId: string, data: SaveVenueRequest): Prom
   await sendJson('PUT', `/UpdateVenue/${venueId}`, {
     venueId,
     name: data.name,
-    address: data.address,
+    streetAddress: data.streetAddress,
+    postalCode: data.postalCode,
+    city: data.city,
     capacity: totalSeats(data.sections),
   });
 
