@@ -24,9 +24,14 @@ export default function AdminLayout() {
 
   const seedMutation = useMutation({
     mutationFn: seedData,
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       await refreshCatalog();
-      setNotice({ message: 'Seeddata skapades.', severity: 'success' });
+      setNotice({
+        message: result.events.createdCount === 0
+          ? 'Seeddata finns redan.'
+          : 'Seeddata skapades.',
+        severity: 'success',
+      });
     },
     onError: (error) => setNotice({
       message: `Kunde inte skapa seeddata: ${error.message}`,

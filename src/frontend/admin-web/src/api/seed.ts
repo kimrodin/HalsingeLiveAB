@@ -6,8 +6,14 @@ export interface DeleteSeedDataResult {
   deletedVenueCount: number;
 }
 
-export function seedData(): Promise<unknown> {
-  return request('/seed', { method: 'POST' });
+export interface SeedDataResult {
+  events: {
+    createdCount: number;
+  };
+}
+
+export function seedData(): Promise<SeedDataResult> {
+  return request<SeedDataResult>('/seed', { method: 'POST' });
 }
 
 export function deleteSeedData(): Promise<DeleteSeedDataResult> {
