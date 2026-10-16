@@ -26,7 +26,6 @@ export default function AdminLayout() {
           component={NavLink}
           to={item.to}
           onClick={() => setMobileNavOpen(false)}
-          sx={{ '&.active': { bgcolor: 'action.selected' } }}
         >
           <ListItemText primary={item.label} />
         </ListItemButton>

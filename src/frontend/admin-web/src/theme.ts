@@ -1,5 +1,6 @@
 
-import { createTheme, responsiveFontSizes } from '@mui/material/styles';
+import { alpha, createTheme, lighten, responsiveFontSizes } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
 
 const theme = createTheme({
   // Färger för hela applikationen
@@ -7,17 +8,17 @@ const theme = createTheme({
     mode: 'dark',
 
     primary: {
-      main: '#60A5FA',
-      light: '#93C5FD',
-      dark: '#2563EB',
-      contrastText: '#0B1220',
+      main: '#A78BFA',
+      light: '#C4B5FD',
+      dark: '#7C3AED',
+      contrastText: '#1C1233',
     },
 
     secondary: {
-      main: '#22D3EE',
-      light: '#67E8F9',
-      dark: '#0891B2',
-      contrastText: '#082F49',
+      main: '#6EE7B7',
+      light: '#A7F3D0',
+      dark: '#34D399',
+      contrastText: '#06281B',
     },
 
     background: {
@@ -96,11 +97,11 @@ const theme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
-        body: {
-          backgroundColor: '#0B1120',
-          scrollbarColor: '#3B4962 #0B1120',
+        body: ({ theme }: { theme: Theme }) => ({
+          backgroundColor: theme.palette.background.default,
+          scrollbarColor: `${alpha(theme.palette.text.secondary, 0.35)} ${theme.palette.background.default}`,
           overflowX: 'hidden',
-        },
+        }),
       },
     },
 
@@ -110,12 +111,13 @@ const theme = createTheme({
           borderRadius: 10,
           padding: '8px 18px',
           boxShadow: 'none',
-          transition: 'background-color 150ms ease',
+          transition: 'background-color 150ms ease, filter 150ms ease',
         },
 
         contained: {
           '&:hover': {
             boxShadow: 'none',
+            filter: 'brightness(1.08)',
           },
         },
       },
@@ -127,63 +129,70 @@ const theme = createTheme({
           backgroundImage: 'none',
         },
 
-        outlined: {
-          borderColor: '#2A3549',
-        },
+        outlined: ({ theme }) => ({ borderColor: theme.palette.divider }),
       },
     },
 
     MuiCard: {
       styleOverrides: {
-        root: {
+        root: ({ theme }) => ({
           borderRadius: 12,
-          border: '1px solid #2A3549',
+          border: `1px solid ${theme.palette.divider}`,
           backgroundImage: 'none',
-        },
+        }),
       },
     },
 
     MuiOutlinedInput: {
       styleOverrides: {
-        root: {
+        root: ({ theme }) => ({
           borderRadius: 10,
+          backgroundColor: lighten(theme.palette.background.paper, 0.08),
+          transition: 'background-color 150ms ease',
+
+          '&:hover:not(.Mui-focused)': {
+            backgroundColor: lighten(theme.palette.background.paper, 0.11),
+          },
+
+          '&.Mui-focused': {
+            backgroundColor: lighten(theme.palette.background.paper, 0.09),
+          },
 
           '& .MuiOutlinedInput-notchedOutline': {
-            borderColor: '#3A4860',
+            borderColor: alpha(theme.palette.text.secondary, 0.35),
           },
 
           '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: '#8292AA',
+            borderColor: theme.palette.text.secondary,
           },
 
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: '#60A5FA',
+            borderColor: theme.palette.primary.main,
+            borderWidth: 2,
           },
-        },
+        }),
       },
     },
 
     MuiInputLabel: {
       styleOverrides: {
-        root: {
-          color: '#A3B0C2',
-        },
+        root: ({ theme }) => ({ color: theme.palette.text.secondary }),
       },
     },
 
     MuiAppBar: {
       styleOverrides: {
-        root: {
+        root: ({ theme }) => ({
           backgroundImage: 'none',
-          borderBottom: '1px solid #2A3549',
-        },
+          borderBottom: `1px solid ${theme.palette.divider}`,
+        }),
       },
     },
 
     MuiDialog: {
       styleOverrides: {
-        paper: {
-          border: '1px solid #2A3549',
+        paper: ({ theme }) => ({
+          border: `1px solid ${theme.palette.divider}`,
           borderRadius: 14,
           backgroundImage: 'none',
           '@media (max-width: 600px)': {
@@ -191,7 +200,7 @@ const theme = createTheme({
             width: 'calc(100% - 32px)',
             maxWidth: 'none',
           },
-        },
+        }),
       },
     },
 
@@ -205,14 +214,12 @@ const theme = createTheme({
 
     MuiTableCell: {
       styleOverrides: {
-        root: {
-          borderColor: '#2A3549',
-        },
+        root: ({ theme }) => ({ borderColor: theme.palette.divider }),
 
-        head: {
+        head: ({ theme }) => ({
           fontWeight: 600,
-          color: '#F1F5F9',
-        },
+          color: theme.palette.text.primary,
+        }),
       },
     },
 
@@ -230,6 +237,50 @@ const theme = createTheme({
         root: {
           minWidth: 640,
         },
+      },
+    },
+
+    MuiTableRow: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          '&.MuiTableRow-hover:hover': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+          },
+        }),
+      },
+    },
+
+    MuiLink: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          color: theme.palette.secondary.main,
+          textDecorationColor: alpha(theme.palette.secondary.main, 0.45),
+          '&:hover': {
+            color: theme.palette.primary.light,
+            textDecorationColor: 'currentColor',
+          },
+          '&:focus-visible': {
+            outline: `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: 2,
+            borderRadius: 2,
+          },
+        }),
+      },
+    },
+
+    MuiListItemButton: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          borderLeft: '3px solid transparent',
+          '&.active': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.12),
+            borderLeftColor: theme.palette.primary.main,
+            color: theme.palette.primary.light,
+          },
+          '&:hover': {
+            backgroundColor: alpha(theme.palette.secondary.main, 0.08),
+          },
+        }),
       },
     },
 
