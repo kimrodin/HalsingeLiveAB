@@ -53,8 +53,8 @@ function validate(v: FormValues, sectionIds: string[], isEdit: boolean): FormErr
   else if (v.startDate && v.endDate <= v.startDate) errors.endDate = 'Sluttid måste vara efter starttid';
 
   if (!v.onSaleFrom) errors.onSaleFrom = 'Biljettsläpp krävs';
-  else if (v.startDate && v.onSaleFrom >= v.startDate) {
-    errors.onSaleFrom = 'Försäljningen måste starta före evenemanget';
+  else if (v.startDate && v.onSaleFrom > v.startDate) {
+    errors.onSaleFrom = 'Biljettsläppet måste ske senast vid evenemangets start';
   }
 
   if (isEdit && sectionIds.length === 0) {
