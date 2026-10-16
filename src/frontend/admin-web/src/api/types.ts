@@ -61,7 +61,7 @@ export interface CreateEventRequest {
 
 export type UpdateEventRequest = Pick<
   EventDetails,
-  'name' | 'description' | 'startDate' | 'endDate' | 'onSaleFrom' | 'sectionPrices'
+  'venueId' | 'name' | 'description' | 'startDate' | 'endDate' | 'onSaleFrom' | 'sectionPrices'
 >;
 
 export interface VenueSeatingMap {

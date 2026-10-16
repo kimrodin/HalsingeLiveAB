@@ -114,15 +114,14 @@ export function createEvent(data: CreateEventRequest): Promise<CreateEventRespon
   });
 }
 
-export async function updateEvent(eventId: string, data: UpdateEventRequest): Promise<void> {
-  const current = await getEvent(eventId);
-  await sendJson('PUT', `/UpdateEvent/${eventId}`, {
+export function updateEvent(eventId: string, data: UpdateEventRequest): Promise<void> {
+  return sendJson('PUT', `/UpdateEvent/${eventId}`, {
     name: data.name,
     description: data.description,
     startDate: data.startDate,
     endDate: data.endDate,
     onSaleFrom: data.onSaleFrom,
-    venueId: current.venueId,
+    venueId: data.venueId,
     sectionPrices: data.sectionPrices,
   });
 }
