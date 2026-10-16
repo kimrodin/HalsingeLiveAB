@@ -31,6 +31,7 @@ interface VenueFormValues {
     streetAddress: string;
     city: string;
     postalCode: string;
+    capacity: string;
     sections: SectionFormValues[];
 }
 
@@ -68,13 +69,14 @@ function createSection(): SectionFormValues {
 
 function toFormValues(venue?: Venue): VenueFormValues {
     if (!venue) {
-        return { name: '', streetAddress: '', postalCode: '', city: '', sections: [createSection()] };
+        return { name: '', streetAddress: '', postalCode: '', city: '', capacity: '', sections: [createSection()] };
     }
     return {
         name: venue.name,
         streetAddress: venue.streetAddress,
         postalCode: venue.postalCode,
         city: venue.city,
+        capacity: String(venue.capacity),
         sections: venue.sections.length
             ? venue.sections.map((s) => ({
                 id: crypto.randomUUID(),
@@ -102,6 +104,9 @@ function validate(v: VenueFormValues): FormErrors {
     if (!v.city.trim()) errors.city = 'Stad krävs';
     else if (v.city.length > 100) errors.city = 'Staden får vara högst 100 tecken';
 
+    const venueCapacity = Number(v.capacity);
+    if (!Number.isInteger(venueCapacity) || venueCapacity < 1) errors.capacity = 'Ange minst 1 plats';
+
     if (v.sections.length === 0) errors.sections = 'Lägg till minst en sektion';
 
     v.sections.forEach((section) => {
@@ -113,6 +118,11 @@ function validate(v: VenueFormValues): FormErrors {
             errors[`section-${section.id}-seatCount`] = 'Ange minst 1 plats';
         }
     });
+
+    const sectionCapacity = v.sections.reduce((total, section) => total + (Number(section.seatCount) || 0), 0);
+    if (Number.isInteger(venueCapacity) && venueCapacity > 0 && sectionCapacity > venueCapacity) {
+        errors.sections = 'Sektionernas sammanlagda kapacitet får inte överstiga lokalens kapacitet';
+    }
 
     return errors;
 }
@@ -141,7 +151,7 @@ function VenueForm({ venue }: { venue?: Venue }) {
     });
 
     const handleChange =
-        (field: 'name' | 'streetAddress' | 'postalCode' | 'city') => (e: ChangeEvent<HTMLInputElement>) => {
+        (field: 'name' | 'streetAddress' | 'postalCode' | 'city' | 'capacity') => (e: ChangeEvent<HTMLInputElement>) => {
             setValues((prev) => ({ ...prev, [field]: e.target.value }));
         };
 
@@ -178,6 +188,7 @@ function VenueForm({ venue }: { venue?: Venue }) {
             streetAddress: values.streetAddress.trim(),
             postalCode: values.postalCode.trim(),
             city: values.city.trim(),
+            capacity: Number(values.capacity),
             sections: values.sections.map((s) => ({
                 id: s.sectionId,
                 name: s.name.trim(),
@@ -191,6 +202,8 @@ function VenueForm({ venue }: { venue?: Venue }) {
         (total, s) => total + (Number(s.seatCount) || 0),
         0,
     );
+    const venueCapacity = Number(values.capacity) || 0;
+    const remainingCapacity = venueCapacity - totalCapacity;
 
     return (
         <>
@@ -232,6 +245,21 @@ function VenueForm({ venue }: { venue?: Venue }) {
                             label="Stad" required value={values.city} onChange={handleChange('city')}
                             error={!!errors.city} helperText={errors.city}
                         />
+
+                        <Paper variant="outlined" sx={{ p: 2 }}>
+                            <Stack spacing={1}>
+                                <Typography variant="h6">Lokalens kapacitet</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Högsta antal personer som lokalen får ta emot.
+                                </Typography>
+                                <TextField
+                                    label="Antal platser i lokalen" required type="number" fullWidth
+                                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                                    value={values.capacity} onChange={handleChange('capacity')}
+                                    error={!!errors.capacity} helperText={errors.capacity}
+                                />
+                            </Stack>
+                        </Paper>
 
                         <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -300,7 +328,8 @@ function VenueForm({ venue }: { venue?: Venue }) {
                             </Stack>
 
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                Total kapacitet: {totalCapacity.toLocaleString('sv-SE')} platser
+                                Sektionernas kapacitet: {totalCapacity.toLocaleString('sv-SE')} av {venueCapacity.toLocaleString('sv-SE')} platser
+                                {' · '}Platser kvar att använda: {remainingCapacity.toLocaleString('sv-SE')}
                             </Typography>
                         </Box>
 

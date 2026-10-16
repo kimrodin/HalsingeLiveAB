@@ -95,10 +95,6 @@ function sectionRequestBody(section: VenueSectionInput) {
   };
 }
 
-function totalSeats(sections: { seatCount: number }[]): number {
-  return sections.reduce((total, section) => total + section.seatCount, 0);
-}
-
 export async function getVenues(): Promise<Venue[]> {
   const dto = await request<ListVenuesDto>('/ListVenues');
   return dto.venues.map(venueFromListItem);
@@ -114,7 +110,7 @@ export async function createVenue(data: SaveVenueRequest): Promise<Venue> {
     streetAddress: data.streetAddress,
     postalCode: data.postalCode,
     city: data.city,
-    capacity: totalSeats(data.sections),
+    capacity: data.capacity,
   });
 
   try {
@@ -143,22 +139,35 @@ export async function updateVenue(venueId: string, data: SaveVenueRequest): Prom
   });
   const toAdd = data.sections.filter((section) => !section.id);
 
-  await sendJson('PUT', `/UpdateVenue/${venueId}`, {
+  const updateVenueCapacity = () => sendJson('PUT', `/UpdateVenue/${venueId}`, {
     venueId,
     name: data.name,
     streetAddress: data.streetAddress,
     postalCode: data.postalCode,
     city: data.city,
-    capacity: totalSeats(data.sections),
+    capacity: data.capacity,
   });
+
+  const reductions = toUpdate.filter((section) => {
+    const old = current.sections.find((currentSection) => currentSection.id === section.id);
+    return old && section.seatCount < old.seatCount;
+  });
+  const increases = toUpdate.filter((section) => !reductions.includes(section));
 
   for (const section of toDelete) {
     await request(`/DeleteSection/${venueId}/${section.id}`, { method: 'DELETE' });
   }
+  for (const section of reductions) {
+    await sendJson('PUT', `/UpdateSection/${venueId}/${section.id}`, sectionRequestBody(section));
+  }
+
+  // Sänk lokalens kapacitet först när sektionerna ryms inom den nya gränsen.
+  await updateVenueCapacity();
+
   for (const section of toAdd) {
     await sendJson('POST', `/CreateSection/${venueId}`, sectionRequestBody(section));
   }
-  for (const section of toUpdate) {
+  for (const section of increases) {
     await sendJson(
       'PUT',
       `/UpdateSection/${venueId}/${section.id}`,

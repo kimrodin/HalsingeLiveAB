@@ -29,6 +29,7 @@ export interface SaveVenueRequest {
   streetAddress: string;
   postalCode: string;
   city: string;
+  capacity: number;
   sections: VenueSectionInput[];
 }
 
