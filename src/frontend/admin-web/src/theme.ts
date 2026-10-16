@@ -1,5 +1,5 @@
 
-import { createTheme } from '@mui/material/styles';
+import { createTheme, responsiveFontSizes } from '@mui/material/styles';
 
 const theme = createTheme({
   // Färger för hela applikationen
@@ -99,6 +99,7 @@ const theme = createTheme({
         body: {
           backgroundColor: '#0B1120',
           scrollbarColor: '#3B4962 #0B1120',
+          overflowX: 'hidden',
         },
       },
     },
@@ -185,6 +186,11 @@ const theme = createTheme({
           border: '1px solid #2A3549',
           borderRadius: 14,
           backgroundImage: 'none',
+          '@media (max-width: 600px)': {
+            margin: 16,
+            width: 'calc(100% - 32px)',
+            maxWidth: 'none',
+          },
         },
       },
     },
@@ -209,7 +215,25 @@ const theme = createTheme({
         },
       },
     },
+
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        },
+      },
+    },
+
+    MuiTable: {
+      styleOverrides: {
+        root: {
+          minWidth: 640,
+        },
+      },
+    },
+
   },
 });
 
-export default theme;
+export default responsiveFontSizes(theme);

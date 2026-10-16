@@ -53,9 +53,9 @@ export default function EventsPage() {
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 1, justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h4">Evenemang</Typography>
-        <Button variant="contained" component={RouterLink} to="/events/new">
+        <Button variant="contained" component={RouterLink} to="/events/new" sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' } }}>
           Nytt evenemang
         </Button>
       </Box>
