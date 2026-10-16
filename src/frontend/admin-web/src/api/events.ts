@@ -85,8 +85,9 @@ export async function getEvents(params: ListEventsParams = {}): Promise<ListEven
   const query = new URLSearchParams();
   if (params.eventName) query.set('EventName', params.eventName);
   if (params.venueId) query.set('VenueId', params.venueId);
-  if (params.startAfter) query.set('StartAfter', params.startAfter);
-  if (params.startsBefore) query.set('StartsBefore', params.startsBefore);
+  // datetime-local has no timezone; send UTC just like the event form does.
+  if (params.startAfter) query.set('StartAfter', new Date(params.startAfter).toISOString());
+  if (params.startsBefore) query.set('StartsBefore', new Date(params.startsBefore).toISOString());
   query.set('Page', String(params.page ?? 1));
   query.set('PageSize', String(params.pageSize ?? 10));
 

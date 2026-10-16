@@ -71,10 +71,10 @@ export default function EventsPage() {
             <MenuItem value="">Alla scener</MenuItem>
             {venues?.map((venue) => <MenuItem key={venue.id} value={venue.id}>{venue.name}</MenuItem>)}
           </TextField>
-          <TextField label="Startar efter" type="datetime-local" value={startAfter}
+          <TextField label="Från" type="datetime-local" value={startAfter}
             onChange={(event) => { setStartAfter(event.target.value); setPage(1); }}
             slotProps={{ inputLabel: { shrink: true } }} />
-          <TextField label="Startar före" type="datetime-local" value={startsBefore}
+          <TextField label="Till" type="datetime-local" value={startsBefore}
             onChange={(event) => { setStartsBefore(event.target.value); setPage(1); }}
             slotProps={{ inputLabel: { shrink: true } }} />
           <Button onClick={() => {
