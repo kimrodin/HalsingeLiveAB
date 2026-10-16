@@ -30,6 +30,25 @@ interface EventListItemDto {
 
 interface ListEventsDto {
   events: EventListItemDto[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ListEventsParams {
+  eventName?: string;
+  venueId?: string;
+  startAfter?: string;
+  startsBefore?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListEventsResult {
+  events: EventDetails[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
 interface CreateEventResponseDto {
@@ -62,9 +81,20 @@ function eventFromListItem(event: EventListItemDto): EventDetails {
   };
 }
 
-export async function getEvents(): Promise<EventDetails[]> {
-  const { events } = await request<ListEventsDto>('/ListEvents');
-  return events.map(eventFromListItem);
+export async function getEvents(params: ListEventsParams = {}): Promise<ListEventsResult> {
+  const query = new URLSearchParams();
+  if (params.eventName) query.set('EventName', params.eventName);
+  if (params.venueId) query.set('VenueId', params.venueId);
+  if (params.startAfter) query.set('StartAfter', params.startAfter);
+  if (params.startsBefore) query.set('StartsBefore', params.startsBefore);
+  query.set('Page', String(params.page ?? 1));
+  query.set('PageSize', String(params.pageSize ?? 10));
+
+  const result = await request<ListEventsDto>(`/ListEvents?${query.toString()}`);
+  return {
+    ...result,
+    events: result.events.map(eventFromListItem),
+  };
 }
 
 export async function getEvent(eventId: string): Promise<EventDetails> {
