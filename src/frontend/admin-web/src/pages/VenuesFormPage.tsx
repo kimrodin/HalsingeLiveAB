@@ -74,7 +74,7 @@ function toFormValues(venue?: Venue): VenueFormValues {
         name: venue.name,
         streetAddress: venue.streetAddress,
         postalCode: venue.postalCode,
-        city: venue.postalCode,
+        city: venue.city,
         sections: venue.sections.length
             ? venue.sections.map((s) => ({
                 id: crypto.randomUUID(),
