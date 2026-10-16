@@ -14,6 +14,12 @@ const seatingTypeLabel: Record<SectionSeatingType, string> = {
   seated: 'Sittplats',
 };
 
+function getVenueAddress(venue: Venue): string {
+  return [venue.streetAddress, venue.postalCode, venue.city]
+    .filter(Boolean)
+    .join(', ');
+}
+
 export default function VenuesPage() {
 
   const queryClient = useQueryClient();
@@ -33,6 +39,8 @@ export default function VenuesPage() {
     queryKey: ['venues'],
     queryFn: getVenues,
   });
+
+
 
   return (
     <>
@@ -65,7 +73,7 @@ export default function VenuesPage() {
               {venues.map((venue) => (
                 <TableRow key={venue.id} hover>
                   <TableCell>{venue.name}</TableCell>
-                  <TableCell>{venue.address ?? '–'}</TableCell>
+                  <TableCell>{getVenueAddress(venue) || '–'}</TableCell>
                   <TableCell align="right">
                     {venue.capacity === undefined ? '–' : venue.capacity.toLocaleString('sv-SE')}
                   </TableCell>

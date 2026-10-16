@@ -15,7 +15,9 @@ public class VenueListItemResponseDTO
 {
     public Guid VenueId { get; init; }
     public required string VenueName { get; init; }
-    public required string VenueAddress { get; init; }
+    public required string VenueStreetAddress { get; init; }
+    public required string VenuePostalCode { get; init; }
+    public required string VenueCity { get; init; }
     public int VenueCapacity { get; init; }
     public IReadOnlyList<VenueSectionResponse> Sections { get; init; } = [];
 }

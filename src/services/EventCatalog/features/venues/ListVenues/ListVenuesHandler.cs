@@ -15,7 +15,9 @@ public class ListVenuesHandler(EventCatalogDbContext dbContext)
             {
                 VenueId = v.VenueId,
                 VenueName = v.VenueName,
-                VenueAddress = v.VenueAddress,
+                VenueStreetAddress = v.VenueStreetAddress,
+                VenuePostalCode = v.VenuePostalCode,
+                VenueCity = v.VenueCity,
                 VenueCapacity = v.VenueCapacity,
                 Sections = v.VenueSections
                     .OrderBy(section => section.Name)

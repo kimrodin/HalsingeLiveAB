@@ -14,6 +14,9 @@ using EventCatalog.Features.Venues.ListVenues;
 using EventCatalog.Features.Venues.UpdateVenue;
 using EventCatalog.Features.Venues.UpdateSection;
 using EventCatalog.Features.Venues.SeatingMaps;
+using EventCatalog.Features.Seed;
+using EventCatalog.Features.Seed.SeedEvents;
+using EventCatalog.Features.Seed.SeedVenues;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +47,10 @@ builder.Services.AddScoped<UploadVenueSeatingMapHandler>();
 builder.Services.AddScoped<ListVenueSeatingMapsHandler>();
 builder.Services.AddScoped<GetVenueSeatingMapHandler>();
 builder.Services.AddScoped<DeleteVenueSeatingMapHandler>();
+builder.Services.AddScoped<SeedVenuesHandler>();
+builder.Services.AddScoped<SeedEventsHandler>();
+builder.Services.AddScoped<SeedAllHandler>();
+builder.Services.AddScoped<DeleteSeedDataHandler>();
 
 var app = builder.Build();
 

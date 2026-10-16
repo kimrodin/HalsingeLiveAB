@@ -5,11 +5,13 @@ namespace EventCatalog.Features.Venues;
 // Reglerna anropas av handlers, även vid användning utanför HTTP-API:t.
 public static class VenueValidation
 {
-    public static void ValidateVenue(string name, string address, int capacity)
+    public static void ValidateVenue(string name, string streetAddress, string postalCode, string city, int capacity)
     {
         var errors = new Dictionary<string, string[]>();
         ValidateText(errors, "Name", name, 200);
-        ValidateText(errors, "Address", address, 500);
+        ValidateText(errors, "StreetAddress", streetAddress, 500);
+        ValidateText(errors, "PostalCode", postalCode, 20);
+        ValidateText(errors, "City", city, 100);
         ValidateCapacity(errors, capacity);
         ThrowIfInvalid(errors);
     }

@@ -13,7 +13,8 @@ public class GetVenueHandler(EventCatalogDbContext dbContext)
         return await dbContext.Venues
             .Where(v => v.VenueId == request.VenueId)
             .Select(v => new GetVenueResponse(
-                v.VenueId, v.VenueName, v.VenueAddress,
+                v.VenueId, v.VenueName, v.VenueStreetAddress,
+                v.VenuePostalCode, v.VenueCity,
                 v.VenueCapacity,
                 v.VenueSections
                     .OrderBy(section => section.Name)
