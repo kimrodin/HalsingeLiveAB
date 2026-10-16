@@ -19,9 +19,9 @@ interface SectionDto {
 interface VenueDto {
   venueId: string;
   name: string;
-  venuestreetAddress: string;
-  venueCity: string;
-  venuePostalCode: string;
+  streetAddress: string;
+  city: string;
+  postalCode: string;
   capacity: number;
   sections: SectionDto[];
 }
@@ -67,9 +67,9 @@ function venueFromDto(venue: VenueDto): Venue {
   return {
     id: venue.venueId,
     name: venue.name,
-    streetAddress: venue.venuestreetAddress,
-    city: venue.venueCity,
-    postalCode: venue.venuePostalCode,
+    streetAddress: venue.streetAddress,
+    city: venue.city,
+    postalCode: venue.postalCode,
     capacity: venue.capacity,
     sections: venue.sections.map(sectionFromDto),
   };

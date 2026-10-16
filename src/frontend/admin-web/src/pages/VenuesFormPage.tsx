@@ -89,14 +89,19 @@ function toFormValues(venue?: Venue): VenueFormValues {
 
 function validate(v: VenueFormValues): FormErrors {
     const errors: FormErrors = {};
+
     if (!v.name.trim()) errors.name = 'Scennamn krävs';
-    else if (v.name.length > 200) errors.name = 'Max 200 tecken';
-    if (!v.streetAddress.trim()) errors.address = 'Adress krävs';
-    else if (v.streetAddress.length > 500) errors.address = 'Max 500 tecken';
-    if (!v.postalCode.trim()) errors.address = 'Adress krävs';
-    else if (v.postalCode.length > 500) errors.address = 'Max 500 tecken';
-    if (!v.city.trim()) errors.address = 'Adress krävs';
-    else if (v.city.length > 500) errors.address = 'Max 500 tecken';
+    else if (v.name.length > 200) errors.name = 'Scennamn får vara högst 200 tecken';
+
+    if (!v.streetAddress.trim()) errors.streetAddress = 'Gatuadress krävs';
+    else if (v.streetAddress.length > 500) errors.streetAddress = 'Gatuadressen får vara högst 500 tecken';
+
+    if (!v.postalCode.trim()) errors.postalCode = 'Postnummer krävs';
+    else if (v.postalCode.length > 20) errors.postalCode = 'Postnumret får vara högst 20 tecken';
+
+    if (!v.city.trim()) errors.city = 'Stad krävs';
+    else if (v.city.length > 100) errors.city = 'Staden får vara högst 100 tecken';
+
     if (v.sections.length === 0) errors.sections = 'Lägg till minst en sektion';
 
     v.sections.forEach((section) => {
