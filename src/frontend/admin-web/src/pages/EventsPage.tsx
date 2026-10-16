@@ -1,7 +1,7 @@
 import { Link as RouterLink } from 'react-router';
 import {
-  Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, Typography,
+  Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Pagination,
+  Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { getEvents, getVenues, deleteEvent } from '../api/catalog';
 import type { EventDetails } from '../api/catalog';
@@ -16,6 +16,12 @@ export default function EventsPage() {
 
   const [eventToDelete, setEventToDelete] = useState<EventDetails | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [eventName, setEventName] = useState('');
+  const [venueId, setVenueId] = useState('');
+  const [startAfter, setStartAfter] = useState('');
+  const [startsBefore, setStartsBefore] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const mutation = useMutation({
     mutationFn: deleteEvent,
@@ -26,8 +32,15 @@ export default function EventsPage() {
   });
 
   const { data, isPending, isError } = useQuery({
-    queryKey: ['events'],
-    queryFn: getEvents,
+    queryKey: ['events', { eventName, venueId, startAfter, startsBefore, page, pageSize }],
+    queryFn: () => getEvents({
+      eventName: eventName.trim() || undefined,
+      venueId: venueId || undefined,
+      startAfter: startAfter || undefined,
+      startsBefore: startsBefore || undefined,
+      page,
+      pageSize,
+    }),
   });
 
   const { data: venues } = useQuery({
@@ -49,11 +62,31 @@ export default function EventsPage() {
 
       {isPending && <CircularProgress />}
       {isError && <Alert severity="error">Kunde inte hämta evenemang.</Alert>}
-      {data && data.length === 0 && (
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+          <TextField label="Sök evenemang" value={eventName} fullWidth
+            onChange={(event) => { setEventName(event.target.value); setPage(1); }} />
+          <TextField select label="Scen" value={venueId} sx={{ minWidth: { md: 220 } }}
+            onChange={(event) => { setVenueId(event.target.value); setPage(1); }}>
+            <MenuItem value="">Alla scener</MenuItem>
+            {venues?.map((venue) => <MenuItem key={venue.id} value={venue.id}>{venue.name}</MenuItem>)}
+          </TextField>
+          <TextField label="Startar efter" type="datetime-local" value={startAfter}
+            onChange={(event) => { setStartAfter(event.target.value); setPage(1); }}
+            slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="Startar före" type="datetime-local" value={startsBefore}
+            onChange={(event) => { setStartsBefore(event.target.value); setPage(1); }}
+            slotProps={{ inputLabel: { shrink: true } }} />
+          <Button onClick={() => {
+            setEventName(''); setVenueId(''); setStartAfter(''); setStartsBefore(''); setPage(1);
+          }}>Rensa</Button>
+        </Stack>
+      </Paper>
+      {data && data.totalCount === 0 && (
         <Alert severity="info">Det finns inga evenemang ännu.</Alert>
       )}
 
-      {data && data.length > 0 && (
+      {data && data.events.length > 0 && (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -66,7 +99,7 @@ export default function EventsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.map((event) => (
+              {data.events.map((event) => (
                 <TableRow key={event.eventId} hover>
                   <TableCell>{event.name}</TableCell>
                   <TableCell>{venueName(event.venueId)}</TableCell>
@@ -92,6 +125,13 @@ export default function EventsPage() {
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+
+      {data && data.totalCount > pageSize && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+          <Pagination count={Math.ceil(data.totalCount / pageSize)} page={page}
+            onChange={(_, nextPage) => setPage(nextPage)} color="primary" />
+        </Box>
       )}
 
       <Dialog
