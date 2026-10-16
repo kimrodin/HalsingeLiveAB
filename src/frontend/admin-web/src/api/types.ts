@@ -10,7 +10,9 @@ export interface VenueSection {
 export interface Venue {
   id: string;
   name: string;
-  address: string;
+  streetAddress: string;
+  city: string;
+  postalCode: string;
   capacity: number;
   sections: VenueSection[];
 }
@@ -24,7 +26,9 @@ export interface VenueSectionInput {
 
 export interface SaveVenueRequest {
   name: string;
-  address: string;
+  streetAddress: string;
+  postalCode: string;
+  city: string;
   sections: VenueSectionInput[];
 }
 
