@@ -1,4 +1,4 @@
-using Booking.Features.EventInventory.Models;
+using EventInventoryModel = Booking.Features.EventInventory.Models.EventInventory;
 
 namespace Booking.Features.Bookings.Models;
 
@@ -11,5 +11,5 @@ public class BookingItem
     public decimal UnitPrice { get; set; }
 
     public Booking Booking { get; set; } = null!;
-    public EventInventory EventInventory { get; set; } = null!;
+    public EventInventoryModel EventInventory { get; set; } = null!;
 }
