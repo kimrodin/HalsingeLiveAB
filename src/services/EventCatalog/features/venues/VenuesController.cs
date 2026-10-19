@@ -10,6 +10,7 @@ using EventCatalog.Features.Venues.CreateSection;
 using EventCatalog.Features.Venues.DeleteSection;
 using EventCatalog.Features.Venues.UpdateSection;
 using Microsoft.AspNetCore.Authorization;
+using EventCatalog.Features.Venues.SeatingMaps;
 
 namespace EventCatalog.Features.Venues;
 
@@ -24,6 +25,10 @@ public class VenuesController(
     CreateSectionHandler createSectionHandler,
     DeleteSectionHandler deleteSectionHandler,
     UpdateSectionHandler updateSectionHandler,
+    UploadVenueSeatingMapHandler uploadVenueSeatingMapHandler,
+    ListVenueSeatingMapsHandler listVenueSeatingMapsHandler,
+    GetVenueSeatingMapHandler getVenueSeatingMapHandler,
+    DeleteVenueSeatingMapHandler deleteVenueSeatingMapHandler,
     ILogger<VenuesController> logger) : ControllerBase
 {
     [Authorize(Policy = "AdminOnly")]
@@ -369,6 +374,94 @@ public class VenuesController(
             logger.LogError(ex, "Failed to update section {SectionId} for venue {VenueId}", sectionId, venueId);
             return Problem(title: "An error occurred while updating the section.",
                 statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    [HttpPost("{venueId:guid}")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(VenueSeatingMapResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> UploadVenueSeatingMap(Guid venueId,
+        [FromForm] UploadVenueSeatingMapRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await uploadVenueSeatingMapHandler.Handle(venueId, request, cancellationToken);
+            if (response is null) return NotFound();
+            var downloadUrl = Url.Action(nameof(DownloadVenueSeatingMap), new { venueId, mapId = response.VenueSeatingMapId }) ?? string.Empty;
+            response = response with { DownloadUrl = downloadUrl };
+            return Created(downloadUrl, response);
+        }
+        catch (VenueValidationException ex) { return RequestValidationProblem(ex); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upload seating map for venue {VenueId}", venueId);
+            return Problem(title: "An error occurred while uploading the seating map.", statusCode: 500);
+        }
+    }
+
+    [HttpGet("{venueId:guid}")]
+    [ProducesResponseType(typeof(IReadOnlyList<VenueSeatingMapResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListVenueSeatingMaps(Guid venueId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await listVenueSeatingMapsHandler.Handle(venueId, cancellationToken);
+            if (!result.VenueFound) return NotFound();
+            var maps = result.Maps.Select(map => map with
+            {
+                DownloadUrl = Url.Action(nameof(DownloadVenueSeatingMap), new { venueId, mapId = map.VenueSeatingMapId }) ?? string.Empty
+            });
+            return Ok(maps);
+        }
+        catch (VenueValidationException ex) { return RequestValidationProblem(ex); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to list seating maps for venue {VenueId}", venueId);
+            return Problem(title: "An error occurred while listing the seating maps.", statusCode: 500);
+        }
+    }
+
+    [HttpGet("{venueId:guid}/{mapId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadVenueSeatingMap(Guid venueId, Guid mapId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await getVenueSeatingMapHandler.Handle(venueId, mapId, cancellationToken);
+            return result is null ? NotFound() : File(result.Content, result.ContentType, result.FileName);
+        }
+        catch (VenueValidationException ex) { return RequestValidationProblem(ex); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to download seating map {MapId} for venue {VenueId}", mapId, venueId);
+            return Problem(title: "An error occurred while downloading the seating map.", statusCode: 500);
+        }
+    }
+
+    [HttpDelete("{venueId:guid}/{mapId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> DeleteVenueSeatingMap(Guid venueId, Guid mapId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await deleteVenueSeatingMapHandler.Handle(venueId, mapId, cancellationToken)
+                ? NoContent() : NotFound();
+        }
+        catch (VenueValidationException ex) { return RequestValidationProblem(ex); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete seating map {MapId} for venue {VenueId}", mapId, venueId);
+            return Problem(title: "An error occurred while deleting the seating map.", statusCode: 500);
         }
     }
 

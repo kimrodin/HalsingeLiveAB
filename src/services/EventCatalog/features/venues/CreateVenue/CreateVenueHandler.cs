@@ -8,13 +8,15 @@ public class CreateVenueHandler(EventCatalogDbContext dbContext)
 {
     public async Task<CreateVenueResponse> Handle(CreateVenueRequest request, CancellationToken cancellationToken = default)
     {
-        VenueValidation.ValidateVenue(request.Name, request.Address, request.Capacity);
+        VenueValidation.ValidateVenue(request.Name, request.StreetAddress, request.PostalCode, request.City, request.Capacity);
 
         var venue = new Venue
         {
             VenueId = Guid.NewGuid(),
             VenueName = request.Name,
-            VenueAddress = request.Address,
+            VenueStreetAddress = request.StreetAddress,
+            VenuePostalCode = request.PostalCode,
+            VenueCity = request.City,
             VenueCapacity = request.Capacity,
         };
 
@@ -22,7 +24,8 @@ public class CreateVenueHandler(EventCatalogDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new CreateVenueResponse(
-            venue.VenueId, venue.VenueName, venue.VenueAddress,
+            venue.VenueId, venue.VenueName, venue.VenueStreetAddress,
+            venue.VenuePostalCode, venue.VenueCity,
             venue.VenueCapacity);
     }
 }

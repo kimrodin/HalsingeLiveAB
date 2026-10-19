@@ -94,13 +94,15 @@ public class EventsController(
     [ProducesResponseType(typeof(ListEventsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
 
-    public async Task<IActionResult> ListEvents()
+    public async Task<IActionResult> ListEvents(
+        [FromQuery] ListEventsRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
             logger.LogInformation("Listing events.");
 
-            var events = await listEventsHandler.Handle();
+            var events = await listEventsHandler.Handle(request, cancellationToken);
 
             return Ok(events);
         }

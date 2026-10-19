@@ -4,5 +4,7 @@ namespace EventCatalog.Features.Venues.CreateVenue;
 public record CreateVenueResponse(
     Guid VenueId, 
     string Name, 
-    string Address, 
+    string StreetAddress,
+    string PostalCode,
+    string City,
     int Capacity);

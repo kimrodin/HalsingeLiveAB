@@ -19,7 +19,9 @@ interface SectionDto {
 interface VenueDto {
   venueId: string;
   name: string;
-  address: string;
+  streetAddress: string;
+  city: string;
+  postalCode: string;
   capacity: number;
   sections: SectionDto[];
 }
@@ -27,7 +29,9 @@ interface VenueDto {
 interface VenueListItemDto {
   venueId: string;
   venueName: string;
-  venueAddress: string;
+  venueStreetAddress: string;
+  venueCity: string;
+  venuePostalCode: string;
   venueCapacity: number;
   sections: SectionDto[];
 }
@@ -63,7 +67,9 @@ function venueFromDto(venue: VenueDto): Venue {
   return {
     id: venue.venueId,
     name: venue.name,
-    address: venue.address,
+    streetAddress: venue.streetAddress,
+    city: venue.city,
+    postalCode: venue.postalCode,
     capacity: venue.capacity,
     sections: venue.sections.map(sectionFromDto),
   };
@@ -73,7 +79,9 @@ function venueFromListItem(venue: VenueListItemDto): Venue {
   return {
     id: venue.venueId,
     name: venue.venueName,
-    address: venue.venueAddress,
+    streetAddress: venue.venueStreetAddress,
+    city: venue.venueCity,
+    postalCode: venue.venuePostalCode,
     capacity: venue.venueCapacity,
     sections: venue.sections.map(sectionFromDto),
   };
@@ -85,10 +93,6 @@ function sectionRequestBody(section: VenueSectionInput) {
     capacity: section.seatCount,
     seatingType: seatingToApi(section.seatingType),
   };
-}
-
-function totalSeats(sections: { seatCount: number }[]): number {
-  return sections.reduce((total, section) => total + section.seatCount, 0);
 }
 
 export async function getVenues(): Promise<Venue[]> {
@@ -103,8 +107,10 @@ export async function getVenue(venueId: string): Promise<Venue> {
 export async function createVenue(data: SaveVenueRequest): Promise<Venue> {
   const created = await sendJson<CreateVenueResponseDto>('POST', '/CreateVenue', {
     name: data.name,
-    address: data.address,
-    capacity: totalSeats(data.sections),
+    streetAddress: data.streetAddress,
+    postalCode: data.postalCode,
+    city: data.city,
+    capacity: data.capacity,
   });
 
   try {
@@ -133,20 +139,35 @@ export async function updateVenue(venueId: string, data: SaveVenueRequest): Prom
   });
   const toAdd = data.sections.filter((section) => !section.id);
 
-  await sendJson('PUT', `/UpdateVenue/${venueId}`, {
+  const updateVenueCapacity = () => sendJson('PUT', `/UpdateVenue/${venueId}`, {
     venueId,
     name: data.name,
-    address: data.address,
-    capacity: totalSeats(data.sections),
+    streetAddress: data.streetAddress,
+    postalCode: data.postalCode,
+    city: data.city,
+    capacity: data.capacity,
   });
+
+  const reductions = toUpdate.filter((section) => {
+    const old = current.sections.find((currentSection) => currentSection.id === section.id);
+    return old && section.seatCount < old.seatCount;
+  });
+  const increases = toUpdate.filter((section) => !reductions.includes(section));
 
   for (const section of toDelete) {
     await request(`/DeleteSection/${venueId}/${section.id}`, { method: 'DELETE' });
   }
+  for (const section of reductions) {
+    await sendJson('PUT', `/UpdateSection/${venueId}/${section.id}`, sectionRequestBody(section));
+  }
+
+  // Sänk lokalens kapacitet först när sektionerna ryms inom den nya gränsen.
+  await updateVenueCapacity();
+
   for (const section of toAdd) {
     await sendJson('POST', `/CreateSection/${venueId}`, sectionRequestBody(section));
   }
-  for (const section of toUpdate) {
+  for (const section of increases) {
     await sendJson(
       'PUT',
       `/UpdateSection/${venueId}/${section.id}`,

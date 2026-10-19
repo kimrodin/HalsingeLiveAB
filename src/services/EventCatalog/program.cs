@@ -15,6 +15,10 @@ using EventCatalog.Features.Venues.GetVenue;
 using EventCatalog.Features.Venues.ListVenues;
 using EventCatalog.Features.Venues.UpdateVenue;
 using EventCatalog.Features.Venues.UpdateSection;
+using EventCatalog.Features.Venues.SeatingMaps;
+using EventCatalog.Features.Seed;
+using EventCatalog.Features.Seed.SeedEvents;
+using EventCatalog.Features.Seed.SeedVenues;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,7 +47,12 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.Authority = "http://localhost:8180/realms/halsingelive";
+        options.Authority = builder.Configuration["Authentication:Authority"]
+            ?? "http://localhost:8180/realms/halsingelive";
+        // Containers fetch metadata and signing keys through Keycloak's internal
+        // backchannel; tokens still use the public Authority as their issuer.
+        if (builder.Configuration["Authentication:MetadataAddress"] is { Length: > 0 } metadataAddress)
+            options.MetadataAddress = metadataAddress;
         options.Audience = "eventcatalog";
 
         // HTTP tillåts bara för den lokala utvecklingsmiljön.
@@ -52,6 +61,7 @@ builder.Services
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
+            ValidIssuer = options.Authority.TrimEnd('/'),
             NameClaimType = "preferred_username",
             RoleClaimType = "roles"
         };
@@ -65,6 +75,16 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole("admin");
     });
 });
+builder.Services.Configure<VenueMapStorageOptions>(builder.Configuration.GetSection("VenueMapStorage"));
+builder.Services.AddSingleton<IVenueSeatingMapStorage, LocalVenueSeatingMapStorage>();
+builder.Services.AddScoped<UploadVenueSeatingMapHandler>();
+builder.Services.AddScoped<ListVenueSeatingMapsHandler>();
+builder.Services.AddScoped<GetVenueSeatingMapHandler>();
+builder.Services.AddScoped<DeleteVenueSeatingMapHandler>();
+builder.Services.AddScoped<SeedVenuesHandler>();
+builder.Services.AddScoped<SeedEventsHandler>();
+builder.Services.AddScoped<SeedAllHandler>();
+builder.Services.AddScoped<DeleteSeedDataHandler>();
 
 var app = builder.Build();
 

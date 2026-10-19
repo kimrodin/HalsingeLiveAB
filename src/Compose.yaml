@@ -1,17 +1,27 @@
+# Keep existing local database and Keycloak volumes after moving this file.
+name: services
+
 services:
 
   eventcatalog:
     build:
-      context: ./EventCatalog
+      context: ./services/EventCatalog
       dockerfile: Dockerfile
     environment:
       ConnectionStrings__EventCatalog: "Host=eventcatalog-db;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
       ASPNETCORE_ENVIRONMENT: Development
+      Authentication__Authority: http://localhost:8180/realms/halsingelive
+      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
+      VenueMapStorage__RootPath: /app/uploads/venue-maps
     ports:
       - "8080:8080"
+    volumes:
+      - venue-maps-data:/app/uploads/venue-maps
     depends_on:
       eventcatalog-db:
         condition: service_healthy
+      keycloak:
+        condition: service_started
 
   eventcatalog-db:
     image: postgres:18-alpine
@@ -29,17 +39,31 @@ services:
       timeout: 5s
       retries: 10
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      API_PROXY_TARGET: eventcatalog:8080
+    ports:
+      - "5173:80"
+    depends_on:
+      - eventcatalog
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
     command: start-dev
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: keycloak-admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: keycloak-admin
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     ports:
       - "127.0.0.1:8180:8080"
     volumes:
       - keycloak-data:/opt/keycloak/data
 
 volumes:
-  eventcatalog-data:
   keycloak-data:
+  eventcatalog-data:
+  venue-maps-data:

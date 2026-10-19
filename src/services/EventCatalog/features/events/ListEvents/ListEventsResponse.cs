@@ -2,11 +2,10 @@ namespace EventCatalog.Features.Events.ListEvents;
 
 public class ListEventsResponse
 {
-    // En tom lista returneras när det inte finns några lokaler.
     public IReadOnlyList<EventListItemResponseDTO> Events { get; init; } = [];
-
-
-    // TODO: Om paginering införs: lägg till sidnummer, sidstorlek och totalt antal lokaler.
+    public int TotalCount { get; init; }
+    public int Page { get; init; }
+    public int PageSize { get; init; }
 }
 
 public class EventListItemResponseDTO

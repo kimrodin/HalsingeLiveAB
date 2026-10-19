@@ -8,7 +8,7 @@ API:t kontrollerar token och kräver admin-behörighet för anrop som ändrar in
 
 ## 1. Starta Keycloak
 
-Lägg till följande under `services:` i `src/services/Compose.yaml`:
+Lägg till följande under `services:` i `src/Compose.yaml`:
 
 ```yaml
   keycloak:
@@ -16,7 +16,7 @@ Lägg till följande under `services:` i `src/services/Compose.yaml`:
     command: start-dev
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: keycloak-admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: HalsingeLive
+      KC_BOOTSTRAP_ADMIN_PASSWORD: keycloak-admin
     ports:
       - "127.0.0.1:8180:8080"
     volumes:
@@ -37,7 +37,7 @@ Bootstrap-inställningarna ändrar inte lösenordet på ett redan befintligt kon
 Kör från projektets rot:
 
 ```bash
-docker compose -f src/services/Compose.yaml up -d keycloak eventcatalog-db
+docker compose -f src/Compose.yaml up -d keycloak eventcatalog-db
 ```
 
 Öppna <http://localhost:8180/admin> och logga in med:
@@ -388,7 +388,7 @@ dessa proxade anrop.
 | Vad | Adress | Inloggning |
 | --- | --- | --- |
 | Admin-webben | <http://localhost:5173> | `testadmin` eller `testuser`, med lösenorden du valde |
-| Keycloaks admin-konsol | <http://localhost:8180/admin> | `keycloak-admin` / `HalsingeLive` |
+| Keycloaks admin-konsol | <http://localhost:8180/admin> | `keycloak-admin` / `keycloak-admin` |
 | Swagger | <http://localhost:5080/swagger> | Skyddade anrop kräver token även här |
 
 Börja med admin-webben på port 5173. Klicka **Logga in**; Keycloak öppnar sin
@@ -457,15 +457,26 @@ sektioner och evenemang.
 - **Swagger ger 401:** inloggningen i admin-webben skickar inte automatiskt token
   från Swagger. OAuth/Bearer-stöd i Swagger är en separat konfiguration.
 
-## När API:t senare körs i Docker
+## Köra hela systemet i Docker
 
-Guidens Keycloak-adress gäller API:t som körs lokalt med `dotnet run`.
-Inuti EventCatalog-containern pekar `localhost` på själva API-containern.
-Därför behöver discovery/backchannel-adresserna och issuer-konfigurationen
-anpassas innan denna setup används med API:t i Docker.
+Compose innehåller nu frontend, EventCatalog, PostgreSQL och Keycloak.
+Kör från projektets rot efter att databas-migrationerna har applicerats:
 
-Admin-webb och kundwebb kan köras i separata containrar senare. De behöver inte
-egna containrar för att testa denna lokala integration.
+```bash
+docker compose -f src/Compose.yaml up -d --build
+```
+
+Admin-webben finns på <http://localhost:5173>, Swagger på
+<http://localhost:8080/swagger> och Keycloak på <http://localhost:8180/admin>.
+Stoppa eventuell lokal Vite-server innan du startar frontend-containern på port 5173.
+
+API-containern hämtar discovery-information via `http://keycloak:8080`, medan
+webbläsaren och tokenens issuer använder `http://localhost:8180`.
+`KC_HOSTNAME_BACKCHANNEL_DYNAMIC` gör att signeringsnycklar kan hämtas via det
+interna nätverket. Lokal körning med `dotnet run` använder fortfarande localhost.
+
+Compose-projektnamnet är `services` för att behålla befintliga databas- och
+Keycloak-volymer även efter att Compose-filen flyttats.
 
 ## Dokumentation
 
