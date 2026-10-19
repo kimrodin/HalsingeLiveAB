@@ -24,3 +24,5 @@ docker compose -f "$compose_file" up -d --build
 
 echo 'Swagger: http://localhost:8080/swagger'
 echo 'Admin:   http://localhost:5173'
+echo 'Admin-Console:   http://localhost:8180'
+
