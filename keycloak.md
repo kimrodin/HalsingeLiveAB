@@ -43,7 +43,7 @@ docker compose -f src/services/Compose.yaml up -d keycloak eventcatalog-db
 Öppna <http://localhost:8180/admin> och logga in med:
 
 - Användarnamn: `keycloak-admin`
-- Lösenord: `HalsingeLive`
+- Lösenord: `keycloak-admin`
 
 Detta konto administrerar Keycloak. Det är separat från administratören som
 hanterar lokaler och evenemang i biljettplattformen.
