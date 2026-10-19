@@ -13,7 +13,7 @@ Lägg till följande under `services:` i `src/Compose.yaml`:
 ```yaml
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
-    command: start-dev
+    command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: keycloak-admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: keycloak-admin
@@ -21,6 +21,7 @@ Lägg till följande under `services:` i `src/Compose.yaml`:
       - "127.0.0.1:8180:8080"
     volumes:
       - keycloak-data:/opt/keycloak/data
+      - ../infrastructure/keycloak:/opt/keycloak/data/import:ro
 ```
 
 Lägg till volymen under det befintliga `volumes:` längst ner i filen:
@@ -48,43 +49,32 @@ docker compose -f src/Compose.yaml up -d keycloak eventcatalog-db
 Detta konto administrerar Keycloak. Det är separat från administratören som
 hanterar lokaler och evenemang i biljettplattformen.
 
-## 2. Konfigurera realm, klient och användare
+## 2. Realm importeras automatiskt vid första starten
 
-I Keycloaks admin-konsol:
+`infrastructure/keycloak/halsingelive-realm.json` innehåller konfigurationen för
+`halsingelive`, rollen `admin`, klienten `admin-web`, PKCE S256 och tillåtna
+redirect-/utloggningsadresser för `http://localhost:5173`.
 
-1. Skapa ett realm med namnet `halsingelive` och välj det.
-2. Skapa realm-rollen `admin`.
-3. Skapa användarna `testadmin` och `testuser`.
-4. Sätt egna testlösenord under **Credentials**, med **Temporary = Off**.
-5. Ge endast `testadmin` realm-rollen `admin` under **Role mapping**.
+Token innehåller audience `eventcatalog`, den platta rollclaimen `roles` för
+API:t och `realm_access.roles` för webbklientens `hasRealmRole('admin')`.
+Endast admin-rollen ingår i klientens rollscope. Självregistrering är avstängd.
+Kundwebben och en framtida entréskanner ingår inte i denna inloggningskonfiguration.
 
-Skapa en OpenID Connect-klient:
+Det lokala testkontot skapas med admin-rollen och ett färdigt testlösenord:
 
-| Inställning | Värde |
-| --- | --- |
-| Client ID | `admin-web` |
-| Client authentication | Off |
-| Standard flow | On |
-| Direct access grants | Off |
-| Valid redirect URIs | `http://localhost:5173/*` |
-| Valid post logout redirect URIs | `http://localhost:5173/*` |
-| Web origins | `http://localhost:5173` |
-| PKCE Code Challenge Method | `S256` |
+- Användarnamn: `testadmin`
+- Lösenord: `testadmin`
 
-Webbklienten är publik och använder Authorization Code med PKCE. Ingen
-klienthemlighet ska finnas i frontend-koden.
+Öppna <http://localhost:5173> och klicka **Logga in**. Ingen manuell
+lösenordskonfiguration eller obligatorisk lösenordsändring behövs vid första starten.
+Detta är endast ett lokalt testkonto och ska inte användas i produktion.
+Ingen `testuser` eller kundroll skapas.
+Keycloaks konsolkonto och appkontot är två separata konton.
 
-Under **Clients → admin-web → Client scopes → admin-web-dedicated → Mappers**,
-lägg till två mappers via **Configure a new mapper**:
-
-| Mapper | Inställningar |
-| --- | --- |
-| Audience | Name: `eventcatalog-audience`. Included Custom Audience: `eventcatalog`. Add to access token: On. |
-| User Realm Role | Name: `app-roles`. Token Claim Name: `roles`. Multivalued: On. Claim JSON Type: `String`. Add to access token: On. |
-
-Lämna standard-scope `roles` kvar. Den extra rollmappen gör rollerna enkla att läsa
-i ASP.NET Core. Den vanliga realm-rollmappen används av webbklientens
-`hasRealmRole('admin')`.
+**Befintliga installationer:** Om `halsingelive` redan finns i Keycloaks volym
+hoppar startimporten över det. Befintliga användare, lösenord och inställningar
+ändras inte, och en befintlig `testuser` raderas inte automatiskt. JSON-filen är
+startkonfiguration för nya installationer, inte en automatisk uppdateringsmigration.
 
 ## 3. Lägg till JWT-autentisering i EventCatalog
 
@@ -387,7 +377,7 @@ dessa proxade anrop.
 
 | Vad | Adress | Inloggning |
 | --- | --- | --- |
-| Admin-webben | <http://localhost:5173> | `testadmin` eller `testuser`, med lösenorden du valde |
+| Admin-webben | <http://localhost:5173> | `testadmin` / `testadmin` |
 | Keycloaks admin-konsol | <http://localhost:8180/admin> | `keycloak-admin` / `keycloak-admin` |
 | Swagger | <http://localhost:5080/swagger> | Skyddade anrop kräver token även här |
 
@@ -404,7 +394,7 @@ Att logga in i Keycloaks admin-konsol ger inte automatiskt admin-behörighet i a
 | Logga in som `testadmin` | Admin-webben visas |
 | Skapa en giltig lokal | 201 och lokalen sparas |
 | Klicka Logga ut | Inloggningsknappen visas igen |
-| Logga in som `testuser` | Meddelande om saknad admin-behörighet |
+| Logga in med ett eventuellt separat testkonto utan admin-roll | Meddelande om saknad admin-behörighet |
 
 Testa API-skyddet utan frontend från terminalen:
 
@@ -416,7 +406,8 @@ curl -i -X POST http://localhost:5080/CreateVenue \
 
 Svaret ska vara **401**, eftersom ingen token skickas.
 
-För att verifiera **403**, logga in som `testuser` på admin-webben, öppna
+För att verifiera **403** kan du tillfälligt skapa ett separat lokalt testkonto
+utan admin-roll (ingår inte i realm-filen). Logga in med det på admin-webben och öppna
 webbläsarens utvecklarkonsol och kör följande. Detta är en lokal Vite-testmetod:
 
 ```javascript
