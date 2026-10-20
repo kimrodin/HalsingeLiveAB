@@ -8,7 +8,7 @@ export default function CustomerLayout() {
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: '#f7f8f6',
+        bgcolor: 'background.default',
       }}
     >
       <Box
