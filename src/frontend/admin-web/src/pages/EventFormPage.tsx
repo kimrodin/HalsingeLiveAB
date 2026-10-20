@@ -112,6 +112,7 @@ function EventForm({ event }: { event?: EventDetails }) {
       if (isEdit) {
         return updateEvent(event.eventId, {
           ...common,
+          venueId: event.venueId,
           onSaleFrom: toIso(v.onSaleFrom),
           sectionPrices: Object.entries(v.prices).map(([sectionId, price]) => ({
             sectionId,
