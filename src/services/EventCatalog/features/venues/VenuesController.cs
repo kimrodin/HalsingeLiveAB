@@ -9,6 +9,7 @@ using EventCatalog.Features.Venues.DeleteVenue;
 using EventCatalog.Features.Venues.CreateSection;
 using EventCatalog.Features.Venues.DeleteSection;
 using EventCatalog.Features.Venues.UpdateSection;
+using Microsoft.AspNetCore.Authorization;
 using EventCatalog.Features.Venues.SeatingMaps;
 
 namespace EventCatalog.Features.Venues;
@@ -30,6 +31,7 @@ public class VenuesController(
     DeleteVenueSeatingMapHandler deleteVenueSeatingMapHandler,
     ILogger<VenuesController> logger) : ControllerBase
 {
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost]
     [Consumes("application/json")] //Ingen fil eller sökväg i projektet. Den betyder att innehållet är JSON.
     [ProducesResponseType(typeof(CreateVenueResponse), StatusCodes.Status201Created)]
@@ -126,7 +128,7 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
-
+    [Authorize(Policy = "AdminOnly")]
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -177,7 +179,7 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
-
+    [Authorize(Policy = "AdminOnly")]
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -220,7 +222,7 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
-
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost("{venueId:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(typeof(CreateSectionResponse), StatusCodes.Status201Created)]
@@ -265,6 +267,7 @@ public class VenuesController(
         }
     }
 
+    [Authorize(Policy = "AdminOnly")]
     [HttpDelete("{venueId:guid}/{sectionId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -324,6 +327,7 @@ public class VenuesController(
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
+    [Authorize(Policy = "AdminOnly")]
     [HttpPut("{venueId:guid}/{sectionId:guid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -378,6 +382,7 @@ public class VenuesController(
     [ProducesResponseType(typeof(VenueSeatingMapResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> UploadVenueSeatingMap(Guid venueId,
         [FromForm] UploadVenueSeatingMapRequest request, CancellationToken cancellationToken)
     {
@@ -443,6 +448,7 @@ public class VenuesController(
     [HttpDelete("{venueId:guid}/{mapId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> DeleteVenueSeatingMap(Guid venueId, Guid mapId, CancellationToken cancellationToken)
     {
         try

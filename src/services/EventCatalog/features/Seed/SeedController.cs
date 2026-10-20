@@ -1,10 +1,12 @@
 using EventCatalog.Features.Seed.SeedEvents;
 using EventCatalog.Features.Seed.SeedVenues;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace EventCatalog.Features.Seed;
 
 [ApiController]
+[Authorize(Policy = "AdminOnly")]
 public sealed class SeedController(
     SeedVenuesHandler seedVenuesHandler,
     SeedEventsHandler seedEventsHandler,

@@ -6,17 +6,6 @@ import type {
   UpdateEventRequest,
 } from './types';
 
-interface EventDto {
-  eventId: string;
-  name: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  onSaleFrom: string;
-  venueId: string;
-  sectionPrices: EventSectionPrice[];
-}
-
 interface EventListItemDto {
   eventId: string;
   eventName: string;
@@ -55,19 +44,6 @@ interface CreateEventResponseDto {
   eventId: string;
 }
 
-function eventFromDto(event: EventDto): EventDetails {
-  return {
-    eventId: event.eventId,
-    venueId: event.venueId,
-    name: event.name,
-    description: event.description,
-    startDate: event.startDate,
-    endDate: event.endDate,
-    onSaleFrom: event.onSaleFrom,
-    sectionPrices: event.sectionPrices,
-  };
-}
-
 function eventFromListItem(event: EventListItemDto): EventDetails {
   return {
     eventId: event.eventId,
@@ -99,7 +75,7 @@ export async function getEvents(params: ListEventsParams = {}): Promise<ListEven
 }
 
 export async function getEvent(eventId: string): Promise<EventDetails> {
-  return eventFromDto(await request<EventDto>(`/GetEvent/${eventId}`));
+  return request<EventDetails>(`/GetEvent/${eventId}`);
 }
 
 export function createEvent(data: CreateEventRequest): Promise<CreateEventResponseDto> {
@@ -114,15 +90,14 @@ export function createEvent(data: CreateEventRequest): Promise<CreateEventRespon
   });
 }
 
-export async function updateEvent(eventId: string, data: UpdateEventRequest): Promise<void> {
-  const current = await getEvent(eventId);
-  await sendJson('PUT', `/UpdateEvent/${eventId}`, {
+export function updateEvent(eventId: string, data: UpdateEventRequest): Promise<void> {
+  return sendJson('PUT', `/UpdateEvent/${eventId}`, {
     name: data.name,
     description: data.description,
     startDate: data.startDate,
     endDate: data.endDate,
     onSaleFrom: data.onSaleFrom,
-    venueId: current.venueId,
+    venueId: data.venueId,
     sectionPrices: data.sectionPrices,
   });
 }
