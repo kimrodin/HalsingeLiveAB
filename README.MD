@@ -156,6 +156,38 @@ Kör sedan `dotnet ef database update` enligt första-start-steget.
 
 Admin-webbklienten ligger i `src/frontend/admin-web` och startas av Compose-konfigurationen i `src/Compose.yaml`. Den anropar EventCatalog API:t via frontend-containerns `/api`-proxy och använder Keycloak för inloggning.
 
+### Utveckla frontend med Docker Compose
+
+Dev-konfigurationen startar frontendens Vite-utvecklingsserver med hot reload. Kör kommandona från repositoryts rotmapp.
+
+Första gången behöver databasen startas och migrationerna appliceras enligt avsnittet [Första starten](#första-starten). Starta sedan API:t, databasen och Keycloak:
+
+```powershell
+docker compose -f src/Compose.yaml up -d --build eventcatalog-db keycloak eventcatalog
+```
+
+Starta frontend i dev-läge med Compose-override-filen:
+
+```powershell
+docker compose -f src/Compose.yaml -f src/Compose.dev.yaml up -d --build frontend
+```
+
+Öppna **http://localhost:5173**. Ändringar i `src/frontend/admin-web` laddas om automatiskt. Inloggningen använder Keycloak på **http://localhost:8180**.
+
+Visa frontendens loggar:
+
+```powershell
+docker compose -f src/Compose.yaml -f src/Compose.dev.yaml logs -f frontend
+```
+
+Stoppa tjänsterna när du är klar:
+
+```powershell
+docker compose -f src/Compose.yaml -f src/Compose.dev.yaml down
+```
+
+Compose-versionen måste stödja `!override` (Docker Compose 2.24.4 eller senare), som används för att ersätta frontendens vanliga portmappning med Vites dev-port.
+
 
 ## Testdata (seed) och återställning
 
