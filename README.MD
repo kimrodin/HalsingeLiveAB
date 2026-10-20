@@ -1,6 +1,6 @@
 # HälsingeLiveAB
 
-Repositoryt innehåller EventCatalog API:t och en separat admin-webbklient. Compose-filen `src/Compose.yaml` startar EventCatalog, PostgreSQL och admin-webbklienten.
+Repositoryt innehåller EventCatalog API:t och en separat admin-webbklient. Compose-filen `src/Compose.yaml` startar EventCatalog, PostgreSQL, Keycloak och admin-webbklienten. Inloggning och lokal utveckling beskrivs i [keycloak.md](keycloak.md).
 
 ## Starta EventCatalog med Docker och Swagger
 
@@ -154,7 +154,7 @@ Kör sedan `dotnet ef database update` enligt första-start-steget.
 
 ## Admin-webb
 
-Admin-webbklienten ligger i `src/frontend/admin-web` och startas av Compose-konfigurationen i `src/Compose.yaml`. Den använder för närvarande mockdata i stället för EventCatalog API:t.
+Admin-webbklienten ligger i `src/frontend/admin-web` och startas av Compose-konfigurationen i `src/Compose.yaml`. Den anropar EventCatalog API:t via frontend-containerns `/api`-proxy och använder Keycloak för inloggning.
 
 
 ## Testdata (seed) och återställning
