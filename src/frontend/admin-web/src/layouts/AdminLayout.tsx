@@ -1,3 +1,4 @@
+import keycloak from '../auth/keycloak';
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,6 +17,13 @@ const navItems = [
 
 export default function AdminLayout() {
   const queryClient = useQueryClient();
+
+  async function logout() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await keycloak.logout({ redirectUri: window.location.origin });
+  }
+
   const [notice, setNotice] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const refreshCatalog = async () => Promise.all([
     queryClient.invalidateQueries({ queryKey: ['events'] }),
@@ -77,6 +85,9 @@ export default function AdminLayout() {
               </Button>
             </>
           )}
+          <Button color="inherit" onClick={() => void logout()}>
+            Logga ut
+          </Button>
         </Toolbar>
       </AppBar>
 
