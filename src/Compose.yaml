@@ -15,7 +15,7 @@ services:
       booking-db:
         condition: service_healthy
       booking-redis:
-        condition: service_started
+        condition: service_healthy
 
   booking-db:
     image: postgres:18-alpine
@@ -74,6 +74,11 @@ services:
       - booking-redis-data:/data
     command: redis-server --appendonly yes
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   frontend:
     build:

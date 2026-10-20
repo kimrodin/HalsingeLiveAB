@@ -4,11 +4,20 @@ using Booking.Features.EventInventory.CreateEventInventory;
 using Booking.Features.EventInventory.GetEventInventory;
 using Booking.Features.EventInventory.ListEventInventory;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Booking")));
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("Redis")
+        ?? throw new InvalidOperationException("Redis connection string is missing.");
+    return ConnectionMultiplexer.Connect(connectionString);
+});
+builder.Services.AddSingleton<Booking.Features.BookingHolds.RedisReservationService>();
+builder.Services.AddScoped<Booking.Features.Bookings.BookingService>();
 builder.Services.AddScoped<CreateEventInventoryHandler>();
 builder.Services.AddScoped<GetEventInventoryHandler>();
 builder.Services.AddScoped<ListEventInventoryHandler>();
