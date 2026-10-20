@@ -1,0 +1,15 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      CATALOG_API_PROXY_TARGET: http://eventcatalog:8080
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/admin-web:/app
+      - frontend-node-modules:/app/node_modules
+
+volumes:
+  frontend-node-modules:
