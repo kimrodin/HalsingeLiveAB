@@ -55,6 +55,19 @@ services:
       timeout: 5s
       retries: 10
 
+  payment-simulator:
+    build:
+      context: ./services/PaymentSimulator
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__PaymentSimulator: "Host=payment-simulator-db;Port=5432;Database=payment_simulator;Username=postgres;Password=postgres"
+    ports:
+      - "127.0.0.1:5111:8080"
+    depends_on:
+      payment-simulator-db:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./frontend
