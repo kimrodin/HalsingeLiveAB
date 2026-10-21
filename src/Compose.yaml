@@ -39,6 +39,22 @@ services:
       timeout: 5s
       retries: 10
 
+  payment-simulator-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: payment_simulator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - payment-simulator-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_simulator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   frontend:
     build:
       context: ./frontend
@@ -67,4 +83,5 @@ services:
 volumes:
   keycloak-data:
   eventcatalog-data:
+  payment-simulator-data:
   venue-maps-data:

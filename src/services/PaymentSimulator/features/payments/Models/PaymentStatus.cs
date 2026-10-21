@@ -1,4 +1,4 @@
-namespace PaymentSimulator.Payments.Models;
+namespace PaymentSimulator.Features.Payments.Models;
 
 public enum PaymentStatus
 {

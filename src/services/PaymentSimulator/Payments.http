@@ -1,0 +1,18 @@
+@baseUrl = http://localhost:5111
+
+### Process a simulated payment
+# @name processPayment
+POST {{baseUrl}}/api/payments
+Content-Type: application/json
+
+{
+  "bookingId": "a6fbc50d-e6bd-4a8f-b635-e37f7a01dd11",
+  "amount": 299.00,
+  "currency": "SEK"
+}
+
+### Retrieve the payment created above
+GET {{baseUrl}}/api/payments/{{processPayment.response.body.$.paymentId}}
+
+### Verify a missing payment returns 404
+GET {{baseUrl}}/api/payments/00000000-0000-0000-0000-000000000001

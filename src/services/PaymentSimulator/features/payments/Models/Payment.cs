@@ -1,4 +1,5 @@
-namespace PaymentSimulator.Payments.Models;
+namespace PaymentSimulator.Features.Payments.Models;
+
 public class Payment
 {
     public Guid Id { get; set; }
@@ -9,6 +10,6 @@ public class Payment
 
     public PaymentStatus Status { get; set; }
 
-    public DateTime CreatedAt { get; set; }
-    public DateTime? CompletedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
 }
