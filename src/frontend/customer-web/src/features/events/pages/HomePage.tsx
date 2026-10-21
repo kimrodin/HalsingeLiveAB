@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import { getAllEvents, type EventListItem } from '../api/events'
 import { getVenues } from '../../venues/api/venues'
+import { useNow } from '../../../hooks/useNow'
 
 const dateFormatter = new Intl.DateTimeFormat('sv-SE', {
   weekday: 'short',
@@ -42,11 +43,11 @@ function formatEventDate(startDate: string, endDate: string) {
   return `${date} · kl. ${timeFormatter.format(start)}${sameDay ? `–${timeFormatter.format(end)}` : ''}`
 }
 
-function EventCard({ event, venueName }: { event: EventListItem; venueName?: string }) {
+function EventCard({ event, venueName, now }: { event: EventListItem; venueName?: string; now: number }) {
   const lowestPrice = event.sectionPrices.length > 0
     ? Math.min(...event.sectionPrices.map(({ price }) => price))
     : null
-  const hasEnded = new Date(event.endDate).getTime() < Date.now()
+  const hasEnded = new Date(event.endDate).getTime() < now
 
   return (
     <Card variant="outlined" sx={{ bgcolor: 'background.paper', borderColor: 'divider', borderRadius: 2.5 }}>
@@ -100,6 +101,7 @@ function EventCard({ event, venueName }: { event: EventListItem; venueName?: str
 }
 
 export default function HomePage() {
+  const now = useNow()
   const eventsQuery = useQuery({
     queryKey: ['events', 'all'],
     queryFn: ({ signal }) => getAllEvents(signal),
@@ -163,7 +165,7 @@ export default function HomePage() {
           </Typography>
           <Stack spacing={2}>
             {eventsQuery.data.map((event) => (
-              <EventCard key={event.eventId} event={event} venueName={venuesById.get(event.venueId)} />
+              <EventCard key={event.eventId} event={event} venueName={venuesById.get(event.venueId)} now={now} />
             ))}
           </Stack>
         </>
