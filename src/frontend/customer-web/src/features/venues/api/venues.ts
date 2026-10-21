@@ -16,6 +16,21 @@ export interface VenueSummary {
   city: string
 }
 
+export interface VenueDetail {
+  venueId: string
+  name: string
+  city: string
+  streetAddress: string
+  postalCode: string
+  capacity: number
+  sections: Array<{
+    sectionId: string
+    name: string
+    capacity: number
+    seatingType: string
+  }>
+}
+
 export async function getVenues(signal?: AbortSignal): Promise<VenueSummary[]> {
   const response = await getJson<VenueListResponse>('/ListVenues', signal)
   return response.venues.map(({ venueId, venueName, venueCity }) => ({
@@ -23,4 +38,8 @@ export async function getVenues(signal?: AbortSignal): Promise<VenueSummary[]> {
     name: venueName,
     city: venueCity,
   }))
+}
+
+export function getVenueById(venueId: string, signal?: AbortSignal): Promise<VenueDetail> {
+  return getJson<VenueDetail>(`/GetVenue/${encodeURIComponent(venueId)}`, signal)
 }

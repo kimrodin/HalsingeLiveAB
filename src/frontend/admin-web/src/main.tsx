@@ -12,7 +12,7 @@ const root = createRoot(document.getElementById('root')!);
 async function start() {
   try {
     const authenticated = await keycloak.init({
-      onLoad: 'check-sso',
+      onLoad: 'login-required',
       pkceMethod: 'S256',
       checkLoginIframe: false,
     });

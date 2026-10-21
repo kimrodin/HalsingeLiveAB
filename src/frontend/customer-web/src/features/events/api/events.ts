@@ -13,6 +13,11 @@ export interface EventListItem {
   venueId: string
 }
 
+export interface EventDetail extends Omit<EventListItem, 'eventName' | 'eventDescription'> {
+  name: string
+  description: string
+}
+
 interface EventPage {
   events: EventListItem[]
   totalCount: number
@@ -36,4 +41,8 @@ export async function getAllEvents(signal?: AbortSignal): Promise<EventListItem[
   }
 
   return events
+}
+
+export function getEventById(eventId: string, signal?: AbortSignal): Promise<EventDetail> {
+  return getJson<EventDetail>(`/GetEvent/${encodeURIComponent(eventId)}`, signal)
 }
