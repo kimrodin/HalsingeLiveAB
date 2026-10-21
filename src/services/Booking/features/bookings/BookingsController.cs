@@ -11,8 +11,14 @@ public sealed class BookingsController(BookingService bookingService) : Controll
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Get(Guid bookingId, CancellationToken cancellationToken)
     {
-        if (bookingId == Guid.Empty)
-            return BadRequest("BookingId must be a non-empty UUID.");
+        try
+        {
+            BookingValidation.ValidateId(bookingId, nameof(bookingId));
+        }
+        catch (BookingValidationException exception)
+        {
+            return RequestValidationProblem(exception);
+        }
 
         var booking = await bookingService.GetBookingAsync(bookingId, cancellationToken);
         if (booking is null)
@@ -61,14 +67,9 @@ public sealed class BookingsController(BookingService bookingService) : Controll
                     "Tickets are temporarily reserved."))
             };
         }
-        catch (ArgumentException exception)
+        catch (BookingValidationException exception)
         {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Invalid booking request.",
-                Detail = exception.Message,
-                Status = StatusCodes.Status400BadRequest
-            });
+            return RequestValidationProblem(exception);
         }
     }
 
@@ -78,7 +79,15 @@ public sealed class BookingsController(BookingService bookingService) : Controll
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Confirm(Guid bookingId, CancellationToken cancellationToken)
     {
-        var result = await bookingService.ConfirmAsync(bookingId, cancellationToken);
+        BookingActionResult result;
+        try
+        {
+            result = await bookingService.ConfirmAsync(bookingId, cancellationToken);
+        }
+        catch (BookingValidationException exception)
+        {
+            return RequestValidationProblem(exception);
+        }
         return result.Status switch
         {
             BookingActionStatus.NotFound => NotFound(),
@@ -103,7 +112,15 @@ public sealed class BookingsController(BookingService bookingService) : Controll
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Cancel(Guid bookingId, CancellationToken cancellationToken)
     {
-        var result = await bookingService.CancelAsync(bookingId, cancellationToken);
+        BookingActionResult result;
+        try
+        {
+            result = await bookingService.CancelAsync(bookingId, cancellationToken);
+        }
+        catch (BookingValidationException exception)
+        {
+            return RequestValidationProblem(exception);
+        }
         return result.Status switch
         {
             BookingActionStatus.NotFound => NotFound(),
@@ -120,6 +137,15 @@ public sealed class BookingsController(BookingService bookingService) : Controll
                 Status = StatusCodes.Status409Conflict
             })
         };
+    }
+
+    private IActionResult RequestValidationProblem(BookingValidationException exception)
+    {
+        foreach (var (field, messages) in exception.Errors)
+            foreach (var message in messages)
+                ModelState.AddModelError(field, message);
+
+        return ValidationProblem(ModelState);
     }
 }
 

@@ -16,14 +16,8 @@ public sealed class BookingService(
         CreateBookingRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.EventId == Guid.Empty)
-            throw new ArgumentException("EventId must be a non-empty UUID.", nameof(request));
-        if (request.SectionId == Guid.Empty)
-            throw new ArgumentException("SectionId must be a non-empty UUID.", nameof(request));
-        if (request.Quantity <= 0)
-            throw new ArgumentOutOfRangeException(nameof(request), "Quantity must be positive.");
-        if (string.IsNullOrWhiteSpace(request.CustomerId))
-            throw new ArgumentException("CustomerId is required.", nameof(request));
+        BookingValidation.ValidateCreateBooking(request);
+        var customerId = request.CustomerId.Trim();
 
         var inventory = await dbContext.EventInventory
             .AsNoTracking()
@@ -33,6 +27,8 @@ public sealed class BookingService(
 
         if (inventory is null)
             return new ReservationResult(ReservationStatus.InventoryNotFound, null, null);
+
+        BookingValidation.ValidatePriceAndTotal(inventory.Price, request.Quantity);
 
         // Populate Redis lazily for inventory rows created before Redis was wired in.
         await reservations.InitializeInventoryAsync(
@@ -47,7 +43,7 @@ public sealed class BookingService(
             inventory.EventId,
             inventory.SectionId,
             request.Quantity,
-            request.CustomerId.Trim(),
+            customerId,
             expiresAt);
 
         if (!reserved)
@@ -56,7 +52,7 @@ public sealed class BookingService(
         var booking = new BookingModel
         {
             BookingId = bookingId,
-            CustomerId = request.CustomerId.Trim(),
+            CustomerId = customerId,
             Status = BookingStatuses.Reserved,
             TotalPrice = inventory.Price * request.Quantity,
             CreatedAt = DateTime.UtcNow,
@@ -94,6 +90,7 @@ public sealed class BookingService(
 
     public async Task<BookingActionResult> ConfirmAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
+        BookingValidation.ValidateId(bookingId, nameof(bookingId));
         var booking = await dbContext.Bookings
             .Include(item => item.Items)
             .ThenInclude(item => item.EventInventory)
@@ -192,6 +189,7 @@ public sealed class BookingService(
 
     public async Task<BookingActionResult> CancelAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
+        BookingValidation.ValidateId(bookingId, nameof(bookingId));
         var booking = await dbContext.Bookings
             .Include(item => item.Items)
             .ThenInclude(item => item.EventInventory)

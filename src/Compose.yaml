@@ -43,6 +43,7 @@ services:
     environment:
       ConnectionStrings__EventCatalog: "Host=eventcatalog-db;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
       ASPNETCORE_ENVIRONMENT: Development
+      InitializeDatabase: "true"
       Authentication__Authority: http://localhost:8180/realms/halsingelive
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       VenueMapStorage__RootPath: /app/uploads/venue-maps

@@ -90,12 +90,12 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    // Opt-in initialization for an empty local test database, not existing schemas.
+    // Apply pending EF Core migrations to the local database when explicitly enabled.
     if (builder.Configuration.GetValue<bool>("InitializeDatabase"))
     {
-        using var scope = app.Services.CreateScope();
+        await using var scope = app.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<EventCatalogDbContext>();
-        await dbContext.Database.EnsureCreatedAsync();
+        await dbContext.Database.MigrateAsync();
     }
 
     app.UseSwagger();

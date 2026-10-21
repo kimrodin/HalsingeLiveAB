@@ -1,4 +1,6 @@
 using Booking.Data;
+using Booking.Features.Bookings;
+using Microsoft.EntityFrameworkCore;
 using InventoryModel = Booking.Features.EventInventory.Models.EventInventory;
 
 namespace Booking.Features.EventInventory.CreateEventInventory;
@@ -10,14 +12,13 @@ public class CreateEventInventoryHandler(BookingDbContext dbContext)
         CreateEventInventoryRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (eventId == Guid.Empty)
-            throw new ArgumentException("EventId must be a non-empty UUID.", nameof(eventId));
-        if (request.SectionId == Guid.Empty)
-            throw new ArgumentException("SectionId must be a non-empty UUID.", nameof(request));
-        if (request.TotalQuantity < 0)
-            throw new ArgumentException("TotalQuantity cannot be negative.", nameof(request));
-        if (request.Price < 0)
-            throw new ArgumentException("Price cannot be negative.", nameof(request));
+        BookingValidation.ValidateCreateInventory(eventId, request);
+
+        var alreadyExists = await dbContext.EventInventory.AnyAsync(
+            inventory => inventory.EventId == eventId && inventory.SectionId == request.SectionId,
+            cancellationToken);
+        if (alreadyExists)
+            throw new InventoryConflictException("Inventory already exists for this event and section.");
 
         var inventory = new InventoryModel
         {
@@ -41,3 +42,5 @@ public class CreateEventInventoryHandler(BookingDbContext dbContext)
             inventory.Price);
     }
 }
+
+public sealed class InventoryConflictException(string message) : Exception(message);

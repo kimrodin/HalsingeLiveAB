@@ -1,6 +1,9 @@
 using Booking.Features.EventInventory.CreateEventInventory;
 using Booking.Features.EventInventory.GetEventInventory;
 using Booking.Features.EventInventory.ListEventInventory;
+using Booking.Features.Bookings;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Booking.Features.EventInventory;
@@ -15,8 +18,14 @@ public class EventInventoryController(
     [HttpGet("events/{eventId:guid}/inventory")]
     public async Task<IActionResult> ListForEvent(Guid eventId, CancellationToken cancellationToken)
     {
-        if (eventId == Guid.Empty)
-            return BadRequest("EventId must be a non-empty UUID.");
+        try
+        {
+            BookingValidation.ValidateId(eventId, nameof(eventId));
+        }
+        catch (BookingValidationException exception)
+        {
+            return RequestValidationProblem(exception);
+        }
 
         return Ok(await listHandler.Handle(eventId, cancellationToken));
     }
@@ -24,8 +33,14 @@ public class EventInventoryController(
     [HttpGet("inventory/{inventoryId:guid}")]
     public async Task<IActionResult> Get(Guid inventoryId, CancellationToken cancellationToken)
     {
-        if (inventoryId == Guid.Empty)
-            return BadRequest("InventoryId must be a non-empty UUID.");
+        try
+        {
+            BookingValidation.ValidateId(inventoryId, nameof(inventoryId));
+        }
+        catch (BookingValidationException exception)
+        {
+            return RequestValidationProblem(exception);
+        }
 
         var inventory = await getHandler.Handle(inventoryId, cancellationToken);
         return inventory is null ? NotFound() : Ok(inventory);
@@ -42,14 +57,42 @@ public class EventInventoryController(
             var created = await createHandler.Handle(eventId, request, cancellationToken);
             return CreatedAtAction(nameof(Get), new { inventoryId = created.InventoryId }, created);
         }
-        catch (ArgumentException exception)
+        catch (BookingValidationException exception)
         {
-            return BadRequest(new ProblemDetails
+            return RequestValidationProblem(exception);
+        }
+        catch (InventoryConflictException exception)
+        {
+            return Conflict(new ProblemDetails
             {
-                Title = "Invalid inventory data.",
+                Title = "Inventory already exists.",
                 Detail = exception.Message,
-                Status = StatusCodes.Status400BadRequest
+                Status = StatusCodes.Status409Conflict
             });
         }
+        catch (DbUpdateException exception) when (IsDuplicateEventSection(exception))
+        {
+            return Conflict(new ProblemDetails
+            {
+                Title = "Inventory already exists for this event and section.",
+                Status = StatusCodes.Status409Conflict
+            });
+        }
+    }
+
+    private static bool IsDuplicateEventSection(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: "IX_EventInventory_EventId_SectionId"
+        };
+
+    private IActionResult RequestValidationProblem(BookingValidationException exception)
+    {
+        foreach (var (field, messages) in exception.Errors)
+            foreach (var message in messages)
+                ModelState.AddModelError(field, message);
+
+        return ValidationProblem(ModelState);
     }
 }
