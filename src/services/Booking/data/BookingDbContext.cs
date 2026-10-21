@@ -37,6 +37,7 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
         {
             entity.ToTable("EventInventory");
             entity.HasKey(inventory => inventory.InventoryId);
+            entity.Property(inventory => inventory.AvailableQuantity).IsRequired();
             entity.Property(inventory => inventory.Price).HasPrecision(12, 2);
             entity.HasIndex(inventory => inventory.EventId);
             entity.HasIndex(inventory => new { inventory.EventId, inventory.SectionId }).IsUnique();

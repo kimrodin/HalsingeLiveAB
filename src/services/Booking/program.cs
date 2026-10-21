@@ -3,6 +3,7 @@ using Booking.Features.EventInventory;
 using Booking.Features.EventInventory.CreateEventInventory;
 using Booking.Features.EventInventory.GetEventInventory;
 using Booking.Features.EventInventory.ListEventInventory;
+using Booking.Features.Seed;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 
@@ -18,9 +19,11 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 builder.Services.AddSingleton<Booking.Features.BookingHolds.RedisReservationService>();
 builder.Services.AddScoped<Booking.Features.Bookings.BookingService>();
+builder.Services.AddHostedService<Booking.Features.Bookings.BookingExpirationService>();
 builder.Services.AddScoped<CreateEventInventoryHandler>();
 builder.Services.AddScoped<GetEventInventoryHandler>();
 builder.Services.AddScoped<ListEventInventoryHandler>();
+builder.Services.AddScoped<SeedInventoryHandler>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -33,7 +36,7 @@ if (app.Environment.IsDevelopment())
     {
         await using var scope = app.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
-        await dbContext.Database.EnsureCreatedAsync();
+        await dbContext.Database.MigrateAsync();
     }
 
     app.UseSwagger();

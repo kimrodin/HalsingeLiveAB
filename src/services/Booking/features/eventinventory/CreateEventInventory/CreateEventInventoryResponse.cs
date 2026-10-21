@@ -5,4 +5,5 @@ public record CreateEventInventoryResponse(
     Guid EventId,
     Guid SectionId,
     int TotalQuantity,
+    int AvailableQuantity,
     decimal Price);

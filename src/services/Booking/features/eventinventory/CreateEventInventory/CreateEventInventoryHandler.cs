@@ -25,6 +25,7 @@ public class CreateEventInventoryHandler(BookingDbContext dbContext)
             EventId = eventId,
             SectionId = request.SectionId,
             TotalQuantity = request.TotalQuantity,
+            AvailableQuantity = request.TotalQuantity,
             Price = request.Price
         };
 
@@ -36,6 +37,7 @@ public class CreateEventInventoryHandler(BookingDbContext dbContext)
             inventory.EventId,
             inventory.SectionId,
             inventory.TotalQuantity,
+            inventory.AvailableQuantity,
             inventory.Price);
     }
 }
