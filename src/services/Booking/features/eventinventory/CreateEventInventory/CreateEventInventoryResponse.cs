@@ -3,6 +3,6 @@ namespace Booking.Features.EventInventory.CreateEventInventory;
 public record CreateEventInventoryResponse(
     Guid InventoryId,
     Guid EventId,
-    string TicketType,
+    Guid SectionId,
     int TotalQuantity,
     decimal Price);

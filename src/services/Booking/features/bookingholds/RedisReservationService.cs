@@ -1,4 +1,3 @@
-using System.Text;
 using StackExchange.Redis;
 
 namespace Booking.Features.BookingHolds;
@@ -10,13 +9,13 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
 
     public Task<bool> InitializeInventoryAsync(
         Guid eventId,
-        string ticketType,
+        Guid sectionId,
         int quantity) =>
-        _redis.StringSetAsync(GetInventoryKey(eventId, ticketType), quantity, when: When.NotExists);
+        _redis.StringSetAsync(GetInventoryKey(eventId, sectionId), quantity, when: When.NotExists);
 
     public async Task<Guid?> TryReserveAsync(
         Guid eventId,
-        string ticketType,
+        Guid sectionId,
         int quantity,
         string customerId,
         DateTimeOffset expiresAt)
@@ -25,8 +24,8 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
             throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be positive.");
 
         var reservationId = Guid.NewGuid();
-        var inventoryKey = GetInventoryKey(eventId, ticketType);
-        var expirationIndexKey = GetReservationIndexKey(eventId, ticketType);
+        var inventoryKey = GetInventoryKey(eventId, sectionId);
+        var expirationIndexKey = GetReservationIndexKey(eventId, sectionId);
         var reservationKeyPrefix = ReservationKeyPrefix;
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var expiration = expiresAt.ToUnixTimeMilliseconds();
@@ -59,7 +58,7 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
             redis.call('DECRBY', KEYS[1], ARGV[3])
             redis.call('HSET', ARGV[5] .. ARGV[2],
                 'eventId', ARGV[6],
-                'ticketType', ARGV[7],
+                'sectionId', ARGV[7],
                 'quantity', ARGV[3],
                 'customerId', ARGV[4])
             redis.call('ZADD', KEYS[2], ARGV[8], ARGV[2])
@@ -76,22 +75,16 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
                 customerId,
                 reservationKeyPrefix,
                 eventId.ToString("D"),
-                ticketType,
+                sectionId.ToString("D"),
                 expiration
             ]);
 
         return result == 1 ? reservationId : null;
     }
 
-    private static RedisKey GetInventoryKey(Guid eventId, string ticketType) =>
-        $"inventory:{eventId:N}:{EncodeTicketType(ticketType)}:available";
+    private static RedisKey GetInventoryKey(Guid eventId, Guid sectionId) =>
+        $"inventory:{eventId:N}:{sectionId:N}:available";
 
-    private static RedisKey GetReservationIndexKey(Guid eventId, string ticketType) =>
-        $"inventory:{eventId:N}:{EncodeTicketType(ticketType)}:reservations";
-
-    private static string EncodeTicketType(string ticketType) =>
-        Convert.ToBase64String(Encoding.UTF8.GetBytes(ticketType))
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
+    private static RedisKey GetReservationIndexKey(Guid eventId, Guid sectionId) =>
+        $"inventory:{eventId:N}:{sectionId:N}:reservations";
 }

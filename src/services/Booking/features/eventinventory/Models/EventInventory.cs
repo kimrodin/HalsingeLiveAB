@@ -6,7 +6,7 @@ public class EventInventory
 {
     public Guid InventoryId { get; set; }
     public Guid EventId { get; set; }
-    public string TicketType { get; set; } = string.Empty;
+    public Guid SectionId { get; set; }
     public int TotalQuantity { get; set; }
     public decimal Price { get; set; }
 

@@ -2,6 +2,6 @@ namespace Booking.Features.Bookings;
 
 public sealed record CreateBookingRequest(
     Guid EventId,
-    string TicketType,
+    Guid SectionId,
     int Quantity,
     string CustomerId);

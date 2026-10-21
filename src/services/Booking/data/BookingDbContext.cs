@@ -37,9 +37,9 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
         {
             entity.ToTable("EventInventory");
             entity.HasKey(inventory => inventory.InventoryId);
-            entity.Property(inventory => inventory.TicketType).IsRequired().HasMaxLength(255);
             entity.Property(inventory => inventory.Price).HasPrecision(12, 2);
             entity.HasIndex(inventory => inventory.EventId);
+            entity.HasIndex(inventory => new { inventory.EventId, inventory.SectionId }).IsUnique();
             entity.HasMany(inventory => inventory.BookingItems)
                 .WithOne(item => item.EventInventory)
                 .HasForeignKey(item => item.InventoryId)

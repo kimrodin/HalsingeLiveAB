@@ -12,10 +12,8 @@ public class CreateEventInventoryHandler(BookingDbContext dbContext)
     {
         if (eventId == Guid.Empty)
             throw new ArgumentException("EventId must be a non-empty UUID.", nameof(eventId));
-        if (string.IsNullOrWhiteSpace(request.TicketType))
-            throw new ArgumentException("TicketType is required.", nameof(request));
-        if (request.TicketType.Length > 255)
-            throw new ArgumentException("TicketType cannot exceed 255 characters.", nameof(request));
+        if (request.SectionId == Guid.Empty)
+            throw new ArgumentException("SectionId must be a non-empty UUID.", nameof(request));
         if (request.TotalQuantity < 0)
             throw new ArgumentException("TotalQuantity cannot be negative.", nameof(request));
         if (request.Price < 0)
@@ -25,7 +23,7 @@ public class CreateEventInventoryHandler(BookingDbContext dbContext)
         {
             InventoryId = Guid.NewGuid(),
             EventId = eventId,
-            TicketType = request.TicketType.Trim(),
+            SectionId = request.SectionId,
             TotalQuantity = request.TotalQuantity,
             Price = request.Price
         };
@@ -36,7 +34,7 @@ public class CreateEventInventoryHandler(BookingDbContext dbContext)
         return new CreateEventInventoryResponse(
             inventory.InventoryId,
             inventory.EventId,
-            inventory.TicketType,
+            inventory.SectionId,
             inventory.TotalQuantity,
             inventory.Price);
     }

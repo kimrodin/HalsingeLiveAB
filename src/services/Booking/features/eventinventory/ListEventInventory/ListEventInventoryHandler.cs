@@ -11,7 +11,7 @@ public class ListEventInventoryHandler(BookingDbContext dbContext)
         CancellationToken cancellationToken = default) =>
         dbContext.EventInventory.AsNoTracking()
             .Where(item => item.EventId == eventId)
-            .OrderBy(item => item.TicketType)
+            .OrderBy(item => item.SectionId)
             .ThenBy(item => item.InventoryId)
             .ToListAsync(cancellationToken);
 }
