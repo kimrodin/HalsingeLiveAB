@@ -14,17 +14,7 @@ import {
 import { getAllEvents, type EventListItem } from '../api/events'
 import { getVenues } from '../../venues/api/venues'
 import { useNow } from '../../../hooks/useNow'
-
-const dateFormatter = new Intl.DateTimeFormat('sv-SE', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-})
-
-const timeFormatter = new Intl.DateTimeFormat('sv-SE', {
-  hour: '2-digit',
-  minute: '2-digit',
-})
+import DateBadge from '../../../components/DateBadge'
 
 const priceFormatter = new Intl.NumberFormat('sv-SE', {
   style: 'currency',
@@ -32,16 +22,7 @@ const priceFormatter = new Intl.NumberFormat('sv-SE', {
   maximumFractionDigits: 2,
 })
 
-function formatEventDate(startDate: string, endDate: string) {
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  const sameDay = start.toDateString() === end.toDateString()
-  const date = sameDay
-    ? dateFormatter.format(start)
-    : `${dateFormatter.format(start)} – ${dateFormatter.format(end)}`
 
-  return `${date} · kl. ${timeFormatter.format(start)}${sameDay ? `–${timeFormatter.format(end)}` : ''}`
-}
 
 function EventCard({ event, venueName, now }: { event: EventListItem; venueName?: string; now: number }) {
   const lowestPrice = event.sectionPrices.length > 0
@@ -66,9 +47,7 @@ function EventCard({ event, venueName, now }: { event: EventListItem; venueName?
               textAlign: { xs: 'left', sm: 'center' },
             }}
           >
-            <Typography variant="body2" sx={{ textTransform: 'capitalize', fontWeight: 700 }}>
-              {formatEventDate(event.startDate, event.endDate)}
-            </Typography>
+            <DateBadge startDate={event.startDate} endDate={event.endDate} />
           </Box>
 
           <Stack spacing={1} sx={{ minWidth: 0, flex: 1 }}>
