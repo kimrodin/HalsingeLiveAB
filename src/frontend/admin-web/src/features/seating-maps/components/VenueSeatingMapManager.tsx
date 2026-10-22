@@ -14,7 +14,7 @@ interface UploadErrors {
   file?: string;
 }
 
-export default function SeatingMapsSection({ venueId }: { venueId: string }) {
+export default function VenueSeatingMapManager({ venueId }: { venueId: string }) {
   const queryClient = useQueryClient();
   const queryKey = ['venues', venueId, 'seating-maps'];
   const fileInputRef = useRef<HTMLInputElement>(null);

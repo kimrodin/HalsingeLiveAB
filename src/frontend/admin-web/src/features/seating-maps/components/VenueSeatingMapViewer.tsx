@@ -6,12 +6,11 @@ import {
 } from '@mui/material';
 import { getSeatingMaps } from '../api/seatingMaps';
 
-export default function SeatingMapViewer({ venueId }: { venueId: string }) {
+export default function VenueSeatingMapViewer({ venueId }: { venueId: string }) {
   // Vi sparar id:t, inte hela kartan, så att valet inte pekar på en gammal karta efter omhämtning
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
-
-  // Samma nyckel som i SeatingMapsSection, så de delar cache
+  // Shared query key with VenueSeatingMapManager, so both components use the same cache.
   const { data: maps, isPending, isError } = useQuery({
     queryKey: ['venues', venueId, 'seating-maps'],
     queryFn: () => getSeatingMaps(venueId),
