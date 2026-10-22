@@ -2,7 +2,8 @@ import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/ma
 import { Link as RouterLink } from 'react-router'
 import type { EventListItem } from '../api/events'
 import DateBadge from './DateBadge'
-import TicketAction, { getSaleState } from './TicketAction'
+import TicketAction from './TicketAction'
+import { getSaleState } from './saleState'
 
 const priceFormatter = new Intl.NumberFormat('sv-SE', {
   style: 'currency',

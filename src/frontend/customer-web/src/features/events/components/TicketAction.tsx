@@ -1,16 +1,9 @@
 import { Button, Chip } from '@mui/material'
 import { Link as RouterLink } from 'react-router'
 import type { EventListItem } from '../api/events'
+import { getSaleState } from './saleState'
 
 const onSaleFormatter = new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' })
-
-type SaleState = 'ended' | 'upcoming' | 'onSale'
-
-export function getSaleState(event: EventListItem, now: number): SaleState {
-  if (new Date(event.endDate).getTime() < now) return 'ended'
-  if (new Date(event.onSaleFrom).getTime() > now) return 'upcoming'
-  return 'onSale'
-}
 
 
 // Visar köpknapp, "släpps"-chip eller ingenting beroende på försäljningsläget
