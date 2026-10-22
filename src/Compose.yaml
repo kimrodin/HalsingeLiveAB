@@ -88,14 +88,25 @@ services:
       timeout: 3s
       retries: 10
 
-  frontend:
+  admin-web:
     build:
-      context: ./frontend
+      context: ./frontend/admin-web
       dockerfile: Dockerfile
     environment:
       API_PROXY_TARGET: eventcatalog:8080
     ports:
       - "5173:80"
+    depends_on:
+      - eventcatalog
+
+  customer-web:
+    build:
+      context: ./frontend/customer-web
+      dockerfile: Dockerfile
+    environment:
+      API_PROXY_TARGET: eventcatalog:8080
+    ports:
+      - "5174:80"
     depends_on:
       - eventcatalog
 

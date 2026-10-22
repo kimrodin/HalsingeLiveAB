@@ -1,7 +1,7 @@
 services:
-  frontend:
+  admin-web:
     build:
-      context: ./frontend
+      context: ./frontend/admin-web
       dockerfile: Dockerfile.dev
     environment:
       CATALOG_API_PROXY_TARGET: http://eventcatalog:8080
@@ -9,7 +9,20 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend/admin-web:/app
-      - frontend-node-modules:/app/node_modules
+      - admin-web-node-modules:/app/node_modules
+
+  customer-web:
+    build:
+      context: ./frontend/customer-web
+      dockerfile: Dockerfile.dev
+    environment:
+      CATALOG_API_PROXY_TARGET: http://eventcatalog:8080
+    ports: !override
+      - "5174:5173"
+    volumes:
+      - ./frontend/customer-web:/app
+      - customer-web-node-modules:/app/node_modules
 
 volumes:
-  frontend-node-modules:
+  admin-web-node-modules:
+  customer-web-node-modules:
