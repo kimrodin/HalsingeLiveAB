@@ -9,16 +9,16 @@ public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
 {
     private static readonly EventSeedDefinition[] Definitions =
     [
-        new("Vinterkonsert i stora salen", "En vinterkonsert med artister från Hälsingland.", "Kulturhuset (stora salen)", Utc(2027, 1, 16, 19), [495m, 395m, 295m]),
-        new("Standup på Kulturhuset", "En kväll med standup och gästande komiker.", "Kulturhuset (stora salen)", Utc(2027, 2, 20, 19), [350m, 300m, 250m]),
-        new("Vårkonsert i stora salen", "Vårkonsert med lokala musiker och gästartister.", "Kulturhuset (stora salen)", Utc(2027, 3, 27, 19), [450m, 375m, 325m]),
-        new("Danskväll i stora salen", "Liveband och dans i Kulturhusets stora sal.", "Kulturhuset (stora salen)", Utc(2027, 4, 24, 20), [395m, 345m, 295m]),
-        new("Akustisk kväll på Studion", "En intim konsert med akustiska framträdanden.", "Studion", Utc(2027, 2, 6, 19), [225m]),
-        new("Indie Live på Studion", "En kväll med nya indieband från regionen.", "Studion", Utc(2027, 4, 10, 20), [275m]),
-        new("Sommarklubb på Studion", "Sommarkväll med DJ och dans.", "Studion", Utc(2027, 6, 5, 21), [250m]),
-        new("Hälsingesommar Festival", "En tvådagars musikfestival för hela familjen.", "Sommarfestivalens område", Utc(2027, 7, 9, 12), [495m], DurationHours: 36),
-        new("Rock under bar himmel", "En utomhuskonsert med svenska rockband.", "Sommarfestivalens område", Utc(2027, 8, 14, 17), [595m]),
-        new("Avslutningsfestivalen", "Vi avslutar sommaren med musik och mat.", "Sommarfestivalens område", Utc(2027, 9, 4, 14), [395m])
+        new(1, "Vinterkonsert i stora salen", "En vinterkonsert med artister från Hälsingland.", "Kulturhuset (stora salen)", Utc(2027, 1, 16, 19), [495m, 395m, 295m]),
+        new(2, "Standup på Kulturhuset", "En kväll med standup och gästande komiker.", "Kulturhuset (stora salen)", Utc(2027, 2, 20, 19), [350m, 300m, 250m]),
+        new(3, "Vårkonsert i stora salen", "Vårkonsert med lokala musiker och gästartister.", "Kulturhuset (stora salen)", Utc(2027, 3, 27, 19), [450m, 375m, 325m]),
+        new(4, "Danskväll i stora salen", "Liveband och dans i Kulturhusets stora sal.", "Kulturhuset (stora salen)", Utc(2027, 4, 24, 20), [395m, 345m, 295m]),
+        new(5, "Akustisk kväll på Studion", "En intim konsert med akustiska framträdanden.", "Studion", Utc(2027, 2, 6, 19), [225m]),
+        new(6, "Indie Live på Studion", "En kväll med nya indieband från regionen.", "Studion", Utc(2027, 4, 10, 20), [275m]),
+        new(7, "Sommarklubb på Studion", "Sommarkväll med DJ och dans.", "Studion", Utc(2027, 6, 5, 21), [250m]),
+        new(8, "Hälsingesommar Festival", "En tvådagars musikfestival för hela familjen.", "Sommarfestivalens område", Utc(2027, 7, 9, 12), [495m], DurationHours: 36),
+        new(9, "Rock under bar himmel", "En utomhuskonsert med svenska rockband.", "Sommarfestivalens område", Utc(2027, 8, 14, 17), [595m]),
+        new(10, "Avslutningsfestivalen", "Vi avslutar sommaren med musik och mat.", "Sommarfestivalens område", Utc(2027, 9, 4, 14), [395m])
     ];
 
     public static IReadOnlyList<(string EventName, string VenueName)> SeedEventVenueNames =>
@@ -39,6 +39,7 @@ public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
 
         foreach (var definition in Definitions)
         {
+            var eventId = SeedGuid("10000000-0000-0000-0000", definition.SeedOrdinal);
             if (!venues.TryGetValue(definition.VenueName, out var venue))
             {
                 throw new EventSeedConflictException(
@@ -58,7 +59,7 @@ public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
 
             if (existingEvent is not null)
             {
-                EnsureExistingEventMatches(existingEvent, venue, sections, definition);
+                EnsureExistingEventMatches(existingEvent, venue, sections, definition, eventId);
                 results.Add(new SeededEventResponse(
                     existingEvent.EventId,
                     existingEvent.Name,
@@ -67,7 +68,6 @@ public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
                 continue;
             }
 
-            var eventId = Guid.NewGuid();
             var eventItem = new Event
             {
                 EventId = eventId,
@@ -100,7 +100,8 @@ public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
         Event eventItem,
         Venue venue,
         IReadOnlyList<Section> sections,
-        EventSeedDefinition definition)
+        EventSeedDefinition definition,
+        Guid expectedEventId)
     {
         var expectedEndDate = definition.StartDate.AddHours(definition.DurationHours);
         var expectedPrices = sections
@@ -112,7 +113,8 @@ public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
                 expectedPrices.TryGetValue(price.SectionId, out var expectedPrice)
                 && price.Price == expectedPrice);
 
-        if (eventItem.VenueId != venue.VenueId
+        if (eventItem.EventId != expectedEventId
+            || eventItem.VenueId != venue.VenueId
             || eventItem.Description != definition.Description
             || eventItem.StartDate != definition.StartDate
             || eventItem.EndDate != expectedEndDate
@@ -120,14 +122,17 @@ public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
             || !pricesMatch)
         {
             throw new EventSeedConflictException(
-                $"Event '{definition.Name}' already exists with different values.");
+                $"Event '{definition.Name}' conflicts with the deterministic seed. Delete and reseed the existing seed data.");
         }
     }
 
     private static DateTime Utc(int year, int month, int day, int hour) =>
         new(year, month, day, hour, 0, 0, DateTimeKind.Utc);
 
+    private static Guid SeedGuid(string prefix, int ordinal) => Guid.Parse($"{prefix}-{ordinal:D12}");
+
     private sealed record EventSeedDefinition(
+        int SeedOrdinal,
         string Name,
         string Description,
         string VenueName,
