@@ -117,10 +117,7 @@ public sealed class BookingService(
         {
             if (booking.ExpiresAt <= DateTime.UtcNow)
             {
-                await dbContext.Bookings
-                    .Where(item => item.BookingId == bookingId && item.Status == BookingStatuses.Reserved)
-                    .ExecuteUpdateAsync(update => update
-                        .SetProperty(item => item.Status, BookingStatuses.Expired), cancellationToken);
+                await ExpireBookingAsync(booking, cancellationToken);
                 return new BookingActionResult(BookingActionStatus.Expired, BookingStatuses.Expired);
             }
 
@@ -138,10 +135,9 @@ public sealed class BookingService(
                     .SingleAsync(cancellationToken);
                 if (currentStatus == BookingStatuses.Confirmed)
                     return new BookingActionResult(BookingActionStatus.Completed, currentStatus);
-                if (currentStatus != BookingStatuses.Confirming)
-                    return new BookingActionResult(
-                        currentStatus == BookingStatuses.Expired ? BookingActionStatus.Expired : BookingActionStatus.InvalidState,
-                        currentStatus);
+                return new BookingActionResult(
+                    currentStatus == BookingStatuses.Expired ? BookingActionStatus.Expired : BookingActionStatus.InvalidState,
+                    currentStatus);
             }
             booking.Status = BookingStatuses.Confirming;
         }
@@ -149,53 +145,86 @@ public sealed class BookingService(
         {
             return new BookingActionResult(BookingActionStatus.InvalidState, booking.Status);
         }
-
-        foreach (var item in booking.Items)
+        else
         {
-            var result = await reservations.ConfirmReservationAsync(
-                item.EventInventory.EventId,
-                item.EventInventory.SectionId,
-                booking.BookingId);
-
-            if (result == ReservationFinalizationResult.Expired)
-            {
-                await dbContext.Bookings
-                    .Where(item => item.BookingId == bookingId && item.Status == BookingStatuses.Confirming)
-                    .ExecuteUpdateAsync(update => update
-                        .SetProperty(item => item.Status, BookingStatuses.Expired), cancellationToken);
-                return new BookingActionResult(BookingActionStatus.Expired, BookingStatuses.Expired);
-            }
-
-            if (result == ReservationFinalizationResult.NotFound)
-            {
-                await dbContext.Bookings
-                    .Where(item => item.BookingId == bookingId && item.Status == BookingStatuses.Confirming)
-                    .ExecuteUpdateAsync(update => update
-                        .SetProperty(item => item.Status, BookingStatuses.Failed), cancellationToken);
-                return new BookingActionResult(BookingActionStatus.ReservationNotFound, BookingStatuses.Failed);
-            }
+            // Another request already owns this confirmation attempt.
+            return new BookingActionResult(BookingActionStatus.InvalidState, booking.Status);
         }
 
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
-        var transitioned = await dbContext.Bookings
-            .Where(item => item.BookingId == bookingId && item.Status == BookingStatuses.Confirming)
-            .ExecuteUpdateAsync(update => update
-                .SetProperty(item => item.Status, BookingStatuses.Confirmed), cancellationToken);
-
-        if (transitioned == 1)
+        var finalizedItems = new List<BookingItem>();
+        try
         {
             foreach (var item in booking.Items)
             {
-                await dbContext.EventInventory
-                    .Where(inventory => inventory.InventoryId == item.InventoryId)
+                // This conditional write is the final stock authority. PostgreSQL serializes
+                // competing updates to this row and will reject an update that would go negative.
+                var stockUpdated = await dbContext.EventInventory
+                    .Where(inventory => inventory.InventoryId == item.InventoryId
+                        && inventory.AvailableQuantity >= item.Quantity)
                     .ExecuteUpdateAsync(update => update
                         .SetProperty(inventory => inventory.AvailableQuantity,
                             inventory => inventory.AvailableQuantity - item.Quantity), cancellationToken);
-            }
-        }
+                if (stockUpdated == 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    await reservations.ReleaseReservationAsync(item.EventInventory.EventId,
+                        item.EventInventory.SectionId, booking.BookingId);
+                    await dbContext.Bookings
+                        .Where(row => row.BookingId == bookingId && row.Status == BookingStatuses.Confirming)
+                        .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, BookingStatuses.Failed), cancellationToken);
+                    return new BookingActionResult(BookingActionStatus.InvalidState, BookingStatuses.Failed);
+                }
 
-        await transaction.CommitAsync(cancellationToken);
-        return new BookingActionResult(BookingActionStatus.Completed, BookingStatuses.Confirmed);
+                var result = await reservations.ConfirmReservationAsync(
+                    item.EventInventory.EventId,
+                    item.EventInventory.SectionId,
+                    booking.BookingId);
+
+                if (result != ReservationFinalizationResult.Completed)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    var expired = result == ReservationFinalizationResult.Expired;
+                    await dbContext.Bookings
+                        .Where(row => row.BookingId == bookingId && row.Status == BookingStatuses.Confirming)
+                        .ExecuteUpdateAsync(update => update
+                            .SetProperty(row => row.Status, expired ? BookingStatuses.Expired : BookingStatuses.Failed), cancellationToken);
+                    return new BookingActionResult(
+                        expired ? BookingActionStatus.Expired : BookingActionStatus.ReservationNotFound,
+                        expired ? BookingStatuses.Expired : BookingStatuses.Failed);
+                }
+
+                finalizedItems.Add(item);
+            }
+
+            var transitioned = await dbContext.Bookings
+                .Where(row => row.BookingId == bookingId && row.Status == BookingStatuses.Confirming)
+                .ExecuteUpdateAsync(update => update
+                    .SetProperty(row => row.Status, BookingStatuses.Confirmed), cancellationToken);
+            if (transitioned != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                foreach (var item in finalizedItems)
+                    await reservations.RestoreConfirmedReservationAsync(item.EventInventory.EventId,
+                        item.EventInventory.SectionId, booking.BookingId);
+                return new BookingActionResult(BookingActionStatus.InvalidState, booking.Status);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return new BookingActionResult(BookingActionStatus.Completed, BookingStatuses.Confirmed);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            foreach (var item in booking.Items)
+                await reservations.RestoreConfirmedReservationAsync(item.EventInventory.EventId,
+                    item.EventInventory.SectionId, booking.BookingId);
+            await dbContext.Bookings
+                .Where(row => row.BookingId == bookingId && row.Status == BookingStatuses.Confirming)
+                .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, BookingStatuses.Failed),
+                    CancellationToken.None);
+            throw;
+        }
     }
 
     public async Task<BookingActionResult> CancelAsync(
@@ -218,10 +247,7 @@ public sealed class BookingService(
         {
             if (booking.ExpiresAt <= DateTime.UtcNow)
             {
-                await dbContext.Bookings
-                    .Where(item => item.BookingId == bookingId && item.Status == BookingStatuses.Reserved)
-                    .ExecuteUpdateAsync(update => update
-                        .SetProperty(item => item.Status, BookingStatuses.Expired), cancellationToken);
+                await ExpireBookingAsync(booking, cancellationToken);
                 return new BookingActionResult(BookingActionStatus.Expired, BookingStatuses.Expired);
             }
 
@@ -278,6 +304,26 @@ public sealed class BookingService(
 
         return new BookingActionResult(BookingActionStatus.Completed, BookingStatuses.Cancelled);
     }
+
+    private async Task ExpireBookingAsync(BookingModel booking, CancellationToken cancellationToken)
+    {
+        var claimed = await dbContext.Bookings
+            .Where(row => row.BookingId == booking.BookingId
+                && row.Status == BookingStatuses.Reserved
+                && row.ExpiresAt <= DateTime.UtcNow)
+            .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, BookingStatuses.Expiring), cancellationToken);
+
+        if (claimed == 0 && booking.Status != BookingStatuses.Expiring)
+            return;
+
+        foreach (var item in booking.Items)
+            await reservations.ReleaseReservationAsync(item.EventInventory.EventId,
+                item.EventInventory.SectionId, booking.BookingId);
+
+        await dbContext.Bookings
+            .Where(row => row.BookingId == booking.BookingId && row.Status == BookingStatuses.Expiring)
+            .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, BookingStatuses.Expired), cancellationToken);
+    }
 }
 
 public enum ReservationStatus
@@ -296,6 +342,7 @@ public static class BookingStatuses
 {
     public const string Reserved = "Reserved";
     public const string Confirming = "Confirming";
+    public const string Expiring = "Expiring";
     public const string Confirmed = "Confirmed";
     public const string Cancelling = "Cancelling";
     public const string Cancelled = "Cancelled";

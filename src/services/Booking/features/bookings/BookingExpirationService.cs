@@ -1,4 +1,5 @@
 using Booking.Data;
+using Booking.Features.BookingHolds;
 using Microsoft.EntityFrameworkCore;
 
 namespace Booking.Features.Bookings;
@@ -17,13 +18,45 @@ public sealed class BookingExpirationService(
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+                var reservations = scope.ServiceProvider.GetRequiredService<RedisReservationService>();
                 var now = DateTime.UtcNow;
-                var expiredCount = await dbContext.Bookings
-                    .Where(booking => booking.Status == BookingStatuses.Reserved
-                        && booking.ExpiresAt != null
-                        && booking.ExpiresAt <= now)
-                    .ExecuteUpdateAsync(update => update
-                        .SetProperty(booking => booking.Status, BookingStatuses.Expired), stoppingToken);
+                var candidates = await dbContext.Bookings
+                    .Where(booking => (booking.Status == BookingStatuses.Reserved
+                            && booking.ExpiresAt != null && booking.ExpiresAt <= now)
+                        || booking.Status == BookingStatuses.Expiring)
+                    .Include(booking => booking.Items)
+                    .ThenInclude(item => item.EventInventory)
+                    .ToListAsync(stoppingToken);
+
+                var expiredCount = 0;
+                foreach (var booking in candidates)
+                {
+                    if (booking.Status == BookingStatuses.Reserved)
+                    {
+                        var claimed = await dbContext.Bookings
+                            .Where(item => item.BookingId == booking.BookingId
+                                && item.Status == BookingStatuses.Reserved
+                                && item.ExpiresAt <= now)
+                            .ExecuteUpdateAsync(update => update
+                                .SetProperty(item => item.Status, BookingStatuses.Expiring), stoppingToken);
+                        if (claimed == 0)
+                            continue;
+                    }
+
+                    foreach (var item in booking.Items)
+                    {
+                        await reservations.ReleaseReservationAsync(
+                            item.EventInventory.EventId,
+                            item.EventInventory.SectionId,
+                            booking.BookingId);
+                    }
+
+                    expiredCount += await dbContext.Bookings
+                        .Where(item => item.BookingId == booking.BookingId
+                            && item.Status == BookingStatuses.Expiring)
+                        .ExecuteUpdateAsync(update => update
+                            .SetProperty(item => item.Status, BookingStatuses.Expired), stoppingToken);
+                }
 
                 if (expiredCount > 0)
                     logger.LogInformation("Marked {BookingCount} booking reservations as expired.", expiredCount);

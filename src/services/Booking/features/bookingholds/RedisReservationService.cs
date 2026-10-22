@@ -165,9 +165,11 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
                 return -1
             end
 
+            local quantity = redis.call('HGET', reservationKey, 'quantity') or '0'
             redis.call('DEL', reservationKey)
             redis.call('ZREM', KEYS[2], ARGV[2])
-            redis.call('SET', confirmedKey, '1', 'EX', 86400)
+            redis.call('HSET', confirmedKey, 'quantity', quantity)
+            redis.call('EXPIRE', confirmedKey, 86400)
             return 1
             """;
 
@@ -183,6 +185,26 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
             ]);
 
         return ToFinalizationResult(result);
+    }
+
+    // Compensates a Redis confirmation when the corresponding database transaction fails.
+    // The marker makes retries safe and prevents restoring the same quantity twice.
+    public async Task RestoreConfirmedReservationAsync(Guid eventId, Guid sectionId, Guid reservationId)
+    {
+        const string script = """
+            local confirmedKey = ARGV[1] .. ARGV[2]
+            if redis.call('EXISTS', confirmedKey) == 0 then return 0 end
+            local quantity = tonumber(redis.call('HGET', confirmedKey, 'quantity') or '0')
+            if quantity > 0 then redis.call('INCRBY', KEYS[1], quantity) end
+            redis.call('DEL', confirmedKey)
+            redis.call('SET', ARGV[3] .. ARGV[2], '1', 'EX', 86400)
+            return 1
+            """;
+
+        await _redis.ScriptEvaluateAsync(
+            script,
+            [GetInventoryKey(eventId, sectionId)],
+            [ConfirmedKeyPrefix, reservationId.ToString("N"), CancelledKeyPrefix]);
     }
 
     public async Task<ReservationFinalizationResult> ReleaseReservationAsync(
