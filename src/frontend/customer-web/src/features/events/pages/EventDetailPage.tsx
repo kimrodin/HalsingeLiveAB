@@ -2,8 +2,8 @@ import { Alert, Box, Button, Chip, Skeleton, Stack, Typography } from '@mui/mate
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink, useParams } from 'react-router'
 import DateBadge from '../components/DateBadge'
-import PriceList from '../components/PriceList'
 import VenueInfo from '../../venues/components/VenueInfo'
+import EventTicketInventory from '../../bookings/components/EventTicketInventory'
 import { ApiError } from '../../../shared/api/http'
 import { getEventById } from '../api/events'
 import { getVenueById } from '../../venues/api/venues'
@@ -85,7 +85,7 @@ export default function EventDetailPage() {
       </Stack>
 
       {new Date(event.onSaleFrom).getTime() <= now ? (
-        <Chip label="Biljetter finns" color="success" sx={{ alignSelf: 'flex-start' }} />
+        <Chip label="Biljettförsäljningen har startat" color="success" sx={{ alignSelf: 'flex-start' }} />
       ) : (
         <Chip
           label={`Biljetter släpps ${saleDateFormatter.format(new Date(event.onSaleFrom))}`}
@@ -107,7 +107,12 @@ export default function EventDetailPage() {
       )}
 
       {venueQuery.isSuccess ? (
-        <PriceList sectionPrices={event.sectionPrices} sections={venueQuery.data.sections} />
+        <EventTicketInventory
+          eventId={event.eventId}
+          eventName={event.name}
+          sections={venueQuery.data.sections}
+          salesOpen={new Date(event.onSaleFrom).getTime() <= now}
+        />
       ) : venueQuery.isPending ? (
         <Skeleton height={160} />
       ) : null}

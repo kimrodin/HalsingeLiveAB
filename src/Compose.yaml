@@ -5,7 +5,7 @@ services:
 
   booking:
     build:
-      context: ./Services/Booking
+      context: ./services/Booking
       dockerfile: Dockerfile
     environment:
       ConnectionStrings__Booking: "Host=booking-db;Port=5432;Database=booking_dev;Username=postgres;Password=postgres"
