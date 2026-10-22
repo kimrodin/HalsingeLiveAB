@@ -3,6 +3,39 @@ name: services
 
 services:
 
+  booking:
+    build:
+      context: ./Services/Booking
+      dockerfile: Dockerfile
+    environment:
+      ConnectionStrings__Booking: "Host=booking-db;Port=5432;Database=booking_dev;Username=postgres;Password=postgres"
+      ConnectionStrings__Redis: "booking-redis:6379"
+      ASPNETCORE_ENVIRONMENT: Development
+      InitializeDatabase: "true"
+    ports:
+      - "8081:8080"
+    depends_on:
+      booking-db:
+        condition: service_healthy
+      booking-redis:
+        condition: service_healthy
+
+  booking-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: booking_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - booking-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d booking_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   eventcatalog:
     build:
       context: ./services/EventCatalog
@@ -10,6 +43,7 @@ services:
     environment:
       ConnectionStrings__EventCatalog: "Host=eventcatalog-db;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
       ASPNETCORE_ENVIRONMENT: Development
+      InitializeDatabase: "true"
       Authentication__Authority: http://localhost:8180/realms/halsingelive
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       VenueMapStorage__RootPath: /app/uploads/venue-maps
@@ -38,6 +72,21 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  
+  booking-redis:
+    image: redis:7-alpine
+    container_name: booking-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - booking-redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   frontend:
     build:
@@ -65,6 +114,8 @@ services:
       - ../infrastructure/keycloak:/opt/keycloak/data/import:ro
 
 volumes:
+  booking-data:
   keycloak-data:
   eventcatalog-data:
   venue-maps-data:
+  booking-redis-data:
