@@ -176,7 +176,7 @@ cd src/frontend/admin-web
 npm install keycloak-js@26.2.4
 ```
 
-Skapa `src/frontend/admin-web/src/auth/keycloak.ts`:
+Skapa `src/frontend/admin-web/src/app/auth/keycloak.ts`:
 
 ```typescript
 import Keycloak from 'keycloak-js';
@@ -198,8 +198,8 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
 import { CssBaseline } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { router } from './router';
-import keycloak from './auth/keycloak';
+import { router } from './app/router';
+import keycloak from './app/auth/keycloak';
 
 const queryClient = new QueryClient();
 const root = createRoot(document.getElementById('root')!);
@@ -260,10 +260,10 @@ Keycloak initieras en gång innan React-vyerna startas.
 
 ## 6. Skicka token från fetch-hjälparen
 
-I `src/frontend/admin-web/src/api/http.ts`, lägg till:
+I `src/frontend/admin-web/src/shared/api/http.ts`, lägg till:
 
 ```typescript
-import keycloak from '../auth/keycloak';
+import keycloak from '../../app/auth/keycloak';
 ```
 
 Ersätt bara funktionen `request` med:
@@ -311,7 +311,7 @@ Om en uppladdning använder `fetch` direkt behöver den också skicka token.
 
 ## 7. Lägg till utloggning
 
-I `src/frontend/admin-web/src/layouts/AdminLayout.tsx`, lägg till importerna
+I `src/frontend/admin-web/src/app/layouts/AdminLayout.tsx`, lägg till importerna
 nedan. Om `Button` redan importeras från MUI behöver den inte importeras igen.
 
 ```typescript
@@ -412,7 +412,7 @@ webbläsarens utvecklarkonsol och kör följande. Detta är en lokal Vite-testme
 
 ```javascript
 const { default: keycloak } =
-  await import('/src/auth/keycloak.ts');
+  await import('/src/app/auth/keycloak.ts');
 
 const response = await fetch('/api/CreateVenue', {
   method: 'POST',
