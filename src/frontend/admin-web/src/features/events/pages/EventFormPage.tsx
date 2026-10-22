@@ -5,9 +5,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert, Box, Button, CircularProgress, MenuItem, Paper, Stack, TextField, Typography,
 } from '@mui/material';
-import { createEvent, getEvent, getVenues, updateEvent } from '../api/catalog';
-import type { EventDetails } from '../api/catalog';
-import SeatingMapViewer from '../components/SeatingMapViewer';
+import { createEvent, getEvent, updateEvent } from '../api/events';
+import { getVenues } from '../../venues/api/venues';
+import type { EventDetails } from '../types';
+import VenueSeatingMapViewer from '../../seating-maps/components/VenueSeatingMapViewer';
 
 // Gränserna kommer från backend.
 const MAX_NAME = 200;
@@ -296,7 +297,7 @@ function EventForm({ event }: { event?: EventDetails }) {
               overflow: 'auto',
             }}
           >
-            <SeatingMapViewer venueId={values.venueId} />
+            <VenueSeatingMapViewer venueId={values.venueId} />
           </Box>
         )}
       </Stack>

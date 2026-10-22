@@ -1,13 +1,13 @@
 import { Alert, Box, Button, Chip, Skeleton, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink, useParams } from 'react-router'
-import DateBadge from '../../../components/DateBadge'
-import PriceList from '../../../components/PriceList'
-import VenueInfo from '../../../components/VenueInfo'
+import DateBadge from '../components/DateBadge'
+import PriceList from '../components/PriceList'
+import VenueInfo from '../../venues/components/VenueInfo'
 import { ApiError } from '../../../shared/api/http'
 import { getEventById } from '../api/events'
 import { getVenueById } from '../../venues/api/venues'
-import { useNow } from '../../../hooks/useNow'
+import { useNow } from '../../../shared/hooks/useNow'
 
 const dateFormatter = new Intl.DateTimeFormat('sv-SE', {
   weekday: 'short',

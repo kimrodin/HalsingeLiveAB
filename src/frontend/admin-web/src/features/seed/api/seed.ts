@@ -1,4 +1,4 @@
-import { request } from './http';
+import { request } from '../../../shared/api/http';
 
 export interface DeleteSeedDataResult {
   deletedEventCount: number;

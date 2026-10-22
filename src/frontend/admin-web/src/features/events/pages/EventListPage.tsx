@@ -3,8 +3,9 @@ import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Pagination,
   Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
-import { getEvents, getVenues, deleteEvent } from '../api/catalog';
-import type { EventDetails } from '../api/catalog';
+import { getEvents, deleteEvent } from '../api/events';
+import { getVenues } from '../../venues/api/venues';
+import type { EventDetails } from '../types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 

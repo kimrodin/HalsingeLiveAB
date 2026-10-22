@@ -1,5 +1,5 @@
 import { Stack, Typography } from '@mui/material'
-import type { VenueDetail } from '../features/venues/api/venues'
+import type { VenueDetail } from '../api/venues'
 
 interface VenueInfoProps {
   venue: VenueDetail

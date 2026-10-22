@@ -4,7 +4,7 @@ import { RouterProvider } from 'react-router/dom'
 import { CssBaseline, ThemeProvider } from '@mui/material'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { router } from './app/router'
-import { theme } from './theme'
+import { theme } from './app/theme'
 
 const queryClient = new QueryClient()
 

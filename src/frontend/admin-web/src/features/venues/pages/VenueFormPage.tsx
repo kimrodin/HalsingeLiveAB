@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Alert, Box, Button, CircularProgress, MenuItem, Paper, Stack, TextField, Typography,
 } from '@mui/material';
-import { ApiError } from '../api/http';
-import { createVenue, getVenue, updateVenue } from '../api/catalog';
-import type { SaveVenueRequest, SectionSeatingType, Venue } from '../api/catalog';
-import SeatingMapsSection from '../components/SeatingMapsSection';
+import { ApiError } from '../../../shared/api/http';
+import { createVenue, getVenue, updateVenue } from '../api/venues';
+import type { SaveVenueRequest, SectionSeatingType, Venue } from '../types';
+import VenueSeatingMapManager from '../../seating-maps/components/VenueSeatingMapManager';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import SeatingMapViewer from '../components/SeatingMapViewer';
+import VenueSeatingMapViewer from '../../seating-maps/components/VenueSeatingMapViewer';
 
 const seatingTypeLabel: Record<SectionSeatingType, string> = {
     standing: 'Ståplats',
@@ -361,13 +361,13 @@ function VenueForm({ venue }: { venue?: Venue }) {
                             overflow: 'auto',
                         }}
                     >
-                        <SeatingMapViewer venueId={venue.id} />
+                        <VenueSeatingMapViewer venueId={venue.id} />
                     </Box>
                 )}
             </Stack>
 
             {isEdit ? (
-                <SeatingMapsSection venueId={venue.id} />
+                <VenueSeatingMapManager venueId={venue.id} />
             ) : (
                 <Alert severity="info" sx={{ mt: 3, maxWidth: 900 }}>
                     Spara scenen först för att kunna lägga till platskartor.

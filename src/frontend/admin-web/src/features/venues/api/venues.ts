@@ -1,11 +1,11 @@
-import { request, sendJson } from './http';
+import { request, sendJson } from '../../../shared/api/http';
 import type {
   SaveVenueRequest,
   SectionSeatingType,
   Venue,
   VenueSection,
   VenueSectionInput,
-} from './types';
+} from '../types';
 
 type SeatingTypeDto = number | string;
 

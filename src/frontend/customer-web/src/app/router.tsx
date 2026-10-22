@@ -1,5 +1,5 @@
 import { createBrowserRouter } from 'react-router'
-import CustomerLayout from './CustomerLayout'
+import CustomerLayout from './layouts/CustomerLayout'
 import HomePage from '../features/events/pages/HomePage'
 import EventDetailPage from '../features/events/pages/EventDetailPage'
 

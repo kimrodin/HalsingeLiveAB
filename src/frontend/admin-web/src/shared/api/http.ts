@@ -1,4 +1,4 @@
-import keycloak from '../auth/keycloak';
+import keycloak from '../../app/auth/keycloak';
 // Gemensam fetch-hjälpare för alla anrop mot EventCatalog.
 //
 // I utveckling går anropen till /api/... och Vite-servern skickar dem vidare till

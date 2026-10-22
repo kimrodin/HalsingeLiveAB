@@ -1,10 +1,10 @@
-import { request, sendJson } from './http';
+import { request, sendJson } from '../../../shared/api/http';
 import type {
   CreateEventRequest,
   EventDetails,
   EventSectionPrice,
   UpdateEventRequest,
-} from './types';
+} from '../types';
 
 interface EventListItemDto {
   eventId: string;

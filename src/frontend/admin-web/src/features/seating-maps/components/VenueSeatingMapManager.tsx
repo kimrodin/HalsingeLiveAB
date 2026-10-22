@@ -5,8 +5,8 @@ import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Link, Paper, Stack, TextField, Typography,
 } from '@mui/material';
-import { deleteSeatingMap, getSeatingMaps, uploadSeatingMap } from '../api/catalog';
-import type { UploadSeatingMapRequest, VenueSeatingMap } from '../api/catalog';
+import { deleteSeatingMap, getSeatingMaps, uploadSeatingMap } from '../api/seatingMaps';
+import type { UploadSeatingMapRequest, VenueSeatingMap } from '../types';
 import { validateSeatingMapFile } from '../utils/validateSeatingMapFile';
 
 interface UploadErrors {

@@ -15,8 +15,8 @@ import {
 import { Link as RouterLink } from 'react-router'
 import { getAllEvents, type EventListItem } from '../api/events'
 import { getVenues } from '../../venues/api/venues'
-import { useNow } from '../../../hooks/useNow'
-import DateBadge from '../../../components/DateBadge'
+import { useNow } from '../../../shared/hooks/useNow'
+import DateBadge from '../components/DateBadge'
 
 const priceFormatter = new Intl.NumberFormat('sv-SE', {
   style: 'currency',

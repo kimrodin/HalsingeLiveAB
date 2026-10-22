@@ -3,9 +3,8 @@ import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
-import type { SectionSeatingType } from '../api/catalog';
-import type { Venue } from '../api/catalog';
-import { getVenues, deleteVenue } from '../api/catalog';
+import type { SectionSeatingType, Venue } from '../types';
+import { getVenues, deleteVenue } from '../api/venues';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 

@@ -6,7 +6,7 @@ import {
   Alert, AppBar, Box, Button, Drawer, List, ListItemButton, ListItemText, Snackbar,
   Toolbar, Typography,
 } from '@mui/material';
-import { deleteSeedData, seedData } from '../api/catalog';
+import { deleteSeedData, seedData } from '../../features/seed/api/seed';
 
 const drawerWidth = 220;
 

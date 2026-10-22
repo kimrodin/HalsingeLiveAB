@@ -1,5 +1,5 @@
-import type { UploadSeatingMapRequest, VenueSeatingMap } from './types';
-import { BASE_URL, request } from './http';
+import type { UploadSeatingMapRequest, VenueSeatingMap } from '../types';
+import { BASE_URL, request } from '../../../shared/api/http';
 
 interface VenueSeatingMapDto {
   venueSeatingMapId: string;

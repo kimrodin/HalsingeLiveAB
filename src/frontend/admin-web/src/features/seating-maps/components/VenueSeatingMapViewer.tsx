@@ -4,7 +4,7 @@ import {
   Alert, Box, Button, ButtonBase, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, Paper, Tab, Tabs, Typography,
 } from '@mui/material';
-import { getSeatingMaps } from '../api/catalog';
+import { getSeatingMaps } from '../api/seatingMaps';
 
 export default function SeatingMapViewer({ venueId }: { venueId: string }) {
   // Vi sparar id:t, inte hela kartan, så att valet inte pekar på en gammal karta efter omhämtning
