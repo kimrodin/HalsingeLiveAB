@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
 import { CssBaseline } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { router } from './router';
-import keycloak from './auth/keycloak';
+import { router } from './app/router';
+import keycloak from './app/auth/keycloak';
 
 const queryClient = new QueryClient();
 const root = createRoot(document.getElementById('root')!);
@@ -12,7 +12,7 @@ const root = createRoot(document.getElementById('root')!);
 async function start() {
   try {
     const authenticated = await keycloak.init({
-      onLoad: 'check-sso',
+      onLoad: 'login-required',
       pkceMethod: 'S256',
       checkLoginIframe: false,
     });
