@@ -30,6 +30,14 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
     }
   }, [])
 
+  useEffect(() => {
+    if (events.length === 0 || activeIndex < events.length) return
+
+    const nextIndex = events.length - 1
+    const viewport = viewportRef.current
+    viewport?.scrollTo({ left: nextIndex * viewport.clientWidth, behavior: 'auto' })
+  }, [activeIndex, events.length])
+
   if (events.length === 0) return null
 
   // Listan kan bli kortare när ett evenemang tar slut medan sidan är öppen
@@ -45,7 +53,7 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     viewport.scrollTo({
-      left: slide.offsetLeft - (viewport.clientWidth - slide.offsetWidth) / 2,
+      left: slide.offsetLeft,
       behavior: reduceMotion ? 'auto' : 'smooth',
     })
     setActiveIndex(index)
@@ -93,7 +101,6 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
         sx={{
           position: 'relative', // behövs för att offsetLeft ska räknas från containern
           display: 'flex',
-          gap: 2,
           overflowX: 'auto',
           py: 1,
           scrollSnapType: 'x mandatory',
@@ -101,8 +108,6 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
           '@media (prefers-reduced-motion: reduce)': { scrollBehavior: 'auto' },
-          // gap läggs även runt spacers, så dra bort det
-          '&::before, &::after': { content: '""', flex: '0 0 calc(9% - 16px)' },
         }}
       >
         {events.map((event, index) => {
@@ -115,7 +120,7 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
               role="group"
               aria-roledescription="bild"
               aria-label={`${index + 1} av ${events.length}`}
-              sx={{ flex: '0 0 82%', scrollSnapAlign: 'center' }}
+              sx={{ flex: '0 0 100%', minWidth: 0, boxSizing: 'border-box', scrollSnapAlign: 'start' }}
             >
               <Card variant="outlined" sx={{ height: '100%', overflow: 'hidden', borderRadius: 3 }}>
                 <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>

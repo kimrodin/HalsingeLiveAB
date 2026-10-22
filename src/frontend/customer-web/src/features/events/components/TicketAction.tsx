@@ -21,7 +21,13 @@ export default function TicketAction({ event, now }: { event: EventListItem; now
     return (
       <Chip
         label="Avslutad"
-        sx={{ width: '100%', height: 40, borderRadius: 1, justifyContent: 'center' }}
+        sx={{
+          width: '100%',
+          height: 40,
+          borderRadius: 1,
+          justifyContent: 'center',
+          '& .MuiChip-label': { typography: 'button' },
+        }}
       />
     )
   }
@@ -36,7 +42,7 @@ export default function TicketAction({ event, now }: { event: EventListItem; now
           height: 40,
           borderRadius: 1,
           justifyContent: 'center',
-          '& .MuiChip-label': { whiteSpace: 'normal', textAlign: 'center' },
+          '& .MuiChip-label': { typography: 'button', whiteSpace: 'normal', textAlign: 'center' },
         }}
       />
     )

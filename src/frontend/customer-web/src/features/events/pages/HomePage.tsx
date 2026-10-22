@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Alert,
-  Box,
   Button,
   Skeleton,
   Stack,
@@ -72,15 +71,7 @@ export default function HomePage() {
 
   return (
     <Stack spacing={3}>
-      <Box component="header">
-        <Typography variant="h3" component="h1" sx={{ maxWidth: 620, fontWeight: 700, letterSpacing: '-0.035em' }}>
-          Evenemang i Hälsingland
-        </Typography>
-        <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Hitta nästa upplevelse, från lokala konserter till stora evenemang.
-        </Typography>
-        <EventCarousel events={featuredEvents} venuesById={venuesById} now={now} />
-      </Box>
+      <EventCarousel events={featuredEvents} venuesById={venuesById} now={now} />
 
       <TextField
         label="Sök evenemang"
