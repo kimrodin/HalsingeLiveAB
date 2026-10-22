@@ -6,42 +6,17 @@ namespace Booking.Features.Seed;
 
 public sealed class SeedInventoryHandler(BookingDbContext dbContext)
 {
-    private static readonly SeedInventoryDefinition[] Definitions =
-    [
-        new(
-            "Mock concert",
-            "Front section",
-            Guid.Parse("10000000-0000-0000-0000-000000000001"),
-            Guid.Parse("20000000-0000-0000-0000-000000000001"),
-            40,
-            75m),
-        new(
-            "Mock concert",
-            "Rear section",
-            Guid.Parse("10000000-0000-0000-0000-000000000001"),
-            Guid.Parse("20000000-0000-0000-0000-000000000002"),
-            60,
-            45m),
-        new(
-            "Mock theater",
-            "Main section",
-            Guid.Parse("10000000-0000-0000-0000-000000000002"),
-            Guid.Parse("20000000-0000-0000-0000-000000000003"),
-            80,
-            30m)
-    ];
-
     public async Task<SeedInventoryResponse> Handle(CancellationToken cancellationToken = default)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        var eventIds = Definitions.Select(item => item.EventId).Distinct().ToArray();
+        var eventIds = SeedInventoryData.Definitions.Select(item => item.EventId).Distinct().ToArray();
         var existing = await dbContext.EventInventory
             .Where(item => eventIds.Contains(item.EventId))
             .ToListAsync(cancellationToken);
         var createdCount = 0;
 
-        foreach (var definition in Definitions)
+        foreach (var definition in SeedInventoryData.Definitions)
         {
             var inventory = existing.SingleOrDefault(item =>
                 item.EventId == definition.EventId && item.SectionId == definition.SectionId);
@@ -76,7 +51,7 @@ public sealed class SeedInventoryHandler(BookingDbContext dbContext)
 
         return new SeedInventoryResponse(
             createdCount,
-            Definitions.Select(definition => new SeededInventoryResponse(
+            SeedInventoryData.Definitions.Select(definition => new SeededInventoryResponse(
                 definition.EventName,
                 definition.SectionName,
                 definition.EventId,
@@ -85,14 +60,43 @@ public sealed class SeedInventoryHandler(BookingDbContext dbContext)
                 definition.Price)).ToArray());
     }
 
-    private sealed record SeedInventoryDefinition(
-        string EventName,
-        string SectionName,
-        Guid EventId,
-        Guid SectionId,
-        int TotalQuantity,
-        decimal Price);
 }
+
+internal static class SeedInventoryData
+{
+    public static readonly SeedInventoryDefinition[] Definitions =
+    [
+        new(
+            "Mock concert",
+            "Front section",
+            Guid.Parse("10000000-0000-0000-0000-000000000001"),
+            Guid.Parse("20000000-0000-0000-0000-000000000001"),
+            40,
+            75m),
+        new(
+            "Mock concert",
+            "Rear section",
+            Guid.Parse("10000000-0000-0000-0000-000000000001"),
+            Guid.Parse("20000000-0000-0000-0000-000000000002"),
+            60,
+            45m),
+        new(
+            "Mock theater",
+            "Main section",
+            Guid.Parse("10000000-0000-0000-0000-000000000002"),
+            Guid.Parse("20000000-0000-0000-0000-000000000003"),
+            80,
+            30m)
+    ];
+}
+
+internal sealed record SeedInventoryDefinition(
+    string EventName,
+    string SectionName,
+    Guid EventId,
+    Guid SectionId,
+    int TotalQuantity,
+    decimal Price);
 
 public sealed record SeedInventoryResponse(
     int CreatedCount,

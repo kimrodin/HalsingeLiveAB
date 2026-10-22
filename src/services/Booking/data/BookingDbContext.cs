@@ -17,7 +17,9 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
         {
             entity.ToTable("Bookings");
             entity.HasKey(booking => booking.BookingId);
-            entity.Property(booking => booking.CustomerId).IsRequired();
+            entity.Property(booking => booking.CustomerId).IsRequired(false);
+            entity.Property(booking => booking.CustomerName).HasMaxLength(200).IsRequired();
+            entity.Property(booking => booking.CustomerEmail).HasMaxLength(254).IsRequired();
             entity.Property(booking => booking.Status).IsRequired();
             entity.Property(booking => booking.TotalPrice).HasPrecision(12, 2);
             entity.HasMany(booking => booking.Items)

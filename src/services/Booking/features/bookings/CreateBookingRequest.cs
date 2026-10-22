@@ -1,7 +1,7 @@
 namespace Booking.Features.Bookings;
 
 public sealed record CreateBookingRequest(
-    Guid EventId,
-    Guid SectionId,
+    Guid InventoryId,
     int Quantity,
-    string CustomerId);
+    string CustomerName,
+    string CustomerEmail);

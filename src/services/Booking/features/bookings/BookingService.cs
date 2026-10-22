@@ -17,13 +17,12 @@ public sealed class BookingService(
         CancellationToken cancellationToken = default)
     {
         BookingValidation.ValidateCreateBooking(request);
-        var customerId = request.CustomerId.Trim();
+        var customerName = request.CustomerName.Trim();
+        var customerEmail = request.CustomerEmail.Trim();
 
         var inventory = await dbContext.EventInventory
             .AsNoTracking()
-            .SingleOrDefaultAsync(item =>
-                item.EventId == request.EventId && item.SectionId == request.SectionId,
-                cancellationToken);
+            .SingleOrDefaultAsync(item => item.InventoryId == request.InventoryId, cancellationToken);
 
         if (inventory is null)
             return new ReservationResult(ReservationStatus.InventoryNotFound, null, null);
@@ -43,7 +42,6 @@ public sealed class BookingService(
             inventory.EventId,
             inventory.SectionId,
             request.Quantity,
-            customerId,
             expiresAt);
 
         if (!reserved)
@@ -52,7 +50,8 @@ public sealed class BookingService(
         var booking = new BookingModel
         {
             BookingId = bookingId,
-            CustomerId = customerId,
+            CustomerName = customerName,
+            CustomerEmail = customerEmail,
             Status = BookingStatuses.Reserved,
             TotalPrice = inventory.Price * request.Quantity,
             CreatedAt = DateTime.UtcNow,
@@ -83,12 +82,24 @@ public sealed class BookingService(
         return new ReservationResult(ReservationStatus.Reserved, bookingId, expiresAt);
     }
 
-    public Task<BookingModel> GetBookingAsync(Guid bookingId, CancellationToken cancellationToken = default) =>
+    public async Task<BookingModel> GetBookingAsync(
+        Guid bookingId,
+        CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Bookings.AsNoTracking()
+            .Include(booking => booking.Items)
+            .FirstOrDefaultAsync(booking => booking.BookingId == bookingId, cancellationToken);
+    }
+
+    public Task<List<BookingModel>> ListBookingsAsync(CancellationToken cancellationToken = default) =>
         dbContext.Bookings.AsNoTracking()
             .Include(booking => booking.Items)
-            .FirstOrDefaultAsync(booking => booking.BookingId == bookingId, cancellationToken)!;
+            .OrderByDescending(booking => booking.CreatedAt)
+            .ToListAsync(cancellationToken);
 
-    public async Task<BookingActionResult> ConfirmAsync(Guid bookingId, CancellationToken cancellationToken = default)
+    public async Task<BookingActionResult> ConfirmAsync(
+        Guid bookingId,
+        CancellationToken cancellationToken = default)
     {
         BookingValidation.ValidateId(bookingId, nameof(bookingId));
         var booking = await dbContext.Bookings
@@ -187,7 +198,9 @@ public sealed class BookingService(
         return new BookingActionResult(BookingActionStatus.Completed, BookingStatuses.Confirmed);
     }
 
-    public async Task<BookingActionResult> CancelAsync(Guid bookingId, CancellationToken cancellationToken = default)
+    public async Task<BookingActionResult> CancelAsync(
+        Guid bookingId,
+        CancellationToken cancellationToken = default)
     {
         BookingValidation.ValidateId(bookingId, nameof(bookingId));
         var booking = await dbContext.Bookings
@@ -276,7 +289,7 @@ public enum ReservationStatus
 
 public sealed record ReservationResult(
     ReservationStatus Status,
-    Guid? ReservationId,
+    Guid? BookingId,
     DateTimeOffset? ExpiresAt);
 
 public static class BookingStatuses

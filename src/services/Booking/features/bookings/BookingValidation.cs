@@ -1,5 +1,6 @@
 using Booking.Features.Bookings.Models;
 using Booking.Features.EventInventory.CreateEventInventory;
+using System.Net.Mail;
 
 namespace Booking.Features.Bookings;
 
@@ -7,7 +8,8 @@ namespace Booking.Features.Bookings;
 public static class BookingValidation
 {
     private const decimal MaximumStoredMoney = 9_999_999_999.99m;
-    private const int MaximumCustomerIdLength = 255;
+    private const int MaximumCustomerNameLength = 200;
+    private const int MaximumCustomerEmailLength = 254;
 
     public static void ValidateCreateBooking(CreateBookingRequest request)
     {
@@ -19,17 +21,41 @@ public static class BookingValidation
             return;
         }
 
-        ValidateId(errors, request.EventId, "EventId");
-        ValidateId(errors, request.SectionId, "SectionId");
+        ValidateId(errors, request.InventoryId, "InventoryId");
         if (request.Quantity <= 0)
             errors["Quantity"] = ["Quantity must be greater than zero."];
 
-        if (string.IsNullOrWhiteSpace(request.CustomerId))
-            errors["CustomerId"] = ["CustomerId is required."];
-        else if (request.CustomerId.Trim().Length > MaximumCustomerIdLength)
-            errors["CustomerId"] = [$"CustomerId can be at most {MaximumCustomerIdLength} characters long."];
+        if (string.IsNullOrWhiteSpace(request.CustomerName))
+            errors["CustomerName"] = ["CustomerName is required."];
+        else if (request.CustomerName.Trim().Length > MaximumCustomerNameLength)
+            errors["CustomerName"] = [$"CustomerName can be at most {MaximumCustomerNameLength} characters long."];
+
+        if (string.IsNullOrWhiteSpace(request.CustomerEmail))
+            errors["CustomerEmail"] = ["CustomerEmail is required."];
+        else
+            ValidateEmail(errors, request.CustomerEmail.Trim());
 
         ThrowIfInvalid(errors);
+    }
+
+    private static void ValidateEmail(Dictionary<string, string[]> errors, string email)
+    {
+        if (email.Length > MaximumCustomerEmailLength)
+        {
+            errors["CustomerEmail"] = [$"CustomerEmail can be at most {MaximumCustomerEmailLength} characters long."];
+            return;
+        }
+
+        try
+        {
+            var parsed = new MailAddress(email);
+            if (!string.Equals(parsed.Address, email, StringComparison.OrdinalIgnoreCase))
+                errors["CustomerEmail"] = ["CustomerEmail must be a valid email address."];
+        }
+        catch (FormatException)
+        {
+            errors["CustomerEmail"] = ["CustomerEmail must be a valid email address."];
+        }
     }
 
     public static void ValidateCreateInventory(Guid eventId, CreateEventInventoryRequest request)

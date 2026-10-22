@@ -3,13 +3,29 @@ using Microsoft.AspNetCore.Mvc;
 namespace Booking.Features.Bookings;
 
 [ApiController]
-[Route("api/bookings")]
-public sealed class BookingsController(BookingService bookingService) : ControllerBase
+[Route("/[action]")]
+public sealed class BookingsController(
+    BookingService bookingService,
+    IWebHostEnvironment environment) : ControllerBase
 {
+    [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<BookingDetailsResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ListBookings(CancellationToken cancellationToken)
+    {
+        if (!environment.IsDevelopment())
+            return NotFound();
+
+        var bookings = await bookingService.ListBookingsAsync(cancellationToken);
+        return Ok(bookings.Select(ToDetailsResponse).ToArray());
+    }
+
     [HttpGet("{bookingId:guid}")]
     [ProducesResponseType(typeof(BookingDetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Get(Guid bookingId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -24,17 +40,7 @@ public sealed class BookingsController(BookingService bookingService) : Controll
         if (booking is null)
             return NotFound();
 
-        return Ok(new BookingDetailsResponse(
-            booking.BookingId,
-            booking.CustomerId,
-            booking.Status,
-            booking.TotalPrice,
-            booking.CreatedAt,
-            booking.ExpiresAt,
-            booking.Items.Select(item => new BookingItemResponse(
-                item.InventoryId,
-                item.Quantity,
-                item.UnitPrice)).ToArray()));
+        return Ok(ToDetailsResponse(booking));
     }
 
     [HttpPost]
@@ -42,7 +48,7 @@ public sealed class BookingsController(BookingService bookingService) : Controll
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Create(
+    public async Task<IActionResult> CreateBooking(
         [FromBody] CreateBookingRequest request,
         CancellationToken cancellationToken)
     {
@@ -62,7 +68,7 @@ public sealed class BookingsController(BookingService bookingService) : Controll
                     Status = StatusCodes.Status409Conflict
                 }),
                 _ => Accepted(new CreateBookingResponse(
-                    result.ReservationId!.Value,
+                    result.BookingId!.Value,
                     result.ExpiresAt!.Value,
                     "Tickets are temporarily reserved."))
             };
@@ -73,11 +79,13 @@ public sealed class BookingsController(BookingService bookingService) : Controll
         }
     }
 
-    [HttpPost("{bookingId:guid}/confirm")]
+    [HttpPost("{bookingId:guid}")]
     [ProducesResponseType(typeof(BookingStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Confirm(Guid bookingId, CancellationToken cancellationToken)
+    public async Task<IActionResult> ConfirmBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
     {
         BookingActionResult result;
         try
@@ -106,11 +114,13 @@ public sealed class BookingsController(BookingService bookingService) : Controll
         };
     }
 
-    [HttpPost("{bookingId:guid}/cancel")]
+    [HttpPost("{bookingId:guid}")]
     [ProducesResponseType(typeof(BookingStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Cancel(Guid bookingId, CancellationToken cancellationToken)
+    public async Task<IActionResult> CancelBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
     {
         BookingActionResult result;
         try
@@ -147,16 +157,32 @@ public sealed class BookingsController(BookingService bookingService) : Controll
 
         return ValidationProblem(ModelState);
     }
+
+    private static BookingDetailsResponse ToDetailsResponse(
+        Booking.Features.Bookings.Models.Booking booking) =>
+        new(
+            booking.BookingId,
+            booking.CustomerName,
+            booking.CustomerEmail,
+            booking.Status,
+            booking.TotalPrice,
+            booking.CreatedAt,
+            booking.ExpiresAt,
+            booking.Items.Select(item => new BookingItemResponse(
+                item.InventoryId,
+                item.Quantity,
+                item.UnitPrice)).ToArray());
 }
 
 public sealed record CreateBookingResponse(
-    Guid ReservationId,
+    Guid BookingId,
     DateTimeOffset ExpiresAt,
     string Message);
 
 public sealed record BookingDetailsResponse(
     Guid BookingId,
-    string CustomerId,
+    string CustomerName,
+    string CustomerEmail,
     string Status,
     decimal TotalPrice,
     DateTime CreatedAt,

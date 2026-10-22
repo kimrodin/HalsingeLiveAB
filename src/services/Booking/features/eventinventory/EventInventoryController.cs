@@ -9,14 +9,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace Booking.Features.EventInventory;
 
 [ApiController]
-[Route("api")]
+[Route("/[action]")]
 public class EventInventoryController(
     CreateEventInventoryHandler createHandler,
     GetEventInventoryHandler getHandler,
     ListEventInventoryHandler listHandler) : ControllerBase
 {
-    [HttpGet("events/{eventId:guid}/inventory")]
-    public async Task<IActionResult> ListForEvent(Guid eventId, CancellationToken cancellationToken)
+    [HttpGet("{eventId:guid}")]
+    public async Task<IActionResult> ListEventInventory(Guid eventId, CancellationToken cancellationToken)
     {
         try
         {
@@ -30,8 +30,8 @@ public class EventInventoryController(
         return Ok(await listHandler.Handle(eventId, cancellationToken));
     }
 
-    [HttpGet("inventory/{inventoryId:guid}")]
-    public async Task<IActionResult> Get(Guid inventoryId, CancellationToken cancellationToken)
+    [HttpGet("{inventoryId:guid}")]
+    public async Task<IActionResult> GetEventInventory(Guid inventoryId, CancellationToken cancellationToken)
     {
         try
         {
@@ -46,8 +46,8 @@ public class EventInventoryController(
         return inventory is null ? NotFound() : Ok(inventory);
     }
 
-    [HttpPost("events/{eventId:guid}/inventory")]
-    public async Task<IActionResult> Create(
+    [HttpPost("{eventId:guid}")]
+    public async Task<IActionResult> CreateEventInventory(
         Guid eventId,
         [FromBody] CreateEventInventoryRequest request,
         CancellationToken cancellationToken)
@@ -55,7 +55,7 @@ public class EventInventoryController(
         try
         {
             var created = await createHandler.Handle(eventId, request, cancellationToken);
-            return CreatedAtAction(nameof(Get), new { inventoryId = created.InventoryId }, created);
+            return CreatedAtAction(nameof(GetEventInventory), new { inventoryId = created.InventoryId }, created);
         }
         catch (BookingValidationException exception)
         {

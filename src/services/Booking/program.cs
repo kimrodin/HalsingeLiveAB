@@ -24,6 +24,8 @@ builder.Services.AddScoped<CreateEventInventoryHandler>();
 builder.Services.AddScoped<GetEventInventoryHandler>();
 builder.Services.AddScoped<ListEventInventoryHandler>();
 builder.Services.AddScoped<SeedInventoryHandler>();
+builder.Services.AddScoped<DeleteSeedInventoryHandler>();
+builder.Services.AddScoped<ClearBookingDatabaseHandler>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

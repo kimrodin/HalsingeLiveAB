@@ -13,6 +13,51 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
     public Task<bool> InitializeInventoryAsync(Guid eventId, Guid sectionId, int quantity) =>
         _redis.StringSetAsync(GetInventoryKey(eventId, sectionId), quantity, when: When.NotExists);
 
+    public async Task DeleteInventoryAsync(Guid eventId, Guid sectionId)
+    {
+        const string script = """
+            local reservationIds = redis.call('ZRANGE', KEYS[2], 0, -1)
+            for _, reservationId in ipairs(reservationIds) do
+                redis.call('DEL', ARGV[1] .. reservationId)
+            end
+            redis.call('DEL', KEYS[1], KEYS[2])
+            return #reservationIds
+            """;
+
+        await _redis.ScriptEvaluateAsync(
+            script,
+            [GetInventoryKey(eventId, sectionId), GetReservationIndexKey(eventId, sectionId)],
+            [ReservationKeyPrefix]);
+    }
+
+    public async Task<long> ClearAllInventoryAsync()
+    {
+        long deletedKeyCount = 0;
+        foreach (var endpoint in connection.GetEndPoints())
+        {
+            var server = connection.GetServer(endpoint);
+            if (!server.IsConnected || server.IsReplica)
+                continue;
+
+            var keys = new[]
+                {
+                    "inventory:*",
+                    "reservation:*",
+                    "reservation-expired:*",
+                    "reservation-confirmed:*",
+                    "reservation-cancelled:*"
+                }
+                .SelectMany(pattern => server.Keys(database: _redis.Database, pattern: pattern))
+                .Distinct()
+                .ToArray();
+
+            if (keys.Length > 0)
+                deletedKeyCount += await _redis.KeyDeleteAsync(keys);
+        }
+
+        return deletedKeyCount;
+    }
+
     public async Task<int> GetAvailableQuantityAsync(Guid eventId, Guid sectionId, int initialQuantity)
     {
         await InitializeInventoryAsync(eventId, sectionId, initialQuantity);
@@ -46,7 +91,6 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
         Guid eventId,
         Guid sectionId,
         int quantity,
-        string customerId,
         DateTimeOffset expiresAt)
     {
         if (reservationId == Guid.Empty)
@@ -57,26 +101,25 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
         const string script = """
             local expiredIds = redis.call('ZRANGEBYSCORE', KEYS[2], '-inf', ARGV[1])
             for _, expiredId in ipairs(expiredIds) do
-                local expiredKey = ARGV[5] .. expiredId
+                local expiredKey = ARGV[4] .. expiredId
                 local expiredQuantity = redis.call('HGET', expiredKey, 'quantity')
                 if expiredQuantity then redis.call('INCRBY', KEYS[1], tonumber(expiredQuantity)) end
                 redis.call('DEL', expiredKey)
                 redis.call('ZREM', KEYS[2], expiredId)
-                redis.call('SET', ARGV[9] .. expiredId, '1', 'EX', 86400)
+                redis.call('SET', ARGV[8] .. expiredId, '1', 'EX', 86400)
             end
 
             local available = tonumber(redis.call('GET', KEYS[1]) or '-1')
             if available < 0 then return -2 end
-            if redis.call('EXISTS', ARGV[5] .. ARGV[2]) == 1 then return -1 end
+            if redis.call('EXISTS', ARGV[4] .. ARGV[2]) == 1 then return -1 end
             if available < tonumber(ARGV[3]) then return 0 end
 
             redis.call('DECRBY', KEYS[1], ARGV[3])
-            redis.call('HSET', ARGV[5] .. ARGV[2],
-                'eventId', ARGV[6],
-                'sectionId', ARGV[7],
-                'quantity', ARGV[3],
-                'customerId', ARGV[4])
-            redis.call('ZADD', KEYS[2], ARGV[8], ARGV[2])
+            redis.call('HSET', ARGV[4] .. ARGV[2],
+                'eventId', ARGV[5],
+                'sectionId', ARGV[6],
+                'quantity', ARGV[3])
+            redis.call('ZADD', KEYS[2], ARGV[7], ARGV[2])
             return 1
             """;
 
@@ -87,7 +130,6 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 reservationId.ToString("N"),
                 quantity,
-                customerId,
                 ReservationKeyPrefix,
                 eventId.ToString("D"),
                 sectionId.ToString("D"),
