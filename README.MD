@@ -1,5 +1,7 @@
 # HälsingeLiveAB
 
+Booking och PaymentSimulator: [betalningsflöde via HTTP och test med Docker Compose](docs/payments.md).
+
 Repositoryt innehåller EventCatalog API:t och en separat admin-webbklient. Compose-filen `src/Compose.yaml` startar EventCatalog, PostgreSQL, Keycloak och admin-webbklienten. Inloggning och lokal utveckling beskrivs i [keycloak.md](keycloak.md).
 
 ## Starta EventCatalog med Docker och Swagger

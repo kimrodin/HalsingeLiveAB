@@ -23,7 +23,17 @@ public class GetPaymentHandler(PaymentDbContext dbContext)
                 payment.Currency,
                 payment.Status,
                 payment.CreatedAt,
-                payment.CompletedAt))
+                payment.CompletedAt,
+                payment.RefundedAt))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<GetPaymentResponse?> GetByBooking(Guid bookingId, CancellationToken cancellationToken)
+    {
+        var payment = await dbContext.Payments.AsNoTracking()
+            .SingleOrDefaultAsync(p => p.BookingId == bookingId, cancellationToken);
+        return payment is null ? null : new GetPaymentResponse(payment.Id, payment.BookingId,
+            payment.Amount, payment.Currency, payment.Status, payment.CreatedAt,
+            payment.CompletedAt, payment.RefundedAt);
     }
 }

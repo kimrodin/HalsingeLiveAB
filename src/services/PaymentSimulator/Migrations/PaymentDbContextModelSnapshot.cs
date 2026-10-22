@@ -38,6 +38,17 @@ namespace PaymentSimulator.Migrations
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset>("CompleteAfter")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PlannedOutcome")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("RefundedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -55,6 +66,8 @@ namespace PaymentSimulator.Migrations
 
                     b.HasIndex("BookingId")
                         .IsUnique();
+
+                    b.HasIndex("Status", "CompleteAfter");
 
                     b.ToTable("Payments");
                 });

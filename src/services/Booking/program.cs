@@ -4,6 +4,7 @@ using Booking.Features.EventInventory.CreateEventInventory;
 using Booking.Features.EventInventory.GetEventInventory;
 using Booking.Features.EventInventory.ListEventInventory;
 using Booking.Features.Seed;
+using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 
@@ -20,6 +21,13 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 builder.Services.AddSingleton<Booking.Features.BookingHolds.RedisReservationService>();
 builder.Services.AddScoped<Booking.Features.Bookings.BookingService>();
 builder.Services.AddHostedService<Booking.Features.Bookings.BookingExpirationService>();
+builder.Services.AddHostedService<Booking.Features.Bookings.PaymentReconciliationService>();
+builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["PaymentSimulator:BaseUrl"]
+        ?? throw new InvalidOperationException("PaymentSimulator base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("PaymentSimulator:TimeoutSeconds", 5));
+});
 builder.Services.AddScoped<CreateEventInventoryHandler>();
 builder.Services.AddScoped<GetEventInventoryHandler>();
 builder.Services.AddScoped<ListEventInventoryHandler>();

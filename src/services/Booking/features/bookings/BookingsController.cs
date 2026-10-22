@@ -80,40 +80,38 @@ public sealed class BookingsController(
     }
 
     [HttpPost("{bookingId:guid}")]
-    [ProducesResponseType(typeof(BookingStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public IActionResult ConfirmBooking(Guid bookingId) =>
+        StatusCode(StatusCodes.Status403Forbidden, new ProblemDetails
+        {
+            Title = "Direct confirmation is disabled. Use StartPayment to verify payment and confirm the booking.",
+            Status = StatusCodes.Status403Forbidden
+        });
+
+    [HttpPost("{bookingId:guid}")]
+    [ProducesResponseType(typeof(StartPaymentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(StartPaymentResult), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> ConfirmBooking(
-        Guid bookingId,
-        CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(StartPaymentResult), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(StartPaymentResult), StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> StartPayment(Guid bookingId, CancellationToken cancellationToken)
     {
-        BookingActionResult result;
         try
         {
-            result = await bookingService.ConfirmAsync(bookingId, cancellationToken);
+            var result = await bookingService.StartPaymentAsync(bookingId, cancellationToken);
+            if (result.BookingStatus == "NotFound")
+                return NotFound(result);
+            if (result.PaymentStatus == "Invalid")
+                return StatusCode(StatusCodes.Status502BadGateway, result);
+            if (result.PaymentStatus is "Pending" or "Unknown")
+                return Accepted(result);
+            return result.BookingStatus == BookingStatuses.Confirmed ? Ok(result) : Conflict(result);
         }
         catch (BookingValidationException exception)
         {
             return RequestValidationProblem(exception);
         }
-        return result.Status switch
-        {
-            BookingActionStatus.NotFound => NotFound(),
-            BookingActionStatus.Completed => Ok(new BookingStatusResponse(bookingId, result.BookingStatus!)),
-            BookingActionStatus.Expired => Conflict(new ProblemDetails
-            {
-                Title = "The reservation has expired.",
-                Status = StatusCodes.Status409Conflict
-            }),
-            _ => Conflict(new ProblemDetails
-            {
-                Title = "The booking cannot be confirmed in its current state.",
-                Detail = result.BookingStatus,
-                Status = StatusCodes.Status409Conflict
-            })
-        };
     }
-
     [HttpPost("{bookingId:guid}")]
     [ProducesResponseType(typeof(BookingStatusResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

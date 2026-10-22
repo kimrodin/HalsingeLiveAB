@@ -10,6 +10,8 @@ services:
     environment:
       ConnectionStrings__Booking: "Host=booking-db;Port=5432;Database=booking_dev;Username=postgres;Password=postgres"
       ConnectionStrings__Redis: "booking-redis:6379"
+      PaymentSimulator__BaseUrl: "http://payment-simulator:8080/"
+      PaymentSimulator__TimeoutSeconds: "5"
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
     ports:
@@ -19,6 +21,8 @@ services:
         condition: service_healthy
       booking-redis:
         condition: service_healthy
+      payment-simulator:
+        condition: service_started
 
   booking-db:
     image: postgres:18-alpine
@@ -95,7 +99,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - payment-simulator-data:/var/lib/postgresql
     healthcheck:
@@ -111,6 +115,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__PaymentSimulator: "Host=payment-simulator-db;Port=5432;Database=payment_simulator;Username=postgres;Password=postgres"
+      PaymentSimulation__Outcome: "${PAYMENT_SIMULATION_OUTCOME:-Succeeded}"
+      PaymentSimulation__DelayMs: "${PAYMENT_SIMULATION_DELAY_MS:-500}"
+      PaymentSimulation__TimeoutMs: "${PAYMENT_SIMULATION_TIMEOUT_MS:-5000}"
     ports:
       - "127.0.0.1:5111:8080"
     depends_on:

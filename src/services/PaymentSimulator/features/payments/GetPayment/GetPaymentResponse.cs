@@ -10,4 +10,5 @@ public sealed record GetPaymentResponse(
     string Currency,
     PaymentStatus Status,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? CompletedAt);
+    DateTimeOffset? CompletedAt,
+    DateTimeOffset? RefundedAt = null);
