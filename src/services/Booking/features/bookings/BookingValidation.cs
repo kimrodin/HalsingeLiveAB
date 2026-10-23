@@ -10,6 +10,7 @@ public static class BookingValidation
     private const decimal MaximumStoredMoney = 9_999_999_999.99m;
     private const int MaximumCustomerNameLength = 200;
     private const int MaximumCustomerEmailLength = 254;
+    public const int MaximumBookingQuantity = 10;
 
     public static void ValidateCreateBooking(CreateBookingRequest request)
     {
@@ -24,6 +25,8 @@ public static class BookingValidation
         ValidateId(errors, request.InventoryId, "InventoryId");
         if (request.Quantity <= 0)
             errors["Quantity"] = ["Quantity must be greater than zero."];
+        else if (request.Quantity > MaximumBookingQuantity)
+            errors["Quantity"] = [$"Quantity cannot be greater than {MaximumBookingQuantity}."];
 
         if (string.IsNullOrWhiteSpace(request.CustomerName))
             errors["CustomerName"] = ["CustomerName is required."];

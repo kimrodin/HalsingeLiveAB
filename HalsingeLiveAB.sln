@@ -15,7 +15,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventCatalog.UnitTests", "t
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventCatalog.IntegrationTests", "tests\EventCatalog.IntegrationTests\EventCatalog.IntegrationTests.csproj", "{A566D998-17B8-4AB1-B2EA-A32D58741B45}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Booking", "src\Services\Booking\Booking.csproj", "{CAA92DAB-9F1C-40DD-960B-2FAEFB891660}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Booking", "src\services\Booking\Booking.csproj", "{CAA92DAB-9F1C-40DD-960B-2FAEFB891660}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Booking.UnitTests", "tests\Booking.UnitTests\Booking.UnitTests.csproj", "{8FBB1D51-AE85-4686-8667-D2D3069D66F2}"
 EndProject

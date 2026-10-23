@@ -53,8 +53,8 @@ Scripten startar PostgreSQL, väntar tills databasen är redo, applicerar EF Cor
 
    dotnet ef database update `
      --context EventCatalog.Data.EventCatalogDbContext `
-     --project src/Services/EventCatalog/EventCatalog.csproj `
-     --startup-project src/Services/EventCatalog/EventCatalog.csproj
+     --project src/services/EventCatalog/EventCatalog.csproj `
+     --startup-project src/services/EventCatalog/EventCatalog.csproj
 
    Remove-Item Env:ConnectionStrings__EventCatalog
    ```
@@ -133,7 +133,7 @@ Starta PostgreSQL med Compose och kör sedan:
 
 ```powershell
 docker compose -f src/Compose.yaml up -d eventcatalog-db
-dotnet run --project src/Services/EventCatalog/EventCatalog.csproj --launch-profile EventCatalog
+dotnet run --project src/services/EventCatalog/EventCatalog.csproj --launch-profile EventCatalog
 ```
 
 Startprofilen använder `Host=localhost` och öppnar Swagger på **http://localhost:5080/swagger**. Applicera migrationerna enligt steget ovan första gången.
@@ -193,7 +193,7 @@ Compose-versionen måste stödja `!override` (Docker Compose 2.24.4 eller senare
 
 ## Testdata (seed) och återställning
 
-SQL-filerna ligger i `src/Services/EventCatalog/Database/`:
+SQL-filerna ligger i `src/services/EventCatalog/Database/`:
 
 - `reset.sql` raderar all data men behåller tabellen `__EFMigrationsHistory`.
 - `seed.sql` lägger in scener, sektioner, event, priser och stolar.

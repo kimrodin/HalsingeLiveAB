@@ -12,19 +12,19 @@ public sealed class SeedVenuesHandler(EventCatalogDbContext dbContext)
 
     private static readonly VenueSeedDefinition[] Definitions =
     [
-        new("Kulturhuset (stora salen)", 600, "Storgatan 12", "821 32", "Hudiksvall",
+        new(1, "Kulturhuset (stora salen)", 600, "Storgatan 12", "821 32", "Hudiksvall",
         [
-            new("Sektion 1", 200, SeatingType.AssignedSeating),
-            new("Sektion 2", 200, SeatingType.AssignedSeating),
-            new("Sektion 3", 200, SeatingType.AssignedSeating)
+            new(1, "Sektion 1", 200, SeatingType.AssignedSeating),
+            new(2, "Sektion 2", 200, SeatingType.AssignedSeating),
+            new(3, "Sektion 3", 200, SeatingType.AssignedSeating)
         ]),
-        new("Studion", 150, "Långgatan 5", "851 27", "Hudiksvall",
+        new(2, "Studion", 150, "Långgatan 5", "851 27", "Hudiksvall",
         [
-            new("Ståplats", 150, SeatingType.GeneralAdmission)
+            new(4, "Ståplats", 150, SeatingType.GeneralAdmission)
         ]),
-        new("Sommarfestivalens område", 2000, PlaceholderAddress, PlaceholderPostalCode, PlaceholderCity,
+        new(3, "Sommarfestivalens område", 2000, PlaceholderAddress, PlaceholderPostalCode, PlaceholderCity,
         [
-            new("Ståplats", 2000, SeatingType.GeneralAdmission)
+            new(5, "Ståplats", 2000, SeatingType.GeneralAdmission)
         ])
     ];
 
@@ -43,6 +43,7 @@ public sealed class SeedVenuesHandler(EventCatalogDbContext dbContext)
 
         foreach (var definition in Definitions)
         {
+            var venueId = SeedGuid("30000000-0000-0000-0000", definition.SeedOrdinal);
             var venue = await dbContext.Venues
                 .Include(item => item.VenueSections)
                 .SingleOrDefaultAsync(item => item.VenueName == definition.Name, cancellationToken);
@@ -51,7 +52,7 @@ public sealed class SeedVenuesHandler(EventCatalogDbContext dbContext)
             {
                 venue = new Venue
                 {
-                    VenueId = Guid.NewGuid(),
+                    VenueId = venueId,
                     VenueName = definition.Name,
                     VenueStreetAddress = definition.StreetAddress,
                     VenuePostalCode = definition.PostalCode,
@@ -60,24 +61,26 @@ public sealed class SeedVenuesHandler(EventCatalogDbContext dbContext)
                 };
                 dbContext.Venues.Add(venue);
             }
-            else if (venue.VenueCapacity != definition.Capacity)
+            else if (venue.VenueId != venueId || venue.VenueCapacity != definition.Capacity)
             {
                 throw new VenueSeedConflictException(
-                    $"Venue '{definition.Name}' already exists with capacity {venue.VenueCapacity}; expected {definition.Capacity}.");
+                    $"Venue '{definition.Name}' conflicts with the deterministic seed. Delete and reseed the existing seed data.");
             }
 
             foreach (var sectionDefinition in definition.Sections)
             {
+                var sectionId = SeedGuid("20000000-0000-0000-0000", sectionDefinition.SeedOrdinal);
                 var existingSection = venue.VenueSections
                     .SingleOrDefault(section => section.Name == sectionDefinition.Name);
 
                 if (existingSection is not null)
                 {
-                    if (existingSection.SectionCapacity != sectionDefinition.Capacity
+                    if (existingSection.SectionId != sectionId
+                        || existingSection.SectionCapacity != sectionDefinition.Capacity
                         || existingSection.SeatingType != sectionDefinition.SeatingType)
                     {
                         throw new VenueSeedConflictException(
-                            $"Section '{sectionDefinition.Name}' in venue '{definition.Name}' already exists with different settings.");
+                            $"Section '{sectionDefinition.Name}' in venue '{definition.Name}' conflicts with the deterministic seed. Delete and reseed the existing seed data.");
                     }
 
                     continue;
@@ -92,7 +95,7 @@ public sealed class SeedVenuesHandler(EventCatalogDbContext dbContext)
 
                 var section = new Section
                 {
-                    SectionId = Guid.NewGuid(),
+                    SectionId = sectionId,
                     VenueId = venue.VenueId,
                     Name = sectionDefinition.Name,
                     SectionCapacity = sectionDefinition.Capacity,
@@ -124,8 +127,10 @@ public sealed class SeedVenuesHandler(EventCatalogDbContext dbContext)
         return new SeedVenuesResponse(response);
     }
 
-    private sealed record VenueSeedDefinition(string Name, int Capacity, string StreetAddress, string PostalCode, string City, SectionSeedDefinition[] Sections);
-    private sealed record SectionSeedDefinition(string Name, int Capacity, SeatingType SeatingType);
+    private sealed record VenueSeedDefinition(int SeedOrdinal, string Name, int Capacity, string StreetAddress, string PostalCode, string City, SectionSeedDefinition[] Sections);
+    private sealed record SectionSeedDefinition(int SeedOrdinal, string Name, int Capacity, SeatingType SeatingType);
+
+    private static Guid SeedGuid(string prefix, int ordinal) => Guid.Parse($"{prefix}-{ordinal:D12}");
 }
 
 public sealed class VenueSeedConflictException(string message) : Exception(message);
