@@ -10,6 +10,8 @@ services:
     environment:
       ConnectionStrings__Booking: "Host=booking-db;Port=5432;Database=booking_dev;Username=postgres;Password=postgres"
       ConnectionStrings__Redis: "booking-redis:6379"
+      PaymentSimulator__BaseUrl: "http://payment-simulator:8080/"
+      PaymentSimulator__TimeoutSeconds: "5"
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
     ports:
@@ -19,6 +21,8 @@ services:
         condition: service_healthy
       booking-redis:
         condition: service_healthy
+      payment-simulator:
+        condition: service_started
 
   booking-db:
     image: postgres:18-alpine
@@ -64,7 +68,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - eventcatalog-data:/var/lib/postgresql
     healthcheck:
@@ -88,6 +92,38 @@ services:
       timeout: 3s
       retries: 10
 
+  payment-simulator-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: payment_simulator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - payment-simulator-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_simulator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  payment-simulator:
+    build:
+      context: ./services/PaymentSimulator
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__PaymentSimulator: "Host=payment-simulator-db;Port=5432;Database=payment_simulator;Username=postgres;Password=postgres"
+      PaymentSimulation__Outcome: "${PAYMENT_SIMULATION_OUTCOME:-Succeeded}"
+      PaymentSimulation__DelayMs: "${PAYMENT_SIMULATION_DELAY_MS:-500}"
+      PaymentSimulation__TimeoutMs: "${PAYMENT_SIMULATION_TIMEOUT_MS:-5000}"
+    ports:
+      - "127.0.0.1:5111:8080"
+    depends_on:
+      payment-simulator-db:
+        condition: service_healthy
+
   admin-web:
     build:
       context: ./frontend/admin-web
@@ -105,10 +141,12 @@ services:
       dockerfile: Dockerfile
     environment:
       API_PROXY_TARGET: eventcatalog:8080
+      BOOKING_API_PROXY_TARGET: booking:8080
     ports:
       - "5174:80"
     depends_on:
       - eventcatalog
+      - booking
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
@@ -128,5 +166,6 @@ volumes:
   booking-data:
   keycloak-data:
   eventcatalog-data:
+  payment-simulator-data:
   venue-maps-data:
   booking-redis-data:

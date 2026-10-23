@@ -1,0 +1,34 @@
+@baseUrl = http://localhost:5111
+
+### Process a simulated payment
+# @name processPayment
+POST {{baseUrl}}/api/payments
+Content-Type: application/json
+
+{
+  "bookingId": "a6fbc50d-e6bd-4a8f-b635-e37f7a01dd11",
+  "amount": 299.00,
+  "currency": "SEK"
+}
+
+### Retrieve the payment created above
+GET {{baseUrl}}/api/payments/{{processPayment.response.body.$.paymentId}}
+
+### Recover the result after an HTTP timeout before retrying POST
+GET {{baseUrl}}/api/payments/by-booking/a6fbc50d-e6bd-4a8f-b635-e37f7a01dd11
+
+### Compensate a late payment (idempotent)
+POST {{baseUrl}}/api/payments/{{processPayment.response.body.$.paymentId}}/refund
+
+### Cancel by booking even when the original POST result is unknown
+POST {{baseUrl}}/api/payments/cancel
+Content-Type: application/json
+
+{
+  "bookingId": "a6fbc50d-e6bd-4a8f-b635-e37f7a01dd11",
+  "amount": 299.00,
+  "currency": "SEK"
+}
+
+### Verify a missing payment returns 404
+GET {{baseUrl}}/api/payments/00000000-0000-0000-0000-000000000001

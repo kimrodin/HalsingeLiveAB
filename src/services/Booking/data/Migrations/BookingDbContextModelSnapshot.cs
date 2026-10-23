@@ -47,6 +47,12 @@ namespace Booking.data.Migrations
                     b.Property<DateTime?>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("PaymentRequested")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PaymentSettled")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");

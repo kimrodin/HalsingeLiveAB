@@ -11,6 +11,9 @@ public class Booking
     public decimal TotalPrice { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
+    // Written before sending HTTP so reconciliation survives lost responses and restarts.
+    public bool PaymentRequested { get; set; }
+    public bool PaymentSettled { get; set; }
 
     public List<BookingItem> Items { get; set; } = [];
 }

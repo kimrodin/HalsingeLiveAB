@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, CircularProgress, Divider, Skeleton, Stack, Typography } from '@mui/material'
 import { ApiError } from '../../../shared/api/http'
 import { useNow } from '../../../shared/hooks/useNow'
-import { cancelBooking, confirmBooking, getBooking } from '../api/bookings'
+import { cancelBooking, getBooking, startPayment } from '../api/bookings'
 
 interface BookingLocationState {
   eventId?: string
@@ -40,8 +40,8 @@ export default function BookingPage() {
       const booking = query.state.data
       if (!booking) return false
       if (['Confirming', 'Cancelling', 'Expiring'].includes(booking.status)) return 1000
-      if (booking.status === 'Reserved' && booking.expiresAt
-        && new Date(booking.expiresAt).getTime() <= Date.now()) return 1000
+      // Payment reconciliation may finish after a lost HTTP response or page reload.
+      if (booking.status === 'Reserved') return 2000
       return false
     },
   })
@@ -51,8 +51,8 @@ export default function BookingPage() {
       void invalidateBooking()
     }
   }
-  const confirmMutation = useMutation({
-    mutationFn: () => confirmBooking(bookingId!),
+  const paymentMutation = useMutation({
+    mutationFn: () => startPayment(bookingId!),
     onSuccess: invalidateBooking,
     onError: refreshAfterActionError,
   })
@@ -86,7 +86,7 @@ export default function BookingPage() {
   }
 
   const booking = bookingQuery.data
-  const actionError = confirmMutation.error ?? cancelMutation.error
+  const actionError = paymentMutation.error ?? cancelMutation.error
   const actionErrorStatus = actionError instanceof ApiError ? actionError.status : undefined
   const actionMessage = actionErrorStatus === 404
     ? 'Bokningen hittades inte längre.'
@@ -97,9 +97,11 @@ export default function BookingPage() {
         : actionError
           ? 'Åtgärden kunde inte genomföras. Försök igen.'
           : null
-  const isPending = confirmMutation.isPending || cancelMutation.isPending
+  const isPending = paymentMutation.isPending || cancelMutation.isPending
   const isTransitioning = ['Confirming', 'Cancelling', 'Expiring'].includes(booking.status)
   const isReserved = booking.status === 'Reserved'
+  const isPaymentWaiting = isReserved && (paymentMutation.isPending
+    || ['Pending', 'Unknown'].includes(paymentMutation.data?.paymentStatus ?? ''))
   const isExpiredByTime = Boolean(booking.expiresAt && new Date(booking.expiresAt).getTime() <= now)
 
   const statusContent: Record<string, { severity: 'success' | 'info' | 'warning' | 'error'; message: string }> = {
@@ -133,6 +135,11 @@ export default function BookingPage() {
       </Stack>
       <Typography color="text.secondary">Bokningen står på {booking.customerName} · {booking.customerEmail}</Typography>
 
+      {isPaymentWaiting && (
+        <Alert severity="info" icon={<CircularProgress color="inherit" size={20} />}>
+          Betalningen behandlas. Bokningens status uppdateras automatiskt när resultatet är klart.
+        </Alert>
+      )}
       {isTransitioning && (
         <Alert severity="info" icon={<CircularProgress color="inherit" size={20} />}>
           {booking.status === 'Confirming' ? 'Bekräftar bokningen…' : 'Uppdaterar bokningen…'}
@@ -162,13 +169,13 @@ export default function BookingPage() {
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button
             variant="contained"
-            onClick={() => { confirmMutation.reset(); cancelMutation.reset(); confirmMutation.mutate() }}
-            disabled={isPending}
+            onClick={() => { paymentMutation.reset(); cancelMutation.reset(); paymentMutation.mutate() }}
+            disabled={isPending || isPaymentWaiting}
           >
-            Bekräfta bokning
+            Betala och bekräfta
           </Button>
           <Button
-            onClick={() => { confirmMutation.reset(); cancelMutation.reset(); cancelMutation.mutate() }}
+            onClick={() => { paymentMutation.reset(); cancelMutation.reset(); cancelMutation.mutate() }}
             disabled={isPending}
           >
             Avbryt bokning

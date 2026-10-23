@@ -45,6 +45,9 @@ public sealed class BookingExpirationService(
 
                     foreach (var item in booking.Items)
                     {
+                        // Recover a Redis confirmation left behind by a rolled-back/crashed transaction.
+                        await reservations.RestoreConfirmedReservationAsync(
+                            item.EventInventory.EventId, item.EventInventory.SectionId, booking.BookingId);
                         await reservations.ReleaseReservationAsync(
                             item.EventInventory.EventId,
                             item.EventInventory.SectionId,

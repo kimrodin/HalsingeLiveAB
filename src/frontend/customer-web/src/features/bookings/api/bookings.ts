@@ -46,6 +46,13 @@ export interface BookingStatusResponse {
   status: string
 }
 
+export interface StartPaymentResponse {
+  bookingId: string
+  bookingStatus: string
+  paymentStatus: string
+  message: string
+}
+
 export function getEventInventory(eventId: string, signal?: AbortSignal): Promise<EventInventory[]> {
   return getJson<EventInventory[]>(`/ListEventInventory/${encodeURIComponent(eventId)}`, signal, bookingApiBase)
 }
@@ -58,8 +65,8 @@ export function getBooking(bookingId: string, signal?: AbortSignal): Promise<Boo
   return getJson<BookingDetails>(`/GetBooking/${encodeURIComponent(bookingId)}`, signal, bookingApiBase)
 }
 
-export function confirmBooking(bookingId: string): Promise<BookingStatusResponse> {
-  return postJson<BookingStatusResponse>(`/ConfirmBooking/${encodeURIComponent(bookingId)}`, undefined, bookingApiBase)
+export function startPayment(bookingId: string): Promise<StartPaymentResponse> {
+  return postJson<StartPaymentResponse>(`/StartPayment/${encodeURIComponent(bookingId)}`, undefined, bookingApiBase)
 }
 
 export function cancelBooking(bookingId: string): Promise<BookingStatusResponse> {

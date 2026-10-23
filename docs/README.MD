@@ -1,6 +1,8 @@
 # HälsingeLiveAB
 
-Repositoryt innehåller EventCatalog API:t, Booking-tjänsten och två separata webbklienter: admin-web och customer-web. Compose-filen `src/Compose.yaml` startar tjänsterna, databaserna, Keycloak och båda webbklienterna. Inloggning och lokal utveckling beskrivs i [keycloak.md](keycloak.md).
+Booking och PaymentSimulator: [betalningsflöde via HTTP och test med Docker Compose](docs/payments.md).
+
+Repositoryt innehåller EventCatalog API:t, Booking-tjänsten, PaymentSimulator och två separata webbklienter: admin-web och customer-web. Compose-filen `src/Compose.yaml` startar tjänsterna, databaserna, Keycloak och båda webbklienterna. Inloggning och lokal utveckling beskrivs i [keycloak.md](keycloak.md).
 
 ## Starta EventCatalog med Docker och Swagger
 
