@@ -12,7 +12,21 @@ Svaret från `StartPayment` innehåller `bookingId`, `bookingStatus`, `paymentSt
 | `202` | Bearbetning pågår eller betalningsresultatet är ännu okänt. |
 | `404` | Bokningen saknas. |
 | `409` | Betalningen misslyckades, fick terminal timeout, återbetalades eller bokningen kan inte längre bekräftas. |
-| `502` | Simulatorns svar klarade inte kontraktskontrollen. |
+| `502` | Simulatorns svar klarade inte kontraktskontrollen eller simulatorn avvisade begäran, exempelvis med `409`. |
+
+Detta är HTTP-statusarna från **Booking till kundwebben**. De är skilda från svaren mellan Booking och PaymentSimulator:
+
+| Svar från PaymentSimulator | Bookings hantering |
+| --- | --- |
+| `200` med betalningsstatus `Failed` eller `TimedOut` | Bokningen avbryts och reservationen släpps. `StartPayment` returnerar `409` med betalningsresultatet. |
+| `404` vid uppslag via boknings-ID | Ingen betalning hittades. Booking kan starta ett försök om reservationen är giltig, annars spärra ett tidigare begärt försök. |
+| `409`, eller annat avvisat `4xx` utom `408`/`429` | Kontraktsfel, exempelvis motstridiga belopp. `StartPayment` returnerar `502` med `paymentStatus: Invalid`. `404` vid återbetalning är också ett kontraktsfel, inte en saknad bokning. |
+| `200` med felaktig JSON eller betalningsuppgifter som inte matchar | `502` med `paymentStatus: Invalid`. |
+| `408`, `429`, `5xx`, HTTP-timeout eller nätverksfel | Utfallet är osäkert. `202` med `paymentStatus: Unknown`; bakgrundstjänsten följer upp försöket. |
+
+Ett kontraktsfel innebär inte att betalningen misslyckats. Booking bekräftar eller avbryter därför inte bokningen på den grunden och markerar inte betalningsflödet som färdighanterat. Bakgrundstjänsten behåller uppföljningen och loggar kontraktsfelet; reservationens ursprungliga sluttid gäller fortfarande.
+
+Controllerns `[Route("/[action]")]` ingår i routningen. `ConfirmBooking`, `StartPayment` och `CancelBooking` får därför olika POST-adresser trots samma `"{bookingId:guid}"`-mall på metoderna. HTTP-integrationstesterna kontrollerar routningen och betalningsklientens statushantering tillsammans.
 
 HTTP-kommunikationen ligger bakom Booking-tjänstens betalningsgränssnitt. Simulatorns betalningslogik ligger kvar i `ProcessPaymentHandler`. Transporten kan senare ersättas med RabbitMQ; ingen broker behövs för det här flödet.
 

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
@@ -137,7 +136,12 @@ public sealed partial class BookingService
             }
             return new(bookingId, booking.Status, "Pending", "Payment is pending. Status will be checked automatically; the reservation deadline is unchanged.");
         }
-        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException or JsonException)
+        catch (PaymentContractException exception)
+        {
+            // Do not cancel, confirm or settle a booking based on an invalid service response.
+            return await PaymentResponseAsync(bookingId, "Invalid", exception.Message, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or OperationCanceledException)
         {
             // Transport errors never mean PaymentFailed. The durable intent remains open.
             if (cancellationToken.IsCancellationRequested)

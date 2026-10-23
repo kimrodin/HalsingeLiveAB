@@ -93,6 +93,77 @@ public sealed class HttpPaymentGatewayTests
             new HttpPaymentGateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
     }
 
+    [Theory]
+    [InlineData("Failed")]
+    [InlineData("TimedOut")]
+    public async Task ProcessAsync_ReturnsThePaymentOutcomeFromASuccessfulHttpResponse(string status)
+    {
+        var payment = Payment(Guid.NewGuid()) with { Status = status };
+        using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(payment)
+        }));
+
+        var result = await new HttpPaymentGateway(client).ProcessAsync(payment.BookingId, payment.Amount, "SEK", default);
+
+        Assert.Equal(status, result.Status);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Conflict)]
+    public async Task ProcessAsync_MapsRejectedRequestsToContractErrors(HttpStatusCode status)
+    {
+        using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(status)));
+
+        var error = await Assert.ThrowsAsync<PaymentContractException>(() =>
+            new HttpPaymentGateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
+
+        Assert.Equal(status, error.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefundAsync_MissingPaymentIsAContractErrorInsteadOfAnAbsentBooking()
+    {
+        using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
+
+        var error = await Assert.ThrowsAsync<PaymentContractException>(() =>
+            new HttpPaymentGateway(client).RefundAsync(Guid.NewGuid(), default));
+
+        Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.RequestTimeout)]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task ProcessAsync_PreservesUncertainServiceErrorsForReconciliation(HttpStatusCode status)
+    {
+        using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(status)));
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            new HttpPaymentGateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
+
+        Assert.Equal(status, error.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("null")]
+    [InlineData("")]
+    public async Task ProcessAsync_MapsMalformedSuccessfulResponsesToContractErrors(string body)
+    {
+        using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+        }));
+
+        await Assert.ThrowsAsync<PaymentContractException>(() =>
+            new HttpPaymentGateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
+    }
+
     private static PaymentResult Payment(Guid bookingId) => new(Guid.NewGuid(), bookingId, 299.50m, "SEK",
         "Succeeded", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
 

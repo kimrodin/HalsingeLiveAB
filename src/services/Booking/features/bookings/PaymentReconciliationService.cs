@@ -24,8 +24,11 @@ public sealed class PaymentReconciliationService(
                     try
                     {
                         await using var bookingScope = scopeFactory.CreateAsyncScope();
-                        await bookingScope.ServiceProvider.GetRequiredService<BookingService>()
+                        var result = await bookingScope.ServiceProvider.GetRequiredService<BookingService>()
                             .StartPaymentAsync(id, stoppingToken);
+                        if (result.PaymentStatus == "Invalid")
+                            logger.LogError("Payment contract error for booking {BookingId}: {Reason} Reconciliation remains open.",
+                                id, result.Message);
                     }
                     catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
                     {

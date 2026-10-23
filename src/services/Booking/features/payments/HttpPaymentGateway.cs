@@ -33,8 +33,25 @@ public sealed class HttpPaymentGateway(HttpClient client) : IPaymentGateway
 
     private static async Task<PaymentResult> ReadAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
+        // Lookup's expected 404 is handled by GetByBookingAsync. A 404 here (for
+        // example on refund), 400 or 409 indicates a rejected/inconsistent contract.
+        // 408, 429 and server errors remain uncertain and may be retried safely.
+        if ((int)response.StatusCode is >= 400 and < 500
+            && response.StatusCode is not (HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests))
+            throw new PaymentContractException(
+                $"Payment service rejected the request with HTTP {(int)response.StatusCode}. Reconciliation remains open.",
+                response.StatusCode);
+
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PaymentResult>(cancellationToken)
-            ?? throw new JsonException("Payment service returned an empty response.");
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<PaymentResult>(cancellationToken)
+                ?? throw new JsonException("Payment service returned an empty response.");
+        }
+        catch (JsonException exception)
+        {
+            throw new PaymentContractException("Payment service returned an invalid payment response. Reconciliation remains open.",
+                response.StatusCode, exception);
+        }
     }
 }
