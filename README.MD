@@ -2,7 +2,7 @@
 
 Booking och PaymentSimulator: [betalningsflöde via HTTP och test med Docker Compose](docs/payments.md).
 
-Repositoryt innehåller EventCatalog API:t och en separat admin-webbklient. Compose-filen `src/Compose.yaml` startar EventCatalog, PostgreSQL, Keycloak och admin-webbklienten. Inloggning och lokal utveckling beskrivs i [keycloak.md](keycloak.md).
+Repositoryt innehåller EventCatalog API:t, Booking-tjänsten, PaymentSimulator och två separata webbklienter: admin-web och customer-web. Compose-filen `src/Compose.yaml` startar tjänsterna, databaserna, Keycloak och båda webbklienterna. Inloggning och lokal utveckling beskrivs i [keycloak.md](keycloak.md).
 
 ## Starta EventCatalog med Docker och Swagger
 
@@ -154,13 +154,15 @@ docker compose -f src/Compose.yaml exec eventcatalog-db psql -U postgres -d post
 
 Kör sedan `dotnet ef database update` enligt första-start-steget.
 
-## Admin-webb
+## Frontend-appar
 
-Admin-webbklienten ligger i `src/frontend/admin-web` och startas av Compose-konfigurationen i `src/Compose.yaml`. Den anropar EventCatalog API:t via frontend-containerns `/api`-proxy och använder Keycloak för inloggning.
+Admin-web ligger i `src/frontend/admin-web` och customer-web i `src/frontend/customer-web`. Compose bygger dem som separata tjänster från respektive mapp. Varje app har egna produktions- och utvecklings-Dockerfiler och anropar EventCatalog API:t via sin `/api`-proxy. Admin-web använder Keycloak för inloggning.
+
+Med vanliga Compose-filen körs webbapparna i Nginx-containrar. Starta dem med `docker compose -f src/Compose.yaml up -d --build admin-web customer-web` och öppna admin-web på **http://localhost:5173** eller customer-web på **http://localhost:5174**.
 
 ### Utveckla frontend med Docker Compose
 
-Dev-konfigurationen startar frontendens Vite-utvecklingsserver med hot reload. Kör kommandona från repositoryts rotmapp.
+Dev-konfigurationen ersätter Nginx-containrarna med Vite-utvecklingsservrar med hot reload. Kör kommandona från repositoryts rotmapp.
 
 Första gången behöver databasen startas och migrationerna appliceras enligt avsnittet [Första starten](#första-starten). Starta sedan API:t, databasen och Keycloak:
 
@@ -171,15 +173,15 @@ docker compose -f src/Compose.yaml up -d --build eventcatalog-db keycloak eventc
 Starta frontend i dev-läge med Compose-override-filen:
 
 ```powershell
-docker compose -f src/Compose.yaml -f src/Compose.dev.yaml up -d --build frontend
+docker compose -f src/Compose.yaml -f src/Compose.dev.yaml up -d --build admin-web customer-web
 ```
 
-Öppna **http://localhost:5173**. Ändringar i `src/frontend/admin-web` laddas om automatiskt. Inloggningen använder Keycloak på **http://localhost:8180**.
+Öppna admin-web på **http://localhost:5173** och customer-web på **http://localhost:5174**. Ändringar i respektive mapp under `src/frontend` laddas om automatiskt. Admin-inloggningen använder Keycloak på **http://localhost:8180**.
 
 Visa frontendens loggar:
 
 ```powershell
-docker compose -f src/Compose.yaml -f src/Compose.dev.yaml logs -f frontend
+docker compose -f src/Compose.yaml -f src/Compose.dev.yaml logs -f admin-web customer-web
 ```
 
 Stoppa tjänsterna när du är klar:

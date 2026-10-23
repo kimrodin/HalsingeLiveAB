@@ -68,7 +68,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - eventcatalog-data:/var/lib/postgresql
     healthcheck:
@@ -124,9 +124,9 @@ services:
       payment-simulator-db:
         condition: service_healthy
 
-  frontend:
+  admin-web:
     build:
-      context: ./frontend
+      context: ./frontend/admin-web
       dockerfile: Dockerfile
     environment:
       API_PROXY_TARGET: eventcatalog:8080
@@ -134,6 +134,19 @@ services:
       - "5173:80"
     depends_on:
       - eventcatalog
+
+  customer-web:
+    build:
+      context: ./frontend/customer-web
+      dockerfile: Dockerfile
+    environment:
+      API_PROXY_TARGET: eventcatalog:8080
+      BOOKING_API_PROXY_TARGET: booking:8080
+    ports:
+      - "5174:80"
+    depends_on:
+      - eventcatalog
+      - booking
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
