@@ -5,9 +5,10 @@ const MONTHS_SV = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep'
 interface DateBadgeProps {
   startDate: string;
   endDate: string;
+  compact?: boolean;
 }
 
-export default function DateBadge({ startDate, endDate }: DateBadgeProps) {
+export default function DateBadge({ startDate, endDate, compact = false }: DateBadgeProps) {
   const start = new Date(startDate);
   const end = new Date(endDate);
 
@@ -25,18 +26,30 @@ export default function DateBadge({ startDate, endDate }: DateBadgeProps) {
       sx={{
         bgcolor: 'secondary.main',
         color: 'secondary.contrastText',
-        borderRadius: 2,
+        borderRadius: compact ? '4px' : 2,
         px: 1.5,
         py: 1,
         minWidth: 56,
         textAlign: 'center',
         lineHeight: 1.1,
+        ...(compact && {
+          width: '100%',
+          height: 40,
+          boxSizing: 'border-box',
+          px: 1,
+          py: 0,
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 0.75,
+        }),
       }}
     >
-      <Typography component="div" sx={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1 }}>
+      <Typography component="div" sx={{ fontSize: compact ? '1rem' : '1.75rem', fontWeight: 700, lineHeight: 1 }}>
         {day}
       </Typography>
-      <Typography component="div" variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+      <Typography component="div" variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: compact ? 0.5 : 1 }}>
         {month}
       </Typography>
     </Box>

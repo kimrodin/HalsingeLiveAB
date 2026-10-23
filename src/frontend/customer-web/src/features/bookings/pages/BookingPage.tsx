@@ -6,6 +6,7 @@ import { useNow } from '../../../shared/hooks/useNow'
 import { cancelBooking, getBooking, startPayment } from '../api/bookings'
 
 interface BookingLocationState {
+  eventId?: string
   eventName?: string
   sectionName?: string
   quantity?: number
@@ -112,7 +113,12 @@ export default function BookingPage() {
 
   return (
     <Stack spacing={2.5}>
-      <Button onClick={() => navigate('/')} sx={{ alignSelf: 'flex-start' }}>Tillbaka till evenemang</Button>
+      <Button
+        onClick={() => navigate(state.eventId ? `/events/${encodeURIComponent(state.eventId)}` : '/')}
+        sx={{ alignSelf: 'flex-start' }}
+      >
+        Tillbaka till evenemang
+      </Button>
       <Typography variant="h3" component="h1" sx={{ fontWeight: 700 }}>Din bokning</Typography>
       <Typography variant="h5" component="h2">{state.eventName ?? 'Evenemang'}</Typography>
       {state.sectionName && <Typography color="text.secondary">{state.sectionName}</Typography>}
