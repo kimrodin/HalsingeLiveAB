@@ -50,7 +50,7 @@ export default function CheckoutDialog({
     onSuccess: async (booking) => {
       await queryClient.invalidateQueries({ queryKey: ['booking-inventory', eventId] })
       navigate(`/bookings/${booking.bookingId}`, {
-        state: { eventName, sectionName, quantity },
+        state: { eventId, eventName, sectionName, quantity },
       })
     },
     onError: (error) => {
