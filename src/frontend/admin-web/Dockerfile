@@ -3,10 +3,10 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
-COPY admin-web/package.json admin-web/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY admin-web/ ./
+COPY ./ ./
 RUN npm run build
 
 # Serve the compiled static site and proxy API requests.
@@ -14,7 +14,6 @@ FROM nginx:alpine AS runtime
 
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# The official Nginx image expands this template when the container starts.
 RUN mkdir -p /etc/nginx/templates && cat > /etc/nginx/templates/default.conf.template <<'NGINX'
 server {
     listen 80;
@@ -36,7 +35,7 @@ server {
 }
 NGINX
 
-ENV API_PROXY_TARGET=host.docker.internal:8080
+ENV API_PROXY_TARGET=eventcatalog:8080
 ENV NGINX_ENVSUBST_FILTER=^API_PROXY_TARGET$
 
 EXPOSE 80
