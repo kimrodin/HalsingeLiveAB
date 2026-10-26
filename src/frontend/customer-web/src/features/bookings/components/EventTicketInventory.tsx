@@ -19,7 +19,9 @@ const priceFormatter = new Intl.NumberFormat('sv-SE', {
   maximumFractionDigits: 2,
 })
 
-export default function EventTicketInventory({ eventId, eventName, sections, salesOpen }: EventTicketInventoryProps) {
+export default function EventTicketInventory({
+  eventId, eventName, sections, salesOpen,
+}: EventTicketInventoryProps) {
   const inventoryQuery = useQuery({
     queryKey: ['booking-inventory', eventId],
     queryFn: ({ signal }) => getEventInventory(eventId, signal),
@@ -47,7 +49,6 @@ export default function EventTicketInventory({ eventId, eventName, sections, sal
   if (rows.length === 0) {
     return (
       <section id="biljetter">
-        <Typography variant="h5" component="h2" sx={{ fontWeight: 700 }}>Biljetter</Typography>
         <Typography color="text.secondary" sx={{ mt: 1 }}>Biljetter är inte tillgängliga ännu.</Typography>
       </section>
     )
@@ -64,7 +65,6 @@ export default function EventTicketInventory({ eventId, eventName, sections, sal
 
   return (
     <section id="biljetter">
-      <Typography variant="h5" component="h2" sx={{ fontWeight: 700 }}>Biljetter</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
         En bokning gäller en sektion.
       </Typography>
