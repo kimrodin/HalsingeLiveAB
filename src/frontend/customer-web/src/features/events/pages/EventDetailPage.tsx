@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Chip, Skeleton, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Chip, Divider, Skeleton, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink, useParams } from 'react-router'
 import DateBadge from '../components/DateBadge'
@@ -105,6 +105,8 @@ export default function EventDetailPage() {
       ) : venueQuery.isPending ? (
         <Skeleton height={160} />
       ) : null}
+
+      {venueQuery.isSuccess && <Divider />}
 
       {venueQuery.isPending ? (
         <Skeleton height={120} />
