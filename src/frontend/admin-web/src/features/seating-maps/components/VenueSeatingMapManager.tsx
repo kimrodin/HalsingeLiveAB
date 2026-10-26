@@ -74,9 +74,9 @@ export default function VenueSeatingMapManager({ venueId }: { venueId: string })
   };
 
   return (
-    <Paper sx={{ p: 3, mt: 3, maxWidth: 900 }}>
+    <Paper sx={{ p: 2 }}>
       <Stack spacing={2}>
-        <Typography variant="h6">Platskartor</Typography>
+        <Typography variant="h6">Hantera platskartor</Typography>
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'flex-start' }}>
           <TextField
