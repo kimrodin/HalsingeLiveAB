@@ -115,23 +115,27 @@ export default function EventDetailPage() {
         }}
       >
         <Stack spacing={3} sx={{ minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+            <Typography variant="h5" component="h2" sx={{ fontWeight: 700 }}>Biljetter</Typography>
+            {seatingMapsQuery.data?.length ? (
+              <Button
+                aria-controls={`venue-map-${event.venueId}`}
+                aria-expanded={mapDialogOpen}
+                onClick={() => setMapDialogOpen(true)}
+                variant="outlined"
+                sx={{ display: { xs: 'inline-flex', lg: 'none' }, flexShrink: 0 }}
+              >
+                Se platskarta
+              </Button>
+            ) : null}
+          </Box>
+
           {venueQuery.isSuccess ? (
             <EventTicketInventory
               eventId={event.eventId}
               eventName={event.name}
               sections={venueQuery.data.sections}
               salesOpen={new Date(event.onSaleFrom).getTime() <= now}
-              headerAction={seatingMapsQuery.data?.length ? (
-                <Button
-                  aria-controls={`venue-map-${venueQuery.data.venueId}`}
-                  aria-expanded={mapDialogOpen}
-                  onClick={() => setMapDialogOpen(true)}
-                  variant="outlined"
-                  sx={{ display: { xs: 'inline-flex', lg: 'none' }, flexShrink: 0 }}
-                >
-                  Se platskarta
-                </Button>
-              ) : undefined}
             />
           ) : venueQuery.isPending ? (
             <Skeleton height={160} />
@@ -145,19 +149,15 @@ export default function EventDetailPage() {
           )}
         </Stack>
 
-        {venueQuery.isSuccess ? (
-          <VenueSeatingMapViewer
-            venueId={venueQuery.data.venueId}
-            maps={seatingMapsQuery.data}
-            isPending={seatingMapsQuery.isPending}
-            isError={seatingMapsQuery.isError}
-            onRetry={() => void seatingMapsQuery.refetch()}
-            dialogOpen={mapDialogOpen}
-            onClose={() => setMapDialogOpen(false)}
-          />
-        ) : venueQuery.isPending ? (
-          <Skeleton height={120} />
-        ) : null}
+        <VenueSeatingMapViewer
+          venueId={event.venueId}
+          maps={seatingMapsQuery.data}
+          isPending={seatingMapsQuery.isPending}
+          isError={seatingMapsQuery.isError}
+          onRetry={() => void seatingMapsQuery.refetch()}
+          dialogOpen={mapDialogOpen}
+          onClose={() => setMapDialogOpen(false)}
+        />
       </Box>
 
       {venueQuery.isSuccess && (

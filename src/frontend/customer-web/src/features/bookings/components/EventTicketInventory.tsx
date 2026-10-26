@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
-import { Alert, Box, Button, List, ListItem, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Button, List, ListItem, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError } from '../../../shared/api/http'
 import { getEventInventory } from '../api/bookings'
@@ -11,7 +10,6 @@ interface EventTicketInventoryProps {
   eventName: string
   sections: Array<{ sectionId: string; name: string }>
   salesOpen: boolean
-  headerAction?: ReactNode
 }
 
 const maximumBookingQuantity = 10
@@ -22,7 +20,7 @@ const priceFormatter = new Intl.NumberFormat('sv-SE', {
 })
 
 export default function EventTicketInventory({
-  eventId, eventName, sections, salesOpen, headerAction,
+  eventId, eventName, sections, salesOpen,
 }: EventTicketInventoryProps) {
   const inventoryQuery = useQuery({
     queryKey: ['booking-inventory', eventId],
@@ -51,10 +49,6 @@ export default function EventTicketInventory({
   if (rows.length === 0) {
     return (
       <section id="biljetter">
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 700 }}>Biljetter</Typography>
-          {headerAction}
-        </Box>
         <Typography color="text.secondary" sx={{ mt: 1 }}>Biljetter är inte tillgängliga ännu.</Typography>
       </section>
     )
@@ -71,10 +65,6 @@ export default function EventTicketInventory({
 
   return (
     <section id="biljetter">
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-        <Typography variant="h5" component="h2" sx={{ fontWeight: 700 }}>Biljetter</Typography>
-        {headerAction}
-      </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
         En bokning gäller en sektion.
       </Typography>
