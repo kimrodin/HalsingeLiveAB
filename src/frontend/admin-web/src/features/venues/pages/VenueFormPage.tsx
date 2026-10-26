@@ -213,7 +213,7 @@ function VenueForm({ venue }: { venue?: Venue }) {
 
             {justCreated && (
                 <Alert severity="success" sx={{ mb: 2 }}>
-                    Scenen är sparad. Ladda upp en platskarta längst ner och justera sektionerna med kartan bredvid.
+                    Scenen är sparad. Ladda upp en platskarta i panelen till höger och justera sektionerna med kartan bredvid.
                 </Alert>
             )}
 
@@ -350,29 +350,28 @@ function VenueForm({ venue }: { venue?: Venue }) {
                     </Stack>
                 </Paper>
 
-                {isEdit && (
-                    <Box
-                        sx={{
-                            position: 'sticky',
-                            top: 88,
-                            width: { xs: '100%', lg: 420 },
-                            flexShrink: 0,
-                            maxHeight: 'calc(100vh - 104px)',
-                            overflow: 'auto',
-                        }}
-                    >
-                        <VenueSeatingMapViewer venueId={venue.id} />
-                    </Box>
-                )}
+                <Box
+                    sx={{
+                        position: { xs: 'static', lg: 'sticky' },
+                        top: 88,
+                        width: { xs: '100%', lg: 420 },
+                        flexShrink: 0,
+                        maxHeight: { xs: 'none', lg: 'calc(100vh - 104px)' },
+                        overflow: { xs: 'visible', lg: 'auto' },
+                    }}
+                >
+                    {isEdit ? (
+                        <Stack spacing={2}>
+                            <VenueSeatingMapViewer venueId={venue.id} />
+                            <VenueSeatingMapManager venueId={venue.id} />
+                        </Stack>
+                    ) : (
+                        <Alert severity="info">
+                            Spara scenen först för att kunna lägga till platskartor.
+                        </Alert>
+                    )}
+                </Box>
             </Stack>
-
-            {isEdit ? (
-                <VenueSeatingMapManager venueId={venue.id} />
-            ) : (
-                <Alert severity="info" sx={{ mt: 3, maxWidth: 900 }}>
-                    Spara scenen först för att kunna lägga till platskartor.
-                </Alert>
-            )}
         </>
     );
 }
