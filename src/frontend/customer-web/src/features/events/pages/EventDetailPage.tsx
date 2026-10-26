@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Chip, Divider, Skeleton, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink, useParams } from 'react-router'
-import DateBadge from '../components/DateBadge'
+import EventDatePoster from '../components/EventDatePoster'
 import VenueInfo from '../../venues/components/VenueInfo'
 import EventTicketInventory from '../../bookings/components/EventTicketInventory'
 import { ApiError } from '../../../shared/api/http'
@@ -77,7 +77,7 @@ export default function EventDetailPage() {
     <Stack spacing={3}>
       <Button component={RouterLink} to="/" sx={{ alignSelf: 'flex-start' }}>Tillbaka till evenemang</Button>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'center' }}>
-        <DateBadge startDate={event.startDate} endDate={event.endDate} />
+        <EventDatePoster startDate={event.startDate} eventName={event.name} />
         <Box>
           <Typography variant="h3" component="h1" sx={{ fontWeight: 700 }}>{event.name}</Typography>
           <Typography color="text.secondary">{formatEventRange(event.startDate, event.endDate)}</Typography>
