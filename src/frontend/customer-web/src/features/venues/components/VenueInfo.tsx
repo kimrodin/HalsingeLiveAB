@@ -6,8 +6,12 @@ interface VenueInfoProps {
 }
 
 export default function VenueInfo({ venue }: VenueInfoProps) {
-  const address = `${venue.streetAddress}, ${venue.postalCode} ${venue.city}`
-  const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`
+  const streetAddress = venue.streetAddress?.trim()
+  const postalCode = venue.postalCode?.trim()
+  const city = venue.city?.trim()
+  const mapUrl = streetAddress && postalCode && city
+    ? `https://www.google.com/maps?q=${encodeURIComponent(`${streetAddress}, ${postalCode} ${city}`)}&output=embed`
+    : null
 
   return (
     <section>
@@ -16,7 +20,7 @@ export default function VenueInfo({ venue }: VenueInfoProps) {
         <Typography color="text.secondary">{venue.streetAddress}</Typography>
         <Typography color="text.secondary">{venue.postalCode} {venue.city}</Typography>
       </Stack>
-      <Box
+      {mapUrl ? <Box
         component="iframe"
         title={`Karta till ${venue.name}`}
         src={mapUrl}
@@ -24,7 +28,9 @@ export default function VenueInfo({ venue }: VenueInfoProps) {
         referrerPolicy="no-referrer-when-downgrade"
         allowFullScreen
         sx={{ display: 'block', width: '100%', height: { xs: 260, sm: 360 }, border: 0, borderRadius: 2, mt: 2 }}
-      />
+      /> : (
+        <Typography color="text.secondary" sx={{ mt: 2 }}>Karta saknas</Typography>
+      )}
     </section>
   )
 }
