@@ -38,3 +38,4 @@ Invoke-Checked docker @('compose', '-f', $composeFile, 'up', '-d', '--build')
 
 Write-Host 'Swagger: http://localhost:8080/swagger'
 Write-Host 'Admin:   http://localhost:5173'
+Write-Host 'Admin-Console:   http://localhost:8180'

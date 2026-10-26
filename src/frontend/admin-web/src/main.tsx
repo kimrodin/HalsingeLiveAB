@@ -1,20 +1,64 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { router } from './router';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { router } from './app/router';
+import keycloak from './app/auth/keycloak';
 import theme from './theme';
 
 const queryClient = new QueryClient();
+const root = createRoot(document.getElementById('root')!);
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    </ThemeProvider>
-  </StrictMode>,
-);
+async function start() {
+  try {
+    const authenticated = await keycloak.init({
+      onLoad: 'login-required',
+      pkceMethod: 'S256',
+      checkLoginIframe: false,
+    });
+
+    if (!authenticated) {
+      root.render(
+        <main>
+          <h1>Hälsinge Live – Admin</h1>
+          <button onClick={() => void keycloak.login()}>
+            Logga in
+          </button>
+        </main>,
+      );
+      return;
+    }
+
+    if (!keycloak.hasRealmRole('admin')) {
+      root.render(
+        <main>
+          <p>Du saknar administratörsbehörighet.</p>
+          <button onClick={() => void keycloak.logout({
+            redirectUri: window.location.origin,
+          })}>
+            Logga ut
+          </button>
+        </main>,
+      );
+      return;
+    }
+
+    root.render(
+      <StrictMode>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>
+        </ThemeProvider>
+      </StrictMode>,
+    );
+  } catch {
+    root.render(
+      <p>Inloggningstjänsten kunde inte nås. Ladda om och försök igen.</p>,
+    );
+  }
+}
+
+void start();

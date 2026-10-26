@@ -1,0 +1,31 @@
+services:
+  admin-web:
+    image: halsingelive-admin-web-dev
+    build:
+      context: ./frontend/admin-web
+      dockerfile: Dockerfile.dev
+    environment:
+      CATALOG_API_PROXY_TARGET: http://eventcatalog:8080
+    ports: !override
+      - "5173:5173"
+    volumes:
+      - ./frontend/admin-web:/app
+      - admin-web-node-modules:/app/node_modules
+
+  customer-web:
+    image: halsingelive-customer-web-dev
+    build:
+      context: ./frontend/customer-web
+      dockerfile: Dockerfile.dev
+    environment:
+      CATALOG_API_PROXY_TARGET: http://eventcatalog:8080
+      BOOKING_API_PROXY_TARGET: http://booking:8080
+    ports: !override
+      - "5174:5173"
+    volumes:
+      - ./frontend/customer-web:/app
+      - customer-web-node-modules:/app/node_modules
+
+volumes:
+  admin-web-node-modules:
+  customer-web-node-modules:

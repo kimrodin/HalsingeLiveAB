@@ -1,12 +1,55 @@
+# Keep existing local database and Keycloak volumes after moving this file.
+name: services
+
 services:
+
+  booking:
+    build:
+      context: ./services/Booking
+      dockerfile: Dockerfile
+    environment:
+      ConnectionStrings__Booking: "Host=booking-db;Port=5432;Database=booking_dev;Username=postgres;Password=postgres"
+      ConnectionStrings__Redis: "booking-redis:6379"
+      PaymentSimulator__BaseUrl: "http://payment-simulator:8080/"
+      PaymentSimulator__TimeoutSeconds: "5"
+      ASPNETCORE_ENVIRONMENT: Development
+      InitializeDatabase: "true"
+    ports:
+      - "8081:8080"
+    depends_on:
+      booking-db:
+        condition: service_healthy
+      booking-redis:
+        condition: service_healthy
+      payment-simulator:
+        condition: service_started
+
+  booking-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: booking_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - booking-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d booking_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   eventcatalog:
     build:
-      context: ./Services/EventCatalog
+      context: ./services/EventCatalog
       dockerfile: Dockerfile
     environment:
       ConnectionStrings__EventCatalog: "Host=eventcatalog-db;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
       ASPNETCORE_ENVIRONMENT: Development
+      InitializeDatabase: "true"
+      Authentication__Authority: http://localhost:8180/realms/halsingelive
+      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       VenueMapStorage__RootPath: /app/uploads/venue-maps
     ports:
       - "8080:8080"
@@ -15,6 +58,8 @@ services:
     depends_on:
       eventcatalog-db:
         condition: service_healthy
+      keycloak:
+        condition: service_started
 
   eventcatalog-db:
     image: postgres:18-alpine
@@ -23,7 +68,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - eventcatalog-data:/var/lib/postgresql
     healthcheck:
@@ -31,10 +76,57 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  
+  booking-redis:
+    image: redis:7-alpine
+    container_name: booking-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - booking-redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
-  frontend:
+  payment-simulator-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: payment_simulator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - payment-simulator-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_simulator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  payment-simulator:
     build:
-      context: ./frontend
+      context: ./services/PaymentSimulator
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__PaymentSimulator: "Host=payment-simulator-db;Port=5432;Database=payment_simulator;Username=postgres;Password=postgres"
+      PaymentSimulation__Outcome: "${PAYMENT_SIMULATION_OUTCOME:-Succeeded}"
+      PaymentSimulation__DelayMs: "${PAYMENT_SIMULATION_DELAY_MS:-500}"
+      PaymentSimulation__TimeoutMs: "${PAYMENT_SIMULATION_TIMEOUT_MS:-5000}"
+    ports:
+      - "127.0.0.1:5111:8080"
+    depends_on:
+      payment-simulator-db:
+        condition: service_healthy
+
+  admin-web:
+    build:
+      context: ./frontend/admin-web
       dockerfile: Dockerfile
     environment:
       API_PROXY_TARGET: eventcatalog:8080
@@ -43,6 +135,37 @@ services:
     depends_on:
       - eventcatalog
 
+  customer-web:
+    build:
+      context: ./frontend/customer-web
+      dockerfile: Dockerfile
+    environment:
+      API_PROXY_TARGET: eventcatalog:8080
+      BOOKING_API_PROXY_TARGET: booking:8080
+    ports:
+      - "5174:80"
+    depends_on:
+      - eventcatalog
+      - booking
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: keycloak-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: keycloak-admin
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    ports:
+      - "127.0.0.1:8180:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ../infrastructure/keycloak:/opt/keycloak/data/import:ro
+
 volumes:
+  booking-data:
+  keycloak-data:
   eventcatalog-data:
+  payment-simulator-data:
   venue-maps-data:
+  booking-redis-data:
