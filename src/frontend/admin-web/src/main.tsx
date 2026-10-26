@@ -1,10 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
-import { CssBaseline } from '@mui/material';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './app/router';
 import keycloak from './app/auth/keycloak';
+import theme from './theme';
 
 const queryClient = new QueryClient();
 const root = createRoot(document.getElementById('root')!);
@@ -45,10 +46,12 @@ async function start() {
 
     root.render(
       <StrictMode>
-        <CssBaseline />
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>
+        </ThemeProvider>
       </StrictMode>,
     );
   } catch {
