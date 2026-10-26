@@ -3,11 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink, useParams } from 'react-router'
 import DateBadge from '../components/DateBadge'
 import VenueInfo from '../../venues/components/VenueInfo'
+import VenueSeatingMapViewer from '../../venues/components/VenueSeatingMapViewer'
 import EventTicketInventory from '../../bookings/components/EventTicketInventory'
 import { ApiError } from '../../../shared/api/http'
 import { getEventById } from '../api/events'
 import { getVenueById } from '../../venues/api/venues'
+import { getVenueSeatingMaps } from '../../venues/api/seatingMaps'
 import { useNow } from '../../../shared/hooks/useNow'
+import { useState } from 'react'
 
 const dateFormatter = new Intl.DateTimeFormat('sv-SE', {
   weekday: 'short',
@@ -34,6 +37,7 @@ function isNotFound(error: unknown): boolean {
 
 export default function EventDetailPage() {
   const now = useNow()
+  const [mapDialogOpen, setMapDialogOpen] = useState(false)
   const { eventId } = useParams<{ eventId: string }>()
   const eventQuery = useQuery({
     queryKey: ['events', eventId],
@@ -43,6 +47,11 @@ export default function EventDetailPage() {
   const venueQuery = useQuery({
     queryKey: ['venues', eventQuery.data?.venueId],
     queryFn: ({ signal }) => getVenueById(eventQuery.data!.venueId, signal),
+    enabled: Boolean(eventQuery.data?.venueId),
+  })
+  const seatingMapsQuery = useQuery({
+    queryKey: ['venues', eventQuery.data?.venueId, 'seating-maps'],
+    queryFn: ({ signal }) => getVenueSeatingMaps(eventQuery.data!.venueId, signal),
     enabled: Boolean(eventQuery.data?.venueId),
   })
 
@@ -95,30 +104,68 @@ export default function EventDetailPage() {
 
       {event.description && <Typography sx={{ whiteSpace: 'pre-line' }}>{event.description}</Typography>}
 
-      {venueQuery.isSuccess ? (
-        <EventTicketInventory
-          eventId={event.eventId}
-          eventName={event.name}
-          sections={venueQuery.data.sections}
-          salesOpen={new Date(event.onSaleFrom).getTime() <= now}
-        />
-      ) : venueQuery.isPending ? (
-        <Skeleton height={160} />
-      ) : null}
+      <Divider />
 
-      {venueQuery.isSuccess && <Divider />}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(320px, 420px)' },
+          gap: 3,
+          alignItems: 'start',
+        }}
+      >
+        <Stack spacing={3} sx={{ minWidth: 0 }}>
+          {venueQuery.isSuccess ? (
+            <EventTicketInventory
+              eventId={event.eventId}
+              eventName={event.name}
+              sections={venueQuery.data.sections}
+              salesOpen={new Date(event.onSaleFrom).getTime() <= now}
+              headerAction={seatingMapsQuery.data?.length ? (
+                <Button
+                  aria-controls={`venue-map-${venueQuery.data.venueId}`}
+                  aria-expanded={mapDialogOpen}
+                  onClick={() => setMapDialogOpen(true)}
+                  variant="outlined"
+                  sx={{ display: { xs: 'inline-flex', lg: 'none' }, flexShrink: 0 }}
+                >
+                  Se platskarta
+                </Button>
+              ) : undefined}
+            />
+          ) : venueQuery.isPending ? (
+            <Skeleton height={160} />
+          ) : null}
 
-      {venueQuery.isPending ? (
-        <Skeleton height={120} />
-      ) : venueQuery.isError ? (
-        <Alert severity={isNotFound(venueQuery.error) ? 'info' : 'error'}
-          action={<Button color="inherit" size="small" onClick={() => void venueQuery.refetch()}>Försök igen</Button>}>
-          {isNotFound(venueQuery.error) ? 'Scenen hittades inte.' : 'Scenens information kunde inte hämtas.'}
-        </Alert>
-      ) : (
-        <VenueInfo venue={venueQuery.data} />
+          {venueQuery.isError && (
+            <Alert severity={isNotFound(venueQuery.error) ? 'info' : 'error'}
+              action={<Button color="inherit" size="small" onClick={() => void venueQuery.refetch()}>Försök igen</Button>}>
+              {isNotFound(venueQuery.error) ? 'Scenen hittades inte.' : 'Scenens information kunde inte hämtas.'}
+            </Alert>
+          )}
+        </Stack>
+
+        {venueQuery.isSuccess ? (
+          <VenueSeatingMapViewer
+            venueId={venueQuery.data.venueId}
+            maps={seatingMapsQuery.data}
+            isPending={seatingMapsQuery.isPending}
+            isError={seatingMapsQuery.isError}
+            onRetry={() => void seatingMapsQuery.refetch()}
+            dialogOpen={mapDialogOpen}
+            onClose={() => setMapDialogOpen(false)}
+          />
+        ) : venueQuery.isPending ? (
+          <Skeleton height={120} />
+        ) : null}
+      </Box>
+
+      {venueQuery.isSuccess && (
+        <>
+          <Divider />
+          <VenueInfo venue={venueQuery.data} />
+        </>
       )}
-
     </Stack>
   )
 }
