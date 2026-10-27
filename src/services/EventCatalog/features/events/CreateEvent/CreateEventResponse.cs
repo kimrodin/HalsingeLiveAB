@@ -1,3 +1,3 @@
 namespace EventCatalog.Features.Events.CreateEvent;
 
-public record CreateEventResponse(Guid EventId);
+public record CreateEventResponse(Guid EventId, bool InventoryProvisioned = false);

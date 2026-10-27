@@ -19,6 +19,22 @@ public class ListEventInventoryHandler(
             .ThenBy(item => item.InventoryId)
             .ToListAsync(cancellationToken);
 
+        return await IncludeLiveAvailability(inventory);
+    }
+
+    public async Task<List<InventoryModel>> HandleAll(CancellationToken cancellationToken = default)
+    {
+        var inventory = await dbContext.EventInventory.AsNoTracking()
+            .OrderBy(item => item.EventId)
+            .ThenBy(item => item.SectionId)
+            .ThenBy(item => item.InventoryId)
+            .ToListAsync(cancellationToken);
+
+        return await IncludeLiveAvailability(inventory);
+    }
+
+    private async Task<List<InventoryModel>> IncludeLiveAvailability(List<InventoryModel> inventory)
+    {
         foreach (var item in inventory)
         {
             item.AvailableQuantity = await reservations.GetAvailableQuantityAsync(

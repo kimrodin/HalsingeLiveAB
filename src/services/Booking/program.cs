@@ -3,6 +3,7 @@ using Booking.Features.EventInventory;
 using Booking.Features.EventInventory.CreateEventInventory;
 using Booking.Features.EventInventory.GetEventInventory;
 using Booking.Features.EventInventory.ListEventInventory;
+using Booking.Features.EventInventory.EventCatalog;
 using Booking.Features.Seed;
 using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +30,13 @@ builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
     client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("PaymentSimulator:TimeoutSeconds", 5));
 });
 builder.Services.AddScoped<CreateEventInventoryHandler>();
+builder.Services.AddScoped<CreateEventInventoryFromCatalogHandler>();
+builder.Services.AddHttpClient<IEventCatalogClient, HttpEventCatalogClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["EventCatalog:BaseUrl"]
+        ?? throw new InvalidOperationException("EventCatalog base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("EventCatalog:TimeoutSeconds", 5));
+});
 builder.Services.AddScoped<GetEventInventoryHandler>();
 builder.Services.AddScoped<ListEventInventoryHandler>();
 builder.Services.AddScoped<SeedInventoryHandler>();
