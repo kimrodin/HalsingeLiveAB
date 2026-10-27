@@ -9,7 +9,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ConnectionStrings__EventCatalog": "Host=localhost;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres",
-        "Booking__BaseUrl": "http://localhost:8081/",
+        "Booking__BaseUrl": "http://localhost:5081/",
         "Booking__TimeoutSeconds": "5"
       }
     }
