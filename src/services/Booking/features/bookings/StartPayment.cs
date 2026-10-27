@@ -1,4 +1,5 @@
 using Booking.Features.Payments;
+using Booking.Features.Tickets;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
 
@@ -59,6 +60,7 @@ public sealed partial class BookingService
         {
             if (booking.PaymentRequested && !booking.PaymentSettled)
                 await SetPaymentSettledAsync(bookingId, cancellationToken);
+            await EnsureTicketIssueOutboxMessagesAsync(booking, cancellationToken);
             return new(bookingId, booking.Status, "Succeeded", "The paid booking is already confirmed.");
         }
         if (!booking.PaymentRequested)
@@ -160,6 +162,43 @@ public sealed partial class BookingService
     private Task<int> SetPaymentSettledAsync(Guid bookingId, CancellationToken cancellationToken) =>
         dbContext.Bookings.Where(row => row.BookingId == bookingId)
             .ExecuteUpdateAsync(update => update.SetProperty(row => row.PaymentSettled, true), cancellationToken);
+
+    private async Task EnsureTicketIssueOutboxMessagesAsync(
+        BookingModel booking,
+        CancellationToken cancellationToken)
+    {
+        var existingItemIds = await dbContext.TicketIssueOutboxMessages
+            .Where(message => message.BookingId == booking.BookingId)
+            .Select(message => message.BookingItemId)
+            .ToArrayAsync(cancellationToken);
+        var existing = existingItemIds.ToHashSet();
+        var missingItems = booking.Items
+            .Where(item => !existing.Contains(item.BookingItemId))
+            .ToArray();
+
+        if (missingItems.Length == 0)
+            return;
+
+        var createdAt = DateTimeOffset.UtcNow;
+        dbContext.TicketIssueOutboxMessages.AddRange(missingItems.Select(item =>
+            new TicketIssueOutboxMessage
+            {
+                MessageId = Guid.NewGuid(),
+                BookingId = item.BookingId,
+                BookingItemId = item.BookingItemId,
+                EventId = item.EventInventory.EventId,
+                EventName = item.EventName,
+                EventStartsAtUtc = item.EventStartsAt.ToUniversalTime(),
+                VenueName = item.VenueName,
+                SectionName = item.SectionName,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                Currency = item.Currency,
+                CreatedAtUtc = createdAt,
+                NextAttemptAtUtc = createdAt
+            }));
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 
     private async Task<StartPaymentResult> PaymentResponseAsync(Guid bookingId, string paymentStatus, string message, CancellationToken cancellationToken)
     {

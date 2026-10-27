@@ -1,3 +1,4 @@
+using Booking.Data;
 using Booking.Features.Bookings;
 using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +37,14 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
         Assert.Equal(299.50m, gateway.Payments[id].Amount);
         Assert.Equal("SEK", gateway.Payments[id].Currency);
         Assert.Equal(8, await DatabaseStockAsync(inventory));
+        await using var outboxDb = fixture.CreateContext();
+        var outboxMessage = await outboxDb.TicketIssueOutboxMessages.SingleAsync(
+            message => message.BookingId == id);
+        Assert.Equal(2, outboxMessage.Quantity);
+        Assert.Equal(149.75m, outboxMessage.UnitPrice);
+        Assert.Equal("Integration event", outboxMessage.EventName);
+        Assert.Equal("Integration venue", outboxMessage.VenueName);
+        Assert.Equal("Integration section", outboxMessage.SectionName);
     }
 
     [BookingIntegrationFact]

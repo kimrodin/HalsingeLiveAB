@@ -7,6 +7,7 @@ using Booking.Features.EventInventory.EventCatalog;
 using Booking.Features.Seed;
 using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
+using Booking.Features.Tickets;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 
@@ -35,6 +36,15 @@ builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
         ?? throw new InvalidOperationException("PaymentSimulator base URL is missing."));
     client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("PaymentSimulator:TimeoutSeconds", 5));
 });
+builder.Services.AddHttpClient<ITicketServiceClient, HttpTicketServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["TicketService:BaseUrl"]
+        ?? throw new InvalidOperationException("TicketService base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TicketService:TimeoutSeconds", 5));
+});
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<TicketIssueOutboxDispatcher>();
+builder.Services.AddHostedService<TicketIssueOutboxBackgroundService>();
 builder.Services.AddScoped<CreateEventInventoryHandler>();
 builder.Services.AddScoped<CreateEventInventoryFromCatalogHandler>();
 builder.Services.AddHttpClient<IEventCatalogClient, HttpEventCatalogClient>(client =>

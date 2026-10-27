@@ -13,8 +13,10 @@ services:
       EventCatalog__BaseUrl: "http://eventcatalog:8080/"
       PaymentSimulator__BaseUrl: "http://payment-simulator:8080/"
       PaymentSimulator__TimeoutSeconds: "5"
-      EventCatalog__BaseUrl: "http://eventcatalog:8080/"
       EventCatalog__TimeoutSeconds: "5"
+      TicketService__BaseUrl: "http://ticketservice:8080/"
+      TicketService__TimeoutSeconds: "5"
+      TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
     ports:
@@ -24,9 +26,9 @@ services:
         condition: service_healthy
       booking-redis:
         condition: service_healthy
-      eventcatalog:
-        condition: service_started
       payment-simulator:
+        condition: service_started
+      ticketservice:
         condition: service_started
 
   ticketservice:
@@ -36,6 +38,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
+      TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
       ConnectionStrings__TicketService: "Host=ticketservice-db;Port=5432;Database=ticketservice_dev;Username=postgres;Password=postgres"
     ports:
       - "8082:8080"
