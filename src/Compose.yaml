@@ -13,6 +13,8 @@ services:
       EventCatalog__BaseUrl: "http://eventcatalog:8080/"
       PaymentSimulator__BaseUrl: "http://payment-simulator:8080/"
       PaymentSimulator__TimeoutSeconds: "5"
+      EventCatalog__BaseUrl: "http://eventcatalog:8080/"
+      EventCatalog__TimeoutSeconds: "5"
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
     ports:
@@ -81,6 +83,8 @@ services:
       ConnectionStrings__EventCatalog: "Host=eventcatalog-db;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
+      Booking__BaseUrl: "http://booking:8080/"
+      Booking__TimeoutSeconds: "5"
       Authentication__Authority: http://localhost:8180/realms/halsingelive
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       VenueMapStorage__RootPath: /app/uploads/venue-maps
@@ -92,6 +96,8 @@ services:
       eventcatalog-db:
         condition: service_healthy
       keycloak:
+        condition: service_started
+      booking:
         condition: service_started
 
   eventcatalog-db:

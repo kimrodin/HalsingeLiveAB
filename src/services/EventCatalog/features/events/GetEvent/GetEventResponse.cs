@@ -13,5 +13,6 @@ public record GetEventResponse(
 
 public record EventSectionPriceResponse(
     Guid SectionId,
-    decimal Price
+    decimal Price,
+    int SectionCapacity
 );

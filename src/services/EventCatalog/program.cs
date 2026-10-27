@@ -32,6 +32,12 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<GetEventHandler>();
 builder.Services.AddScoped<CreateEventHandler>();
+builder.Services.AddHttpClient<IBookingInventoryClient, HttpBookingInventoryClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Booking:BaseUrl"]
+        ?? throw new InvalidOperationException("Booking base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Booking:TimeoutSeconds", 5));
+});
 builder.Services.AddScoped<DeleteEventHandler>();
 builder.Services.AddScoped<ListEventsHandler>();
 builder.Services.AddScoped<UpdateEventHandler>();

@@ -1,11 +1,15 @@
 using EventCatalog.Data;
 using EventCatalog.Features.Events.Models;
 using EventCatalog.Features.Venues.Models;
+using EventCatalog.Features.Events.CreateEvent;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventCatalog.Features.Seed.SeedEvents;
 
-public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
+public sealed class SeedEventsHandler(
+    EventCatalogDbContext dbContext,
+    IBookingInventoryClient bookingInventoryClient,
+    ILogger<SeedEventsHandler> logger)
 {
     private static readonly EventSeedDefinition[] Definitions =
     [
@@ -92,6 +96,26 @@ public sealed class SeedEventsHandler(EventCatalogDbContext dbContext)
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        // Seeded events are persisted before provisioning. Also revisit existing seed events so
+        // rerunning the seed endpoint can provision inventory that failed on an earlier run.
+        for (var index = 0; index < results.Count; index++)
+        {
+            var seededEvent = results[index];
+            try
+            {
+                await bookingInventoryClient.EnsureInventoryCreatedAsync(
+                    seededEvent.EventId,
+                    CancellationToken.None);
+                results[index] = seededEvent with { InventoryProvisioned = true };
+            }
+            catch (BookingInventoryProvisioningException exception)
+            {
+                logger.LogError(exception,
+                    "Seeded event {EventId} was saved, but Booking inventory provisioning failed.",
+                    seededEvent.EventId);
+            }
+        }
 
         return new SeedEventsResponse(createdCount, results);
     }
