@@ -110,12 +110,42 @@ public sealed class TicketsController(
             ticket.IssuedAt));
     }
 
+    [HttpGet("by-booking/{bookingId:guid}")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTicketsByBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        var tickets = await dbContext.Tickets
+            .AsNoTracking()
+            .Where(ticket => ticket.BookingId == bookingId)
+            .OrderBy(ticket => ticket.BookingItemId)
+            .ThenBy(ticket => ticket.TicketNumberInBookingItem)
+            .ToArrayAsync(cancellationToken);
+
+        return Ok(tickets.Select(ticket => new TicketResponse(
+            ticket.TicketId,
+            ticket.BookingId,
+            ticket.BookingItemId,
+            ticket.TicketNumberInBookingItem,
+            ticket.EventId,
+            ticket.EventName,
+            ticket.EventStartsAt,
+            ticket.VenueName,
+            ticket.SectionName,
+            ticket.UnitPrice,
+            ticket.Currency,
+            ticket.Status.ToString(),
+            ticket.IssuedAt)).ToArray());
+    }
+
     [HttpGet("{ticketId:guid}/pdf")]
     [Produces("application/pdf")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DownloadTicketPdf(
         Guid ticketId,
+        [FromQuery] bool download,
         CancellationToken cancellationToken)
     {
         var ticket = await dbContext.Tickets
@@ -126,7 +156,9 @@ public sealed class TicketsController(
             return NotFound();
 
         var pdf = ticketDocumentService.GeneratePdf(ticket);
-        return File(pdf, "application/pdf", $"ticket-{ticket.TicketId:N}.pdf");
+        return download
+            ? File(pdf, "application/pdf", $"ticket-{ticket.TicketId:N}.pdf")
+            : File(pdf, "application/pdf");
     }
 
     private static bool IsValidApiKey(string provided, string configured)

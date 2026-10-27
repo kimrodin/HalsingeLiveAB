@@ -184,11 +184,13 @@ services:
     environment:
       API_PROXY_TARGET: eventcatalog:8080
       BOOKING_API_PROXY_TARGET: booking:8080
+      TICKET_API_PROXY_TARGET: ticketservice:8080
     ports:
       - "5174:80"
     depends_on:
       - eventcatalog
       - booking
+      - ticketservice
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1

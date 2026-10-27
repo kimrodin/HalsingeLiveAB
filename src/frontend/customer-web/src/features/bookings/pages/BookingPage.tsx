@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, CircularProgress, Divider, Skeleton, Stack, Typography } from '@mui/material'
 import { ApiError } from '../../../shared/api/http'
 import { useNow } from '../../../shared/hooks/useNow'
-import { cancelBooking, getBooking, startPayment } from '../api/bookings'
+import { cancelBooking, getBooking, getTicketsForBooking, startPayment } from '../api/bookings'
 
 interface BookingLocationState {
   eventId?: string
@@ -44,6 +44,12 @@ export default function BookingPage() {
       if (booking.status === 'Reserved') return 2000
       return false
     },
+  })
+  const ticketsQuery = useQuery({
+    queryKey: ['tickets', bookingId],
+    queryFn: ({ signal }) => getTicketsForBooking(bookingId!, signal),
+    enabled: Boolean(bookingId && bookingQuery.data?.status === 'Confirmed'),
+    refetchInterval: (query) => query.state.data?.length ? false : 1500,
   })
   const invalidateBooking = () => queryClient.invalidateQueries({ queryKey: ['booking', bookingId] })
   const refreshAfterActionError = (error: Error) => {
@@ -147,6 +153,57 @@ export default function BookingPage() {
       )}
       {statusContent[booking.status] && (
         <Alert severity={statusContent[booking.status].severity}>{statusContent[booking.status].message}</Alert>
+      )}
+      {booking.status === 'Confirmed' && ticketsQuery.isPending && (
+        <Alert severity="info" icon={<CircularProgress color="inherit" size={20} />}>
+          Biljetterna skapas. De visas här automatiskt så snart de är klara.
+        </Alert>
+      )}
+      {booking.status === 'Confirmed' && ticketsQuery.isError && (
+        <Alert
+          severity="warning"
+          action={<Button color="inherit" size="small" onClick={() => void ticketsQuery.refetch()}>Försök igen</Button>}
+        >
+          Biljetterna kunde inte hämtas just nu.
+        </Alert>
+      )}
+      {booking.status === 'Confirmed' && ticketsQuery.data?.length === 0 && (
+        <Alert severity="info" icon={<CircularProgress color="inherit" size={20} />}>
+          Biljetterna skapas. De visas här automatiskt så snart de är klara.
+        </Alert>
+      )}
+      {ticketsQuery.data && ticketsQuery.data.length > 0 && (
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <Typography variant="h5" component="h2">Dina biljetter</Typography>
+          {ticketsQuery.data.map((ticket) => {
+            const pdfUrl = `/ticket-api/tickets/${encodeURIComponent(ticket.ticketId)}/pdf`
+            return (
+              <Stack
+                key={ticket.ticketId}
+                spacing={1}
+                sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+              >
+                <Typography variant="h6">{ticket.eventName}</Typography>
+                <Typography>{new Intl.DateTimeFormat('sv-SE', {
+                  dateStyle: 'long',
+                  timeStyle: 'short',
+                  timeZone: 'Europe/Stockholm',
+                }).format(new Date(ticket.eventStartsAt))}</Typography>
+                <Typography color="text.secondary">
+                  {ticket.venueName} · {ticket.sectionName} · Biljett {ticket.ticketNumberInBookingItem}
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                  <Button component="a" href={`${pdfUrl}?download=true`} download>
+                    Ladda ner PDF
+                  </Button>
+                  <Button component="a" href={pdfUrl} target="_blank" rel="noreferrer">
+                    Öppna / skriv ut
+                  </Button>
+                </Stack>
+              </Stack>
+            )
+          })}
+        </Stack>
       )}
       {isReserved && booking.expiresAt && !isExpiredByTime && (
         <Alert severity="warning">
