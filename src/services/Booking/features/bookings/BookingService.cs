@@ -1,6 +1,7 @@
 using Booking.Data;
 using Booking.Features.BookingHolds;
 using Booking.Features.Bookings.Models;
+using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
@@ -10,7 +11,8 @@ namespace Booking.Features.Bookings;
 public sealed partial class BookingService(
     BookingDbContext dbContext,
     RedisReservationService reservations,
-    IPaymentGateway payments)
+    IPaymentGateway payments,
+    IEventSnapshotProvider eventCatalog)
 {
     public static readonly TimeSpan ReservationDuration = TimeSpan.FromMinutes(10);
 
@@ -30,6 +32,10 @@ public sealed partial class BookingService(
             return new ReservationResult(ReservationStatus.InventoryNotFound, null, null);
 
         BookingValidation.ValidatePriceAndTotal(inventory.Price, request.Quantity);
+        var eventSnapshot = await eventCatalog.GetSnapshotAsync(
+            inventory.EventId,
+            inventory.SectionId,
+            cancellationToken);
 
         // Populate Redis lazily for inventory rows created before Redis was wired in.
         await reservations.InitializeInventoryAsync(
@@ -65,7 +71,12 @@ public sealed partial class BookingService(
                     BookingItemId = Guid.NewGuid(),
                     InventoryId = inventory.InventoryId,
                     Quantity = request.Quantity,
-                    UnitPrice = inventory.Price
+                    UnitPrice = inventory.Price,
+                    Currency = "SEK",
+                    EventName = eventSnapshot.EventName,
+                    EventStartsAt = eventSnapshot.EventStartsAt,
+                    VenueName = eventSnapshot.VenueName,
+                    SectionName = eventSnapshot.SectionName
                 }
             ]
         };

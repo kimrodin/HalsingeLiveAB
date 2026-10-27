@@ -4,6 +4,7 @@ using Booking.Features.EventInventory.CreateEventInventory;
 using Booking.Features.EventInventory.GetEventInventory;
 using Booking.Features.EventInventory.ListEventInventory;
 using Booking.Features.Seed;
+using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
@@ -12,6 +13,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Booking")));
+builder.Services.AddHttpClient<IEventSnapshotProvider, EventCatalogClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["EventCatalog:BaseUrl"]
+        ?? throw new InvalidOperationException("EventCatalog base URL is missing."));
+});
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 {
     var connectionString = builder.Configuration.GetConnectionString("Redis")

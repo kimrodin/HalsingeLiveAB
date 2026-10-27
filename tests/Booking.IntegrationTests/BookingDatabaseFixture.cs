@@ -1,6 +1,7 @@
 using Booking.Data;
 using Booking.Features.BookingHolds;
 using Booking.Features.Bookings;
+using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -28,6 +29,7 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
     private string? connectionString;
     public IConnectionMultiplexer Redis { get; private set; } = null!;
     public RedisReservationService Reservations => new(Redis);
+    public IEventSnapshotProvider EventSnapshots => new TestEventSnapshotProvider();
 
     public async Task InitializeAsync()
     {
@@ -55,7 +57,7 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
         .Options);
 
     public BookingService CreateService(BookingDbContext db, IPaymentGateway gateway) =>
-        new(db, Reservations, gateway);
+        new(db, Reservations, gateway, new TestEventSnapshotProvider());
 
     public async Task<Inventory> CreateInventoryAsync(int stock = 10, decimal price = 125.50m)
     {
@@ -104,5 +106,19 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
         await admin.OpenAsync();
         await using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{databaseName}\" WITH (FORCE)", admin);
         await drop.ExecuteNonQueryAsync();
+    }
+
+    private sealed class TestEventSnapshotProvider : IEventSnapshotProvider
+    {
+        public Task<EventSnapshot> GetSnapshotAsync(
+            Guid eventId,
+            Guid sectionId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new EventSnapshot(
+                eventId,
+                "Integration event",
+                DateTimeOffset.UtcNow.AddDays(1),
+                "Integration venue",
+                "Integration section"));
     }
 }

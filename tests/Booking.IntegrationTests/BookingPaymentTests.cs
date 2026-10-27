@@ -15,6 +15,17 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
         var inventory = await fixture.CreateInventoryAsync(price: 149.75m);
         var id = await fixture.ReserveAsync(inventory, gateway, quantity: 2);
 
+        await using (var db = fixture.CreateContext())
+        {
+            var booking = await fixture.CreateService(db, gateway).GetBookingAsync(id);
+            var item = Assert.Single(booking!.Items);
+            Assert.Equal("Integration event", item.EventName);
+            Assert.Equal("Integration venue", item.VenueName);
+            Assert.Equal("Integration section", item.SectionName);
+            Assert.Equal(149.75m, item.UnitPrice);
+            Assert.Equal("SEK", item.Currency);
+        }
+
         var result = await PayAsync(id, gateway);
         var repeated = await PayAsync(id, gateway);
 

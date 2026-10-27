@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Booking.Features.EventCatalog;
 
 namespace Booking.Features.Bookings;
 
@@ -48,6 +49,7 @@ public sealed class BookingsController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> CreateBooking(
         [FromBody] CreateBookingRequest request,
         CancellationToken cancellationToken)
@@ -76,6 +78,22 @@ public sealed class BookingsController(
         catch (BookingValidationException exception)
         {
             return RequestValidationProblem(exception);
+        }
+        catch (EventCatalogSnapshotNotFoundException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Title = "The event or section is no longer available.",
+                Status = StatusCodes.Status409Conflict
+            });
+        }
+        catch (EventCatalogUnavailableException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Event details are temporarily unavailable. Please try again.",
+                Status = StatusCodes.Status503ServiceUnavailable
+            });
         }
     }
 

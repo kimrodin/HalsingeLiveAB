@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Booking.Features.Bookings;
+using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -171,6 +172,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         builder.Services.AddControllers().AddApplicationPart(typeof(BookingsController).Assembly);
         builder.Services.AddScoped(_ => fixture.CreateContext());
         builder.Services.AddSingleton(fixture.Reservations);
+        builder.Services.AddSingleton(fixture.EventSnapshots);
         builder.Services.AddScoped<BookingService>();
         builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
             client.BaseAddress = new Uri("http://payment-simulator/"))
