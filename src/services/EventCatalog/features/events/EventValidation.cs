@@ -21,11 +21,11 @@ public static class EventValidation
 
         if (request.VenueId is null || request.VenueId == Guid.Empty)
             errors["VenueId"] = ["A valid VenueId is required."];
-        if (request.StartDate is null || request.StartDate == default)
+        if (request.StartDate is null || request.StartDate == default(DateTime))
             errors["StartDate"] = ["StartDate is required."];
-        if (request.EndDate is null || request.EndDate == default)
+        if (request.EndDate is null || request.EndDate == default(DateTime))
             errors["EndDate"] = ["EndDate is required."];
-        if (request.OnSaleFrom is null || request.OnSaleFrom == default)
+        if (request.OnSaleFrom is null || request.OnSaleFrom == default(DateTime))
             errors["OnSaleFrom"] = ["OnSaleFrom is required."];
 
         if (request.StartDate is not null && request.EndDate is not null
