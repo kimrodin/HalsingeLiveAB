@@ -13,6 +13,7 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
         var eventItem = await dbContext.Events
             .AsNoTracking()
             .Include(e => e.SectionPrices)
+                .ThenInclude(sectionPrice => sectionPrice.Section)
             .Where(e => e.EventId == request.EventId)
             .FirstOrDefaultAsync();
 
@@ -30,7 +31,8 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
             eventItem.SectionPrices
                 .Select(price => new EventSectionPriceResponse(
                     price.SectionId,
-                    price.Price))
+                    price.Price,
+                    price.Section.SectionCapacity))
                 .ToList());
     }
 }

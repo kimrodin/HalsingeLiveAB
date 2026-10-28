@@ -8,4 +8,5 @@ public sealed record SeededEventResponse(
     Guid EventId,
     string EventName,
     Guid VenueId,
-    string VenueName);
+    string VenueName,
+    bool InventoryProvisioned = false);

@@ -19,6 +19,7 @@ public class EventsController(
     ListEventsHandler listEventsHandler,
     UpdateEventHandler updateEventHandler,
     DeleteEventHandler deleteEventHandler,
+    IBookingInventoryClient bookingInventoryClient,
     ILogger<EventsController> logger) : ControllerBase
 {
     [Authorize(Policy = "AdminOnly")]
@@ -49,6 +50,21 @@ public class EventsController(
 
         if (response is null)
             return NotFound("The venue or one of its sections was not found.");
+
+        var inventoryProvisioned = false;
+        try
+        {
+            // The event is already committed. Finish provisioning even if the caller disconnects.
+            await bookingInventoryClient.EnsureInventoryCreatedAsync(response.EventId, CancellationToken.None);
+            inventoryProvisioned = true;
+        }
+        catch (BookingInventoryProvisioningException exception)
+        {
+            logger.LogError(exception,
+                "Event {EventId} was created, but Booking inventory provisioning failed.", response.EventId);
+        }
+
+        response = response with { InventoryProvisioned = inventoryProvisioned };
 
         // TODO: När handlern returnerar valideringsfel, mappa dem till
         // ValidationProblem med fel per fält, exempelvis via ModelState.AddModelError.
