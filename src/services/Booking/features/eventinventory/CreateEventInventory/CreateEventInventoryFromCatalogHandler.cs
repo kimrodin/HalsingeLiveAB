@@ -1,4 +1,5 @@
 using Booking.Data;
+using Booking.Features.Bookings;
 using Booking.Features.EventInventory.EventCatalog;
 using Microsoft.EntityFrameworkCore;
 using InventoryModel = Booking.Features.EventInventory.Models.EventInventory;
@@ -13,8 +14,7 @@ public sealed class CreateEventInventoryFromCatalogHandler(
         Guid eventId,
         CancellationToken cancellationToken = default)
     {
-        if (eventId == Guid.Empty)
-            throw new InvalidOperationException("EventId must not be empty.");
+        BookingValidation.ValidateId(eventId, nameof(eventId));
 
         var catalogEvent = await eventCatalogClient.GetEventAsync(eventId, cancellationToken)
             ?? throw new EventCatalogNotFoundException(eventId);
@@ -25,10 +25,21 @@ public sealed class CreateEventInventoryFromCatalogHandler(
         var sectionIds = catalogEvent.SectionPrices.Select(section => section.SectionId).ToArray();
         if (sectionIds.Any(id => id == Guid.Empty)
             || sectionIds.Distinct().Count() != sectionIds.Length
-            || catalogEvent.SectionPrices.Any(section => section.SectionCapacity <= 0
-                || section.Price < 0
-                || decimal.Round(section.Price, 2) != section.Price))
+            || catalogEvent.SectionPrices.Any(section => section.SectionCapacity <= 0))
             throw new EventCatalogContractException("EventCatalog returned invalid section inventory data.");
+
+        foreach (var section in catalogEvent.SectionPrices)
+        {
+            try
+            {
+                BookingValidation.ValidatePriceAndTotal(section.Price, 1);
+            }
+            catch (BookingValidationException exception)
+            {
+                throw new EventCatalogContractException(
+                    "EventCatalog returned an unsupported section price.", exception);
+            }
+        }
 
         var existingSectionIds = await dbContext.EventInventory
             .Where(inventory => inventory.EventId == eventId && sectionIds.Contains(inventory.SectionId))

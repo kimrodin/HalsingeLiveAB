@@ -10,6 +10,64 @@ namespace Booking.IntegrationTests;
 public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClassFixture<BookingDatabaseFixture>
 {
     [BookingIntegrationFact]
+    public async Task CreateReservation_StoresCurrentBookingSnapshotAndOnlyTokenHash()
+    {
+        var inventory = await fixture.CreateInventoryAsync(price: 149.75m);
+        var request = new CreateBookingRequest(
+            inventory.InventoryId, 2, "  Integration Customer  ", "  customer@example.com  ");
+        await using var db = fixture.CreateContext();
+
+        var result = await fixture.CreateService(db, new FakePaymentGateway()).CreateReservationAsync(request);
+
+        Assert.Equal(ReservationStatus.Reserved, result.Status);
+        Assert.NotNull(result.BookingId);
+        Assert.False(string.IsNullOrWhiteSpace(result.GuestAccessToken));
+        var booking = await db.Bookings.Include(row => row.Items)
+            .SingleAsync(row => row.BookingId == result.BookingId);
+        Assert.Equal("Integration Customer", booking.CustomerName);
+        Assert.Equal("customer@example.com", booking.CustomerEmail);
+        Assert.Equal(BookingStatuses.Reserved, booking.Status);
+        Assert.Equal(299.50m, booking.TotalPrice);
+        Assert.NotNull(booking.ExpiresAt);
+        Assert.Equal(32, booking.GuestAccessTokenHash.Length);
+        Assert.Equal(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(result.GuestAccessToken)), booking.GuestAccessTokenHash);
+        Assert.True(GuestAccessToken.Matches(result.GuestAccessToken, booking.GuestAccessTokenHash));
+        Assert.True(await fixture.CreateService(db, new FakePaymentGateway())
+            .GuestHasAccessAsync(result.BookingId.Value, result.GuestAccessToken));
+        Assert.False(await fixture.CreateService(db, new FakePaymentGateway())
+            .GuestHasAccessAsync(result.BookingId.Value, "wrong-token"));
+        var item = Assert.Single(booking.Items);
+        Assert.Equal("Integration event", item.EventName);
+        Assert.Equal("Integration venue", item.VenueName);
+        Assert.Equal("Integration section", item.SectionName);
+        Assert.Equal(149.75m, item.UnitPrice);
+        Assert.Equal(2, item.Quantity);
+    }
+
+    [BookingIntegrationFact]
+    public async Task CreateReservation_WhenInventoryIsInsufficient_DoesNotCreateBooking()
+    {
+        var inventory = await fixture.CreateInventoryAsync(stock: 1);
+        var request = new CreateBookingRequest(
+            inventory.InventoryId, 1, "Integration Customer", "customer@example.com");
+        var firstBookingId = await fixture.ReserveAsync(inventory, new FakePaymentGateway());
+        await using var db = fixture.CreateContext();
+        var service = fixture.CreateService(db, new FakePaymentGateway());
+
+        var second = await service.CreateReservationAsync(request);
+
+        Assert.NotEqual(Guid.Empty, firstBookingId);
+        Assert.Equal(ReservationStatus.InsufficientInventory, second.Status);
+        Assert.Null(second.BookingId);
+        Assert.Single(await db.Bookings
+            .Where(booking => booking.Items.Any(item => item.InventoryId == inventory.InventoryId))
+            .ToListAsync());
+        Assert.Equal(0, await fixture.Reservations.GetAvailableQuantityAsync(
+            inventory.EventId, inventory.SectionId, inventory.TotalQuantity));
+    }
+
+    [BookingIntegrationFact]
     public async Task SuccessfulPayment_UsesDatabasePriceAndConfirmsExactlyOnce()
     {
         var gateway = new FakePaymentGateway();
