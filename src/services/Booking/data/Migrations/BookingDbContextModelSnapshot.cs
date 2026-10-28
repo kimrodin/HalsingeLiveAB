@@ -47,6 +47,9 @@ namespace Booking.data.Migrations
                     b.Property<DateTime?>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<byte[]>("GuestAccessTokenHash")
+                        .HasColumnType("bytea");
+
                     b.Property<bool>("PaymentRequested")
                         .HasColumnType("boolean");
 

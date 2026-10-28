@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Booking.Features.Bookings;
 using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
+using Booking.Features.Tickets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -28,15 +29,17 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         using var denied = await host.Client.PostAsync($"/ConfirmBooking/{id}", null);
         Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
         Assert.Equal(0, simulator.ProcessCalls);
-        using var paid = await host.Client.PostAsync($"/StartPayment/{id}", null);
+        using var noToken = await host.Client.PostAsync($"/StartPayment/{id}", null);
+        Assert.Equal(HttpStatusCode.NotFound, noToken.StatusCode);
+        using var paid = await PostGuestAsync(host.Client, $"/StartPayment/{id}", id);
         Assert.Equal(HttpStatusCode.OK, paid.StatusCode);
         Assert.Equal(BookingStatuses.Confirmed, (await paid.Content.ReadFromJsonAsync<StartPaymentResult>())!.BookingStatus);
-        using var repeated = await host.Client.PostAsync($"/StartPayment/{id}", null);
+        using var repeated = await PostGuestAsync(host.Client, $"/StartPayment/{id}", id);
         Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
         Assert.Equal(1, simulator.ProcessCalls);
 
         var other = await fixture.ReserveAsync(inventory, null!);
-        using var cancelled = await host.Client.PostAsync($"/CancelBooking/{other}", null);
+        using var cancelled = await PostGuestAsync(host.Client, $"/CancelBooking/{other}", other);
         Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
         Assert.Equal(BookingStatuses.Cancelled,
             (await cancelled.Content.ReadFromJsonAsync<BookingStatusResponse>())!.Status);
@@ -54,7 +57,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
             using var simulator = new SimulatorHandler(id, inventory.Price) { Outcome = outcome };
             await using var host = await StartHostAsync(simulator);
 
-            using var response = await host.Client.PostAsync($"/StartPayment/{id}", null);
+            using var response = await PostGuestAsync(host.Client, $"/StartPayment/{id}", id);
 
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
             var result = (await response.Content.ReadFromJsonAsync<StartPaymentResult>())!;
@@ -76,7 +79,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         using var simulator = new SimulatorHandler(id, inventory.Price) { ProcessStatus = HttpStatusCode.Conflict };
         await using var host = await StartHostAsync(simulator);
 
-        using var response = await host.Client.PostAsync($"/StartPayment/{id}", null);
+        using var response = await PostGuestAsync(host.Client, $"/StartPayment/{id}", id);
 
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
         Assert.Equal("Invalid", (await response.Content.ReadFromJsonAsync<StartPaymentResult>())!.PaymentStatus);
@@ -91,7 +94,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         using var simulator = new SimulatorHandler(id, inventory.Price) { ProcessStatus = HttpStatusCode.BadGateway };
         await using var host = await StartHostAsync(simulator);
 
-        using var response = await host.Client.PostAsync($"/StartPayment/{id}", null);
+        using var response = await PostGuestAsync(host.Client, $"/StartPayment/{id}", id);
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         Assert.Equal("Unknown", (await response.Content.ReadFromJsonAsync<StartPaymentResult>())!.PaymentStatus);
@@ -99,7 +102,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
 
         // A subsequent status lookup can recover a committed payment without another POST.
         simulator.StoredPayment = simulator.Payment;
-        using var recovered = await host.Client.PostAsync($"/StartPayment/{id}", null);
+        using var recovered = await PostGuestAsync(host.Client, $"/StartPayment/{id}", id);
         Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
         Assert.Equal(1, simulator.ProcessCalls);
     }
@@ -124,7 +127,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         using var simulator = new SimulatorHandler(id, inventory.Price) { MalformedResponse = true };
         await using var host = await StartHostAsync(simulator);
 
-        using var response = await host.Client.PostAsync($"/StartPayment/{id}", null);
+        using var response = await PostGuestAsync(host.Client, $"/StartPayment/{id}", id);
 
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
         Assert.Equal("Invalid", (await response.Content.ReadFromJsonAsync<StartPaymentResult>())!.PaymentStatus);
@@ -148,7 +151,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         };
         await using var host = await StartHostAsync(simulator);
 
-        using var response = await host.Client.PostAsync($"/StartPayment/{id}", null);
+        using var response = await PostGuestAsync(host.Client, $"/StartPayment/{id}", id);
 
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
         Assert.Equal("Invalid", (await response.Content.ReadFromJsonAsync<StartPaymentResult>())!.PaymentStatus);
@@ -164,6 +167,16 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         Assert.False(booking.PaymentSettled);
     }
 
+    private async Task<HttpResponseMessage> PostGuestAsync(
+        HttpClient client,
+        string path,
+        Guid bookingId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path);
+        request.Headers.Add("X-Guest-Access-Token", fixture.GetGuestAccessToken(bookingId));
+        return await client.SendAsync(request);
+    }
+
     private async Task<HttpTestHost> StartHostAsync(HttpMessageHandler simulator)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
@@ -174,6 +187,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         builder.Services.AddSingleton(fixture.Reservations);
         builder.Services.AddSingleton(fixture.EventSnapshots);
         builder.Services.AddScoped<BookingService>();
+        builder.Services.AddSingleton<ITicketServiceClient, StubTicketServiceClient>();
         builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
             client.BaseAddress = new Uri("http://payment-simulator/"))
             .ConfigurePrimaryHttpMessageHandler(() => simulator);
@@ -201,6 +215,26 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
             Client.Dispose();
             await app.DisposeAsync();
         }
+    }
+
+    private sealed class StubTicketServiceClient : ITicketServiceClient
+    {
+        public Task IssueTicketsAsync(
+            BookingConfirmedMessage message,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task<IReadOnlyList<TicketServiceTicketResponse>> GetTicketsForBookingAsync(
+            Guid bookingId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TicketServiceTicketResponse>>([]);
+
+        public Task<byte[]> GetTicketPdfAsync(
+            Guid bookingId,
+            Guid ticketId,
+            bool download,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Array.Empty<byte>());
     }
 
     private sealed class SimulatorHandler(Guid bookingId, decimal amount) : HttpMessageHandler

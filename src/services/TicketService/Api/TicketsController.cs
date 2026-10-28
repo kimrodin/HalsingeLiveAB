@@ -28,19 +28,9 @@ public sealed class TicketsController(
         [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
         CancellationToken cancellationToken)
     {
-        var configuredApiKey = configuration["TicketService:InternalApiKey"];
-        if (string.IsNullOrWhiteSpace(configuredApiKey))
-        {
-            logger.LogError("Ticket issuance is unavailable because TicketService:InternalApiKey is not configured.");
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
-            {
-                Title = "Ticket issuance is not configured.",
-                Status = StatusCodes.Status503ServiceUnavailable
-            });
-        }
-
-        if (!IsValidApiKey(apiKey, configuredApiKey))
-            return Unauthorized();
+        var authorizationFailure = AuthorizeInternalRequest(apiKey);
+        if (authorizationFailure is not null)
+            return authorizationFailure;
 
         try
         {
@@ -82,40 +72,18 @@ public sealed class TicketsController(
         }
     }
 
-    [HttpGet("{ticketId:guid}")]
-    [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetTicket(Guid ticketId, CancellationToken cancellationToken)
-    {
-        var ticket = await dbContext.Tickets
-            .AsNoTracking()
-            .SingleOrDefaultAsync(item => item.TicketId == ticketId, cancellationToken);
-
-        if (ticket is null)
-            return NotFound();
-
-        return Ok(new TicketResponse(
-            ticket.TicketId,
-            ticket.BookingId,
-            ticket.BookingItemId,
-            ticket.TicketNumberInBookingItem,
-            ticket.EventId,
-            ticket.EventName,
-            ticket.EventStartsAt,
-            ticket.VenueName,
-            ticket.SectionName,
-            ticket.UnitPrice,
-            ticket.Currency,
-            ticket.Status.ToString(),
-            ticket.IssuedAt));
-    }
-
     [HttpGet("by-booking/{bookingId:guid}")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetTicketsByBooking(
         Guid bookingId,
+        [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
         CancellationToken cancellationToken)
     {
+        var authorizationFailure = AuthorizeInternalRequest(apiKey);
+        if (authorizationFailure is not null)
+            return authorizationFailure;
+
         var tickets = await dbContext.Tickets
             .AsNoTracking()
             .Where(ticket => ticket.BookingId == bookingId)
@@ -139,18 +107,26 @@ public sealed class TicketsController(
             ticket.IssuedAt)).ToArray());
     }
 
-    [HttpGet("{ticketId:guid}/pdf")]
+    [HttpGet("by-booking/{bookingId:guid}/{ticketId:guid}/pdf")]
     [Produces("application/pdf")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DownloadTicketPdf(
+        Guid bookingId,
         Guid ticketId,
         [FromQuery] bool download,
+        [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
         CancellationToken cancellationToken)
     {
+        var authorizationFailure = AuthorizeInternalRequest(apiKey);
+        if (authorizationFailure is not null)
+            return authorizationFailure;
+
         var ticket = await dbContext.Tickets
             .AsNoTracking()
-            .SingleOrDefaultAsync(item => item.TicketId == ticketId, cancellationToken);
+            .SingleOrDefaultAsync(
+                item => item.TicketId == ticketId && item.BookingId == bookingId,
+                cancellationToken);
 
         if (ticket is null)
             return NotFound();
@@ -159,6 +135,22 @@ public sealed class TicketsController(
         return download
             ? File(pdf, "application/pdf", $"ticket-{ticket.TicketId:N}.pdf")
             : File(pdf, "application/pdf");
+    }
+
+    private IActionResult AuthorizeInternalRequest(string apiKey)
+    {
+        var configuredApiKey = configuration["TicketService:InternalApiKey"];
+        if (string.IsNullOrWhiteSpace(configuredApiKey))
+        {
+            logger.LogError("Ticket API is unavailable because TicketService:InternalApiKey is not configured.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Ticket API is not configured.",
+                Status = StatusCodes.Status503ServiceUnavailable
+            });
+        }
+
+        return IsValidApiKey(apiKey, configuredApiKey) ? null : Unauthorized();
     }
 
     private static bool IsValidApiKey(string provided, string configured)
