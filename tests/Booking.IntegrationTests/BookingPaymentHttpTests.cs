@@ -19,6 +19,32 @@ namespace Booking.IntegrationTests;
 public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IClassFixture<BookingDatabaseFixture>
 {
     [BookingIntegrationFact]
+    public async Task GuestTicketEndpoints_RequireTheBookingAccessToken()
+    {
+        var inventory = await fixture.CreateInventoryAsync();
+        var id = await fixture.ReserveAsync(inventory, null!);
+        var ticketId = Guid.NewGuid();
+        using var simulator = new SimulatorHandler(id, inventory.Price);
+        await using var host = await StartHostAsync(simulator);
+
+        using var bookingDenied = await host.Client.GetAsync($"/GetBooking/{id}");
+        using var ticketsDenied = await host.Client.GetAsync($"/GetTicketsForBooking/{id}/tickets");
+        using var pdfDenied = await host.Client.GetAsync($"/DownloadTicketPdf/{id}/tickets/{ticketId}/pdf");
+        Assert.Equal(HttpStatusCode.NotFound, bookingDenied.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, ticketsDenied.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, pdfDenied.StatusCode);
+
+        using var booking = await GetGuestAsync(host.Client, $"/GetBooking/{id}", id);
+        using var tickets = await GetGuestAsync(host.Client, $"/GetTicketsForBooking/{id}/tickets", id);
+        using var pdf = await GetGuestAsync(
+            host.Client, $"/DownloadTicketPdf/{id}/tickets/{ticketId}/pdf", id);
+        Assert.Equal(HttpStatusCode.OK, booking.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, tickets.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, pdf.StatusCode);
+        Assert.Equal("application/pdf", pdf.Content.Headers.ContentType!.MediaType);
+    }
+
+    [BookingIntegrationFact]
     public async Task ConfirmStartAndCancel_ResolveToDistinctPostActions()
     {
         var inventory = await fixture.CreateInventoryAsync();
@@ -173,6 +199,16 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         Guid bookingId)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, path);
+        request.Headers.Add("X-Guest-Access-Token", fixture.GetGuestAccessToken(bookingId));
+        return await client.SendAsync(request);
+    }
+
+    private async Task<HttpResponseMessage> GetGuestAsync(
+        HttpClient client,
+        string path,
+        Guid bookingId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.Add("X-Guest-Access-Token", fixture.GetGuestAccessToken(bookingId));
         return await client.SendAsync(request);
     }
