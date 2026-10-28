@@ -1,6 +1,6 @@
 # CI med GitHub Actions
 
-CI står för *Continuous Integration*. Flödet i `.github/workflows/ci.yml` kontrollerar automatiskt att kodändringar går att bygga och att projektets kvalitetskontroller passerar.
+*Continuous Integration* flödet i `.github/workflows/ci.yml` kontrollerar automatiskt att kodändringar går att bygga och att projektets kvalitetskontroller passerar.
 
 Flödet startar när en commit pushas till `main` eller när en pull request skapas mot `main`. Det körs på GitHubs Ubuntu-miljö. Om en ny körning startar för samma branch avbryts en äldre pågående körning.
 
