@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,63 @@ namespace Booking.IntegrationTests;
 // isolated PostgreSQL database/Redis inventory. Only the remote simulator is stubbed.
 public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IClassFixture<BookingDatabaseFixture>
 {
+    [BookingIntegrationFact]
+    public Task TwoCustomersBookingTheLastPlace_OneGets202AndTheOtherGets409() =>
+        AssertConcurrentBookingsAsync(2);
+
+    [BookingIntegrationFact]
+    public Task TwoHundredCustomersBookingTheLastPlace_OnlyOneGets202() =>
+        AssertConcurrentBookingsAsync(200);
+
+    private async Task AssertConcurrentBookingsAsync(int customers)
+    {
+        var inventory = await fixture.CreateInventoryAsync(stock: 1);
+        using var simulator = new SimulatorHandler(Guid.NewGuid(), inventory.Price);
+        var snapshots = new SynchronizedSnapshotProvider(fixture.EventSnapshots, customers);
+        await using var host = await StartHostAsync(simulator, snapshots);
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, customers).Select(customer =>
+            host.Client.PostAsJsonAsync("/CreateBooking", new CreateBookingRequest(
+                inventory.InventoryId, 1, $"Customer {customer}", $"customer{customer}@example.com"))));
+        try
+        {
+            var accepted = Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Accepted);
+            var reservation = await accepted.Content.ReadFromJsonAsync<CreateBookingResponse>();
+            Assert.NotNull(reservation);
+            Assert.NotEqual(Guid.Empty, reservation.BookingId);
+            Assert.False(string.IsNullOrWhiteSpace(reservation.GuestAccessToken));
+            var rejected = responses.Where(response => response != accepted).ToArray();
+            Assert.Equal(customers - 1, rejected.Length);
+            foreach (var response in rejected)
+            {
+                Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+                var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+                Assert.NotNull(problem);
+                Assert.Equal(409, problem.Status);
+                Assert.Equal("Not enough tickets are available.", problem.Title);
+            }
+
+            await using var db = fixture.CreateContext();
+            var booking = Assert.Single(await db.Bookings.Include(row => row.Items)
+                .Where(row => row.Items.Any(item => item.InventoryId == inventory.InventoryId)).ToListAsync());
+            Assert.Equal(reservation.BookingId, booking.BookingId);
+            Assert.Equal(BookingStatuses.Reserved, booking.Status);
+            Assert.Equal(1, Assert.Single(booking.Items).Quantity);
+            Assert.True(GuestAccessToken.Matches(reservation.GuestAccessToken, booking.GuestAccessTokenHash));
+            Assert.Equal(0, await fixture.Reservations.GetAvailableQuantityAsync(
+                inventory.EventId, inventory.SectionId, inventory.TotalQuantity));
+            // The database deducts stock only after payment, not during the temporary hold.
+            Assert.Equal(1, (await db.EventInventory.SingleAsync(
+                row => row.InventoryId == inventory.InventoryId)).AvailableQuantity);
+            Assert.Equal(0, simulator.RequestCalls);
+        }
+        finally
+        {
+            foreach (var response in responses)
+                response.Dispose();
+        }
+    }
+
     [BookingIntegrationFact]
     public async Task GuestTicketEndpoints_RequireTheBookingAccessToken()
     {
@@ -213,7 +271,9 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         return await client.SendAsync(request);
     }
 
-    private async Task<HttpTestHost> StartHostAsync(HttpMessageHandler simulator)
+    private async Task<HttpTestHost> StartHostAsync(
+        HttpMessageHandler simulator,
+        IEventSnapshotProvider? snapshots = null)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
@@ -221,7 +281,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         builder.Services.AddControllers().AddApplicationPart(typeof(BookingsController).Assembly);
         builder.Services.AddScoped(_ => fixture.CreateContext());
         builder.Services.AddSingleton(fixture.Reservations);
-        builder.Services.AddSingleton(fixture.EventSnapshots);
+        builder.Services.AddSingleton(snapshots ?? fixture.EventSnapshots);
         builder.Services.AddScoped<BookingService>();
         builder.Services.AddSingleton<ITicketServiceClient, StubTicketServiceClient>();
         builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
@@ -240,6 +300,22 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         {
             await app.DisposeAsync();
             throw;
+        }
+    }
+
+    private sealed class SynchronizedSnapshotProvider(
+        IEventSnapshotProvider inner,
+        int customers) : IEventSnapshotProvider
+    {
+        private readonly ConcurrentRequestGate gate = new(customers);
+
+        public async Task<EventSnapshot> GetSnapshotAsync(
+            Guid eventId, Guid sectionId, CancellationToken cancellationToken = default)
+        {
+            var snapshot = await inner.GetSnapshotAsync(eventId, sectionId, cancellationToken);
+            // Every request has read the same database stock before racing for the Redis hold.
+            await gate.ArriveAsync(cancellationToken);
+            return snapshot;
         }
     }
 

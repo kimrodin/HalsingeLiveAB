@@ -27,7 +27,7 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
     private readonly List<Guid> bookingIds = [];
     private readonly Dictionary<Guid, string> guestAccessTokens = [];
     private string? adminConnectionString;
-    private string? connectionString;
+    private NpgsqlDataSource? dataSource;
     public IConnectionMultiplexer Redis { get; private set; } = null!;
     public RedisReservationService Reservations => new(Redis);
     public IEventSnapshotProvider EventSnapshots => new TestEventSnapshotProvider();
@@ -47,7 +47,10 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
         await using var create = new NpgsqlCommand($"CREATE DATABASE \"{databaseName}\"", admin);
         await create.ExecuteNonQueryAsync();
         builder.Database = databaseName;
-        connectionString = builder.ConnectionString;
+        // Hundreds of requests share a bounded pool instead of exhausting PostgreSQL's connections.
+        builder.Pooling = true;
+        builder.MaxPoolSize = 20;
+        dataSource = NpgsqlDataSource.Create(builder.ConnectionString);
         Redis = await ConnectionMultiplexer.ConnectAsync(Environment.GetEnvironmentVariable("BOOKING_TEST_REDIS")!);
         await using var db = CreateContext();
         await db.Database.MigrateAsync();
@@ -55,7 +58,7 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
     }
 
     public BookingDbContext CreateContext() => new(new DbContextOptionsBuilder<BookingDbContext>()
-        .UseNpgsql(connectionString ?? throw new InvalidOperationException("Integration test environment is not configured."))
+        .UseNpgsql(dataSource ?? throw new InvalidOperationException("Integration test environment is not configured."))
         .Options);
 
     public BookingService CreateService(BookingDbContext db, IPaymentGateway gateway) =>
@@ -102,6 +105,9 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
             await Redis.CloseAsync();
             Redis.Dispose();
         }
+
+        if (dataSource is not null)
+            await dataSource.DisposeAsync();
 
         if (adminConnectionString is null)
             return;
