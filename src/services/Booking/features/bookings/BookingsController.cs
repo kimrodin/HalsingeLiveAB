@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Booking.Features.EventCatalog;
+using Booking.Features.Tickets;
 
 namespace Booking.Features.Bookings;
 
@@ -7,6 +8,8 @@ namespace Booking.Features.Bookings;
 [Route("/[action]")]
 public sealed class BookingsController(
     BookingService bookingService,
+    ITicketServiceClient ticketServiceClient,
+    ILogger<BookingsController> logger,
     IWebHostEnvironment environment) : ControllerBase
 {
     [HttpGet]
@@ -26,6 +29,7 @@ public sealed class BookingsController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetBooking(
         Guid bookingId,
+        [FromHeader(Name = "X-Guest-Access-Token")] string accessToken,
         CancellationToken cancellationToken)
     {
         try
@@ -37,11 +41,67 @@ public sealed class BookingsController(
             return RequestValidationProblem(exception);
         }
 
-        var booking = await bookingService.GetBookingAsync(bookingId, cancellationToken);
+        var booking = await bookingService.GetBookingForGuestAsync(
+            bookingId,
+            accessToken,
+            cancellationToken);
         if (booking is null)
             return NotFound();
 
         return Ok(ToDetailsResponse(booking));
+    }
+
+    [HttpGet("{bookingId:guid}/tickets")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketServiceTicketResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTicketsForBooking(
+        Guid bookingId,
+        [FromHeader(Name = "X-Guest-Access-Token")] string accessToken,
+        CancellationToken cancellationToken)
+    {
+        if (!await bookingService.GuestHasAccessAsync(bookingId, accessToken, cancellationToken))
+            return NotFound();
+
+        try
+        {
+            var tickets = await ticketServiceClient.GetTicketsForBookingAsync(bookingId, cancellationToken);
+            return Ok(tickets.Where(ticket => ticket.BookingId == bookingId).ToArray());
+        }
+        catch (HttpRequestException exception)
+        {
+            return TicketServiceUnavailable(exception);
+        }
+    }
+
+    [HttpGet("{bookingId:guid}/tickets/{ticketId:guid}/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadTicketPdf(
+        Guid bookingId,
+        Guid ticketId,
+        [FromHeader(Name = "X-Guest-Access-Token")] string accessToken,
+        [FromQuery] bool download,
+        CancellationToken cancellationToken)
+    {
+        if (!await bookingService.GuestHasAccessAsync(bookingId, accessToken, cancellationToken))
+            return NotFound();
+
+        try
+        {
+            var pdf = await ticketServiceClient.GetTicketPdfAsync(
+                bookingId, ticketId, download, cancellationToken);
+            return download
+                ? File(pdf, "application/pdf", $"ticket-{ticketId:N}.pdf")
+                : File(pdf, "application/pdf");
+        }
+        catch (HttpRequestException exception)
+        {
+            if (exception.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return NotFound();
+
+            return TicketServiceUnavailable(exception);
+        }
     }
 
     [HttpPost]
@@ -72,7 +132,8 @@ public sealed class BookingsController(
                 _ => Accepted(new CreateBookingResponse(
                     result.BookingId!.Value,
                     result.ExpiresAt!.Value,
-                    "Tickets are temporarily reserved."))
+                    "Tickets are temporarily reserved.",
+                    result.GuestAccessToken))
             };
         }
         catch (BookingValidationException exception)
@@ -112,8 +173,17 @@ public sealed class BookingsController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(StartPaymentResult), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(StartPaymentResult), StatusCodes.Status502BadGateway)]
-    public async Task<IActionResult> StartPayment(Guid bookingId, CancellationToken cancellationToken)
+    public async Task<IActionResult> StartPayment(
+        Guid bookingId,
+        [FromHeader(Name = "X-Guest-Access-Token")] string accessToken,
+        CancellationToken cancellationToken)
     {
+        if (!await bookingService.GuestHasAccessAsync(
+            bookingId,
+            accessToken,
+            cancellationToken))
+            return NotFound();
+
         try
         {
             var result = await bookingService.StartPaymentAsync(bookingId, cancellationToken);
@@ -136,8 +206,12 @@ public sealed class BookingsController(
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CancelBooking(
         Guid bookingId,
+        [FromHeader(Name = "X-Guest-Access-Token")] string accessToken,
         CancellationToken cancellationToken)
     {
+        if (!await bookingService.GuestHasAccessAsync(bookingId, accessToken, cancellationToken))
+            return NotFound();
+
         BookingActionResult result;
         try
         {
@@ -174,6 +248,16 @@ public sealed class BookingsController(
         return ValidationProblem(ModelState);
     }
 
+    private IActionResult TicketServiceUnavailable(HttpRequestException exception)
+    {
+        logger.LogError(exception, "TicketService request failed while serving a guest booking.");
+        return StatusCode(StatusCodes.Status502BadGateway, new ProblemDetails
+        {
+            Title = "Ticket service is temporarily unavailable.",
+            Status = StatusCodes.Status502BadGateway
+        });
+    }
+
     private static BookingDetailsResponse ToDetailsResponse(
         Booking.Features.Bookings.Models.Booking booking) =>
         new(
@@ -193,7 +277,8 @@ public sealed class BookingsController(
 public sealed record CreateBookingResponse(
     Guid BookingId,
     DateTimeOffset ExpiresAt,
-    string Message);
+    string Message,
+    string GuestAccessToken);
 
 public sealed record BookingDetailsResponse(
     Guid BookingId,

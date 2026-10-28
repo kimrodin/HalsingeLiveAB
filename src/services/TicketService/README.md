@@ -2,7 +2,7 @@
 
 ## Ticket PDF
 
-`GET /tickets/{ticketId}/pdf` returns a generated PDF for an issued ticket. The PDF is generated on demand and is not stored in the database.
+Ticket lookup and PDF endpoints are internal to BookingService and require `X-Internal-Api-Key`. BookingService exposes guest-scoped endpoints after validating the booking's guest access token. PDFs are generated on demand and are not stored in the database.
 
 The QR code contains only the ticket ID. It does not contain customer data, event snapshots, or payment information.
 

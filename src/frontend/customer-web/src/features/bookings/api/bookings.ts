@@ -1,7 +1,6 @@
-import { getJson, postJson } from '../../../shared/api/http'
+import { getBlob, getJson, postJson } from '../../../shared/api/http'
 
 const bookingApiBase = '/booking-api'
-const ticketApiBase = '/ticket-api'
 
 export interface EventInventory {
   inventoryId: string
@@ -40,6 +39,7 @@ export interface CreateBookingResponse {
   bookingId: string
   expiresAt: string
   message: string
+  guestAccessToken: string
 }
 
 export interface BookingStatusResponse {
@@ -78,22 +78,63 @@ export function createBooking(request: CreateBookingRequest): Promise<CreateBook
   return postJson<CreateBookingResponse>('/CreateBooking', request, bookingApiBase)
 }
 
-export function getBooking(bookingId: string, signal?: AbortSignal): Promise<BookingDetails> {
-  return getJson<BookingDetails>(`/GetBooking/${encodeURIComponent(bookingId)}`, signal, bookingApiBase)
+function guestTokenHeader(accessToken: string): HeadersInit {
+  return { 'X-Guest-Access-Token': accessToken }
 }
 
-export function startPayment(bookingId: string): Promise<StartPaymentResponse> {
-  return postJson<StartPaymentResponse>(`/StartPayment/${encodeURIComponent(bookingId)}`, undefined, bookingApiBase)
-}
-
-export function cancelBooking(bookingId: string): Promise<BookingStatusResponse> {
-  return postJson<BookingStatusResponse>(`/CancelBooking/${encodeURIComponent(bookingId)}`, undefined, bookingApiBase)
-}
-
-export function getTicketsForBooking(bookingId: string, signal?: AbortSignal): Promise<Ticket[]> {
-  return getJson<Ticket[]>(
-    `/tickets/by-booking/${encodeURIComponent(bookingId)}`,
+export function getBooking(
+  bookingId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<BookingDetails> {
+  return getJson<BookingDetails>(
+    `/GetBooking/${encodeURIComponent(bookingId)}`,
     signal,
-    ticketApiBase,
+    bookingApiBase,
+    guestTokenHeader(accessToken),
+  )
+}
+
+export function startPayment(bookingId: string, accessToken: string): Promise<StartPaymentResponse> {
+  return postJson<StartPaymentResponse>(
+    `/StartPayment/${encodeURIComponent(bookingId)}`,
+    undefined,
+    bookingApiBase,
+    guestTokenHeader(accessToken),
+  )
+}
+
+export function cancelBooking(bookingId: string, accessToken: string): Promise<BookingStatusResponse> {
+  return postJson<BookingStatusResponse>(
+    `/CancelBooking/${encodeURIComponent(bookingId)}`,
+    undefined,
+    bookingApiBase,
+    guestTokenHeader(accessToken),
+  )
+}
+
+export function getTicketsForBooking(
+  bookingId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Ticket[]> {
+  return getJson<Ticket[]>(
+    `/GetTicketsForBooking/${encodeURIComponent(bookingId)}/tickets`,
+    signal,
+    bookingApiBase,
+    guestTokenHeader(accessToken),
+  )
+}
+
+export function getTicketPdf(
+  bookingId: string,
+  ticketId: string,
+  accessToken: string,
+  download: boolean,
+): Promise<Blob> {
+  return getBlob(
+    `/DownloadTicketPdf/${encodeURIComponent(bookingId)}/tickets/${encodeURIComponent(ticketId)}/pdf?download=${download}`,
+    bookingApiBase,
+    guestTokenHeader(accessToken),
   )
 }

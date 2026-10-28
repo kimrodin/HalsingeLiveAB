@@ -30,9 +30,15 @@ async function readError(response: Response, fallback: string): Promise<ApiError
   }
 }
 
-export async function getJson<T>(path: string, signal?: AbortSignal, base = '/api'): Promise<T> {
+export async function getJson<T>(
+  path: string,
+  signal?: AbortSignal,
+  base = '/api',
+  headers?: HeadersInit,
+): Promise<T> {
   const response = await fetch(`${base}${path}`, {
     signal,
+    headers,
     // Catalog data can be changed by admins; always request a fresh response.
     cache: 'no-store',
   })
@@ -44,10 +50,17 @@ export async function getJson<T>(path: string, signal?: AbortSignal, base = '/ap
   return (await response.json()) as T
 }
 
-export async function postJson<T>(path: string, body?: unknown, base = '/api'): Promise<T> {
+export async function postJson<T>(
+  path: string,
+  body?: unknown,
+  base = '/api',
+  headers?: HeadersInit,
+): Promise<T> {
+  const requestHeaders = new Headers(headers)
+  if (body !== undefined) requestHeaders.set('Content-Type', 'application/json')
   const response = await fetch(`${base}${path}`, {
     method: 'POST',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    headers: requestHeaders,
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: 'no-store',
   })
@@ -58,4 +71,17 @@ export async function postJson<T>(path: string, body?: unknown, base = '/api'): 
 
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
+}
+
+export async function getBlob(path: string, base: string, headers?: HeadersInit): Promise<Blob> {
+  const response = await fetch(`${base}${path}`, {
+    headers,
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    throw await readError(response, `Kunde inte hämta filen (HTTP ${response.status}).`)
+  }
+
+  return response.blob()
 }

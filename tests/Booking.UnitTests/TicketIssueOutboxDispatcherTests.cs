@@ -103,5 +103,17 @@ public sealed class TicketIssueOutboxDispatcherTests
             Message = message;
             return exception is null ? Task.CompletedTask : Task.FromException(exception);
         }
+
+        public Task<IReadOnlyList<TicketServiceTicketResponse>> GetTicketsForBookingAsync(
+            Guid bookingId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TicketServiceTicketResponse>>([]);
+
+        public Task<byte[]> GetTicketPdfAsync(
+            Guid bookingId,
+            Guid ticketId,
+            bool download,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Array.Empty<byte>());
     }
 }

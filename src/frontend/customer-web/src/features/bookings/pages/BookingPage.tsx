@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, CircularProgress, Divider, Skeleton, Stack, Typography } from '@mui/material'
 import { ApiError } from '../../../shared/api/http'
 import { useNow } from '../../../shared/hooks/useNow'
-import { cancelBooking, getBooking, getTicketsForBooking, startPayment } from '../api/bookings'
+import { cancelBooking, getBooking, getTicketPdf, getTicketsForBooking, startPayment } from '../api/bookings'
 
 interface BookingLocationState {
   eventId?: string
@@ -31,11 +32,15 @@ export default function BookingPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const now = useNow(1000)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const guestAccessToken = bookingId
+    ? sessionStorage.getItem(`booking-access:${bookingId}`)
+    : null
   const state = (location.state ?? {}) as BookingLocationState
   const bookingQuery = useQuery({
     queryKey: ['booking', bookingId],
-    queryFn: ({ signal }) => getBooking(bookingId!, signal),
-    enabled: Boolean(bookingId),
+    queryFn: ({ signal }) => getBooking(bookingId!, guestAccessToken!, signal),
+    enabled: Boolean(bookingId && guestAccessToken),
     refetchInterval: (query) => {
       const booking = query.state.data
       if (!booking) return false
@@ -47,8 +52,8 @@ export default function BookingPage() {
   })
   const ticketsQuery = useQuery({
     queryKey: ['tickets', bookingId],
-    queryFn: ({ signal }) => getTicketsForBooking(bookingId!, signal),
-    enabled: Boolean(bookingId && bookingQuery.data?.status === 'Confirmed'),
+    queryFn: ({ signal }) => getTicketsForBooking(bookingId!, guestAccessToken!, signal),
+    enabled: Boolean(bookingId && guestAccessToken && bookingQuery.data?.status === 'Confirmed'),
     refetchInterval: (query) => query.state.data?.length ? false : 1500,
   })
   const invalidateBooking = () => queryClient.invalidateQueries({ queryKey: ['booking', bookingId] })
@@ -58,17 +63,20 @@ export default function BookingPage() {
     }
   }
   const paymentMutation = useMutation({
-    mutationFn: () => startPayment(bookingId!),
+    mutationFn: () => startPayment(bookingId!, guestAccessToken!),
     onSuccess: invalidateBooking,
     onError: refreshAfterActionError,
   })
   const cancelMutation = useMutation({
-    mutationFn: () => cancelBooking(bookingId!),
+    mutationFn: () => cancelBooking(bookingId!, guestAccessToken!),
     onSuccess: invalidateBooking,
     onError: refreshAfterActionError,
   })
 
   if (!bookingId) return <Alert severity="info">Bokningen hittades inte.</Alert>
+  if (!guestAccessToken) {
+    return <Alert severity="info">Åtkomst till bokningen saknas på den här enheten.</Alert>
+  }
 
   if (bookingQuery.isPending) {
     return (
@@ -109,6 +117,28 @@ export default function BookingPage() {
   const isPaymentWaiting = isReserved && (paymentMutation.isPending
     || ['Pending', 'Unknown'].includes(paymentMutation.data?.paymentStatus ?? ''))
   const isExpiredByTime = Boolean(booking.expiresAt && new Date(booking.expiresAt).getTime() <= now)
+  const handleTicketPdf = async (ticketId: string, download: boolean) => {
+    setPdfError(null)
+    const pdfWindow = download ? null : window.open('about:blank', '_blank')
+    try {
+      const pdf = await getTicketPdf(bookingId, ticketId, guestAccessToken, download)
+      const objectUrl = URL.createObjectURL(pdf)
+      if (download) {
+        const anchor = document.createElement('a')
+        anchor.href = objectUrl
+        anchor.download = `ticket-${ticketId}.pdf`
+        anchor.click()
+      } else if (pdfWindow) {
+        pdfWindow.location.href = objectUrl
+      } else {
+        throw new Error('PDF-fönstret kunde inte öppnas. Tillåt popup-fönster och försök igen.')
+      }
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+    } catch (error) {
+      pdfWindow?.close()
+      setPdfError(error instanceof Error ? error.message : 'PDF-filen kunde inte hämtas.')
+    }
+  }
 
   const statusContent: Record<string, { severity: 'success' | 'info' | 'warning' | 'error'; message: string }> = {
     Confirmed: { severity: 'success', message: 'Bokningen är bekräftad.' },
@@ -172,11 +202,11 @@ export default function BookingPage() {
           Biljetterna skapas. De visas här automatiskt så snart de är klara.
         </Alert>
       )}
+      {pdfError && <Alert severity="error">{pdfError}</Alert>}
       {ticketsQuery.data && ticketsQuery.data.length > 0 && (
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography variant="h5" component="h2">Dina biljetter</Typography>
           {ticketsQuery.data.map((ticket) => {
-            const pdfUrl = `/ticket-api/tickets/${encodeURIComponent(ticket.ticketId)}/pdf`
             return (
               <Stack
                 key={ticket.ticketId}
@@ -193,10 +223,10 @@ export default function BookingPage() {
                   {ticket.venueName} · {ticket.sectionName} · Biljett {ticket.ticketNumberInBookingItem}
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                  <Button component="a" href={`${pdfUrl}?download=true`} download>
+                  <Button onClick={() => void handleTicketPdf(ticket.ticketId, true)}>
                     Ladda ner PDF
                   </Button>
-                  <Button component="a" href={pdfUrl} target="_blank" rel="noreferrer">
+                  <Button onClick={() => void handleTicketPdf(ticket.ticketId, false)}>
                     Öppna / skriv ut
                   </Button>
                 </Stack>

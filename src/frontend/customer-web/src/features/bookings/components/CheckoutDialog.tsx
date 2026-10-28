@@ -49,6 +49,7 @@ export default function CheckoutDialog({
     mutationFn: createBooking,
     onSuccess: async (booking) => {
       await queryClient.invalidateQueries({ queryKey: ['booking-inventory', eventId] })
+      sessionStorage.setItem(`booking-access:${booking.bookingId}`, booking.guestAccessToken)
       navigate(`/bookings/${booking.bookingId}`, {
         state: { eventId, eventName, sectionName, quantity },
       })
