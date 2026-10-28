@@ -1,3 +1,4 @@
+using Booking.Data;
 using Booking.Features.Bookings;
 using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,17 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
         var inventory = await fixture.CreateInventoryAsync(price: 149.75m);
         var id = await fixture.ReserveAsync(inventory, gateway, quantity: 2);
 
+        await using (var db = fixture.CreateContext())
+        {
+            var booking = await fixture.CreateService(db, gateway).GetBookingAsync(id);
+            var item = Assert.Single(booking!.Items);
+            Assert.Equal("Integration event", item.EventName);
+            Assert.Equal("Integration venue", item.VenueName);
+            Assert.Equal("Integration section", item.SectionName);
+            Assert.Equal(149.75m, item.UnitPrice);
+            Assert.Equal("SEK", item.Currency);
+        }
+
         var result = await PayAsync(id, gateway);
         var repeated = await PayAsync(id, gateway);
 
@@ -25,6 +37,14 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
         Assert.Equal(299.50m, gateway.Payments[id].Amount);
         Assert.Equal("SEK", gateway.Payments[id].Currency);
         Assert.Equal(8, await DatabaseStockAsync(inventory));
+        await using var outboxDb = fixture.CreateContext();
+        var outboxMessage = await outboxDb.TicketIssueOutboxMessages.SingleAsync(
+            message => message.BookingId == id);
+        Assert.Equal(2, outboxMessage.Quantity);
+        Assert.Equal(149.75m, outboxMessage.UnitPrice);
+        Assert.Equal("Integration event", outboxMessage.EventName);
+        Assert.Equal("Integration venue", outboxMessage.VenueName);
+        Assert.Equal("Integration section", outboxMessage.SectionName);
     }
 
     [BookingIntegrationFact]

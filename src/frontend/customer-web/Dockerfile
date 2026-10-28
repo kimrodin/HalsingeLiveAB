@@ -37,6 +37,14 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location /ticket-api/ {
+        proxy_pass http://${TICKET_API_PROXY_TARGET}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -45,6 +53,7 @@ NGINX
 
 ENV API_PROXY_TARGET=eventcatalog:8080
 ENV BOOKING_API_PROXY_TARGET=booking:8080
-ENV NGINX_ENVSUBST_FILTER="^(API_PROXY_TARGET|BOOKING_API_PROXY_TARGET)$"
+ENV TICKET_API_PROXY_TARGET=ticketservice:8080
+ENV NGINX_ENVSUBST_FILTER="^(API_PROXY_TARGET|BOOKING_API_PROXY_TARGET|TICKET_API_PROXY_TARGET)$"
 
 EXPOSE 80

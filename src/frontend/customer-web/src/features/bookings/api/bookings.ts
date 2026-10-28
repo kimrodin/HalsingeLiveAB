@@ -1,6 +1,7 @@
 import { getJson, postJson } from '../../../shared/api/http'
 
 const bookingApiBase = '/booking-api'
+const ticketApiBase = '/ticket-api'
 
 export interface EventInventory {
   inventoryId: string
@@ -53,6 +54,22 @@ export interface StartPaymentResponse {
   message: string
 }
 
+export interface Ticket {
+  ticketId: string
+  bookingId: string
+  bookingItemId: string
+  ticketNumberInBookingItem: number
+  eventId: string
+  eventName: string
+  eventStartsAt: string
+  venueName: string
+  sectionName: string
+  unitPrice: number
+  currency: string
+  status: string
+  issuedAt: string
+}
+
 export function getEventInventory(eventId: string, signal?: AbortSignal): Promise<EventInventory[]> {
   return getJson<EventInventory[]>(`/ListEventInventory/${encodeURIComponent(eventId)}`, signal, bookingApiBase)
 }
@@ -71,4 +88,12 @@ export function startPayment(bookingId: string): Promise<StartPaymentResponse> {
 
 export function cancelBooking(bookingId: string): Promise<BookingStatusResponse> {
   return postJson<BookingStatusResponse>(`/CancelBooking/${encodeURIComponent(bookingId)}`, undefined, bookingApiBase)
+}
+
+export function getTicketsForBooking(bookingId: string, signal?: AbortSignal): Promise<Ticket[]> {
+  return getJson<Ticket[]>(
+    `/tickets/by-booking/${encodeURIComponent(bookingId)}`,
+    signal,
+    ticketApiBase,
+  )
 }

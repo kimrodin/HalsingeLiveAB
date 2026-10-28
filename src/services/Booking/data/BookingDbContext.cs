@@ -1,4 +1,5 @@
 using Booking.Features.Bookings.Models;
+using Booking.Features.Tickets;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
 using InventoryModel = Booking.Features.EventInventory.Models.EventInventory;
@@ -10,6 +11,7 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
     public DbSet<BookingModel> Bookings => Set<BookingModel>();
     public DbSet<BookingItem> BookingItems => Set<BookingItem>();
     public DbSet<InventoryModel> EventInventory => Set<InventoryModel>();
+    public DbSet<TicketIssueOutboxMessage> TicketIssueOutboxMessages => Set<TicketIssueOutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +35,10 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
             entity.ToTable("BookingItems");
             entity.HasKey(item => item.BookingItemId);
             entity.Property(item => item.UnitPrice).HasPrecision(12, 2);
+            entity.Property(item => item.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(item => item.EventName).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.VenueName).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.SectionName).HasMaxLength(100).IsRequired();
         });
 
         modelBuilder.Entity<InventoryModel>(entity =>
@@ -47,6 +53,20 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
                 .WithOne(item => item.EventInventory)
                 .HasForeignKey(item => item.InventoryId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TicketIssueOutboxMessage>(entity =>
+        {
+            entity.ToTable("TicketIssueOutboxMessages");
+            entity.HasKey(message => message.MessageId);
+            entity.Property(message => message.EventName).HasMaxLength(200).IsRequired();
+            entity.Property(message => message.VenueName).HasMaxLength(200).IsRequired();
+            entity.Property(message => message.SectionName).HasMaxLength(100).IsRequired();
+            entity.Property(message => message.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(message => message.UnitPrice).HasPrecision(12, 2);
+            entity.Property(message => message.LastError).HasMaxLength(2000).IsRequired(false);
+            entity.HasIndex(message => message.BookingItemId).IsUnique();
+            entity.HasIndex(message => new { message.DeliveredAtUtc, message.NextAttemptAtUtc });
         });
     }
 }

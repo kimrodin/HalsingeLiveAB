@@ -20,6 +20,7 @@ services:
     environment:
       CATALOG_API_PROXY_TARGET: http://eventcatalog:8080
       BOOKING_API_PROXY_TARGET: http://booking:8080
+      TICKET_API_PROXY_TARGET: http://ticketservice:8080
     ports: !override
       - "5174:5173"
     volumes:

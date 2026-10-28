@@ -1,7 +1,9 @@
 using Booking.Data;
 using Booking.Features.BookingHolds;
 using Booking.Features.Bookings.Models;
+using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
+using Booking.Features.Tickets;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
 
@@ -10,7 +12,8 @@ namespace Booking.Features.Bookings;
 public sealed partial class BookingService(
     BookingDbContext dbContext,
     RedisReservationService reservations,
-    IPaymentGateway payments)
+    IPaymentGateway payments,
+    IEventSnapshotProvider eventCatalog)
 {
     public static readonly TimeSpan ReservationDuration = TimeSpan.FromMinutes(10);
 
@@ -30,6 +33,10 @@ public sealed partial class BookingService(
             return new ReservationResult(ReservationStatus.InventoryNotFound, null, null);
 
         BookingValidation.ValidatePriceAndTotal(inventory.Price, request.Quantity);
+        var eventSnapshot = await eventCatalog.GetSnapshotAsync(
+            inventory.EventId,
+            inventory.SectionId,
+            cancellationToken);
 
         // Populate Redis lazily for inventory rows created before Redis was wired in.
         await reservations.InitializeInventoryAsync(
@@ -65,7 +72,12 @@ public sealed partial class BookingService(
                     BookingItemId = Guid.NewGuid(),
                     InventoryId = inventory.InventoryId,
                     Quantity = request.Quantity,
-                    UnitPrice = inventory.Price
+                    UnitPrice = inventory.Price,
+                    Currency = "SEK",
+                    EventName = eventSnapshot.EventName,
+                    EventStartsAt = eventSnapshot.EventStartsAt,
+                    VenueName = eventSnapshot.VenueName,
+                    SectionName = eventSnapshot.SectionName
                 }
             ]
         };
@@ -90,12 +102,14 @@ public sealed partial class BookingService(
     {
         return await dbContext.Bookings.AsNoTracking()
             .Include(booking => booking.Items)
+            .ThenInclude(item => item.EventInventory)
             .FirstOrDefaultAsync(booking => booking.BookingId == bookingId, cancellationToken);
     }
 
     public Task<List<BookingModel>> ListBookingsAsync(CancellationToken cancellationToken = default) =>
         dbContext.Bookings.AsNoTracking()
             .Include(booking => booking.Items)
+            .ThenInclude(item => item.EventInventory)
             .OrderByDescending(booking => booking.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -153,6 +167,8 @@ public sealed partial class BookingService(
             if (transitioned != 1)
                 throw new ReservationConfirmationException();
 
+            AddTicketIssueOutboxMessages(booking.Items);
+            await dbContext.SaveChangesAsync(cancellationToken);
             committing = true;
             await transaction.CommitAsync(cancellationToken);
             return new BookingActionResult(BookingActionStatus.Completed, BookingStatuses.Confirmed);
@@ -169,6 +185,27 @@ public sealed partial class BookingService(
                     item.EventInventory.EventId, item.EventInventory.SectionId, bookingId);
             throw;
         }
+    }
+
+    private void AddTicketIssueOutboxMessages(IEnumerable<BookingItem> items)
+    {
+        var createdAt = DateTimeOffset.UtcNow;
+        dbContext.TicketIssueOutboxMessages.AddRange(items.Select(item => new TicketIssueOutboxMessage
+        {
+            MessageId = Guid.NewGuid(),
+            BookingId = item.BookingId,
+            BookingItemId = item.BookingItemId,
+            EventId = item.EventInventory.EventId,
+            EventName = item.EventName,
+            EventStartsAtUtc = item.EventStartsAt.ToUniversalTime(),
+            VenueName = item.VenueName,
+            SectionName = item.SectionName,
+            Quantity = item.Quantity,
+            UnitPrice = item.UnitPrice,
+            Currency = item.Currency,
+            CreatedAtUtc = createdAt,
+            NextAttemptAtUtc = createdAt
+        }));
     }
 
     private sealed class ReservationConfirmationException : Exception;
