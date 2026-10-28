@@ -60,7 +60,9 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
         Assert.NotEqual(Guid.Empty, firstBookingId);
         Assert.Equal(ReservationStatus.InsufficientInventory, second.Status);
         Assert.Null(second.BookingId);
-        Assert.Single(await db.Bookings.ToListAsync());
+        Assert.Single(await db.Bookings
+            .Where(booking => booking.Items.Any(item => item.InventoryId == inventory.InventoryId))
+            .ToListAsync());
         Assert.Equal(0, await fixture.Reservations.GetAvailableQuantityAsync(
             inventory.EventId, inventory.SectionId, inventory.TotalQuantity));
     }
