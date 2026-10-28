@@ -1,4 +1,5 @@
 using Booking.Features.Bookings;
+using Booking.Features.EventInventory.CreateEventInventory;
 
 namespace Booking.UnitTests;
 
@@ -46,6 +47,15 @@ public sealed class BookingValidationTests
         Assert.Contains("InventoryId", exception.Errors.Keys);
     }
 
+    [Fact]
+    public void ValidateCreateBooking_RejectsNullRequest()
+    {
+        var exception = Assert.Throws<BookingValidationException>(
+            () => BookingValidation.ValidateCreateBooking(null!));
+
+        Assert.Contains("Request", exception.Errors.Keys);
+    }
+
     [Theory]
     [InlineData("", "customer@example.com", "CustomerName")]
     [InlineData("Test Customer", "not-an-email", "CustomerEmail")]
@@ -81,5 +91,19 @@ public sealed class BookingValidationTests
 
             Assert.Contains(expectedError, exception.Errors.Keys);
         }
+    }
+
+    [Fact]
+    public void ValidateCreateInventory_RejectsInvalidIdsQuantityAndPrice()
+    {
+        var exception = Assert.Throws<BookingValidationException>(() =>
+            BookingValidation.ValidateCreateInventory(
+                Guid.Empty,
+                new CreateEventInventoryRequest(Guid.Empty, 0, 1.001m)));
+
+        Assert.Contains("EventId", exception.Errors.Keys);
+        Assert.Contains("SectionId", exception.Errors.Keys);
+        Assert.Contains("TotalQuantity", exception.Errors.Keys);
+        Assert.Contains("Price", exception.Errors.Keys);
     }
 }
