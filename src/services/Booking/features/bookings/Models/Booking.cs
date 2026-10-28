@@ -14,6 +14,7 @@ public class Booking
     // Written before sending HTTP so reconciliation survives lost responses and restarts.
     public bool PaymentRequested { get; set; }
     public bool PaymentSettled { get; set; }
+    public byte[] GuestAccessTokenHash { get; set; }
 
     public List<BookingItem> Items { get; set; } = [];
 }

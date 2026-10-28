@@ -45,6 +45,7 @@ public sealed partial class BookingService(
             inventory.AvailableQuantity);
 
         var bookingId = Guid.NewGuid();
+        var guestAccessToken = GuestAccessToken.Create();
         var expiresAt = DateTimeOffset.UtcNow.Add(ReservationDuration);
         var reserved = await reservations.TryReserveAsync(
             bookingId,
@@ -61,6 +62,7 @@ public sealed partial class BookingService(
             BookingId = bookingId,
             CustomerName = customerName,
             CustomerEmail = customerEmail,
+            GuestAccessTokenHash = GuestAccessToken.Hash(guestAccessToken),
             Status = BookingStatuses.Reserved,
             TotalPrice = inventory.Price * request.Quantity,
             CreatedAt = DateTime.UtcNow,
@@ -93,7 +95,7 @@ public sealed partial class BookingService(
             throw;
         }
 
-        return new ReservationResult(ReservationStatus.Reserved, bookingId, expiresAt);
+        return new ReservationResult(ReservationStatus.Reserved, bookingId, expiresAt, guestAccessToken);
     }
 
     public async Task<BookingModel> GetBookingAsync(
@@ -104,6 +106,34 @@ public sealed partial class BookingService(
             .Include(booking => booking.Items)
             .ThenInclude(item => item.EventInventory)
             .FirstOrDefaultAsync(booking => booking.BookingId == bookingId, cancellationToken);
+    }
+
+    public async Task<BookingModel> GetBookingForGuestAsync(
+        Guid bookingId,
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        var booking = await dbContext.Bookings.AsNoTracking()
+            .Include(item => item.Items)
+            .ThenInclude(item => item.EventInventory)
+            .SingleOrDefaultAsync(item => item.BookingId == bookingId, cancellationToken);
+
+        return booking is not null && GuestAccessToken.Matches(accessToken, booking.GuestAccessTokenHash)
+            ? booking
+            : null;
+    }
+
+    public async Task<bool> GuestHasAccessAsync(
+        Guid bookingId,
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        var tokenHash = await dbContext.Bookings.AsNoTracking()
+            .Where(item => item.BookingId == bookingId)
+            .Select(item => item.GuestAccessTokenHash)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return GuestAccessToken.Matches(accessToken, tokenHash);
     }
 
     public Task<List<BookingModel>> ListBookingsAsync(CancellationToken cancellationToken = default) =>
@@ -324,7 +354,8 @@ public enum ReservationStatus
 public sealed record ReservationResult(
     ReservationStatus Status,
     Guid? BookingId,
-    DateTimeOffset? ExpiresAt);
+    DateTimeOffset? ExpiresAt,
+    string GuestAccessToken = "");
 
 public static class BookingStatuses
 {

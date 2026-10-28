@@ -25,11 +25,13 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
     private readonly string databaseName = $"booking_tests_{Guid.NewGuid():N}";
     private readonly List<Inventory> inventories = [];
     private readonly List<Guid> bookingIds = [];
+    private readonly Dictionary<Guid, string> guestAccessTokens = [];
     private string? adminConnectionString;
     private string? connectionString;
     public IConnectionMultiplexer Redis { get; private set; } = null!;
     public RedisReservationService Reservations => new(Redis);
     public IEventSnapshotProvider EventSnapshots => new TestEventSnapshotProvider();
+    public string GetGuestAccessToken(Guid bookingId) => guestAccessTokens[bookingId];
 
     public async Task InitializeAsync()
     {
@@ -81,6 +83,7 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
         Assert.Equal(ReservationStatus.Reserved, result.Status);
         var id = result.BookingId!.Value;
         bookingIds.Add(id);
+        guestAccessTokens.Add(id, result.GuestAccessToken);
         return id;
     }
 

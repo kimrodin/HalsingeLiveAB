@@ -26,9 +26,10 @@ public sealed class TicketPdfEndpointTests
         dbContext.Tickets.Add(ticket);
         await dbContext.SaveChangesAsync();
 
-        var controller = CreateController(dbContext);
+        var controller = CreateController(dbContext, apiKey: "test-key");
 
-        var result = await controller.DownloadTicketPdf(ticket.TicketId, download: true, CancellationToken.None);
+        var result = await controller.DownloadTicketPdf(
+            ticket.BookingId, ticket.TicketId, download: true, "test-key", CancellationToken.None);
 
         var file = Assert.IsType<FileContentResult>(result);
         Assert.Equal("application/pdf", file.ContentType);
@@ -40,11 +41,28 @@ public sealed class TicketPdfEndpointTests
     public async Task DownloadTicketPdf_ReturnsNotFoundForUnknownTicket()
     {
         await using var dbContext = CreateDbContext();
-        var controller = CreateController(dbContext);
+        var controller = CreateController(dbContext, apiKey: "test-key");
 
-        var result = await controller.DownloadTicketPdf(Guid.NewGuid(), download: false, CancellationToken.None);
+        var result = await controller.DownloadTicketPdf(
+            Guid.NewGuid(), Guid.NewGuid(), download: false, "test-key", CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task DownloadTicketPdf_RequiresInternalApiKey()
+    {
+        await using var dbContext = CreateDbContext();
+        var ticket = CreateTicket();
+        dbContext.Tickets.Add(ticket);
+        await dbContext.SaveChangesAsync();
+
+        var controller = CreateController(dbContext, apiKey: "test-key");
+
+        var result = await controller.DownloadTicketPdf(
+            ticket.BookingId, ticket.TicketId, download: false, string.Empty, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
@@ -63,9 +81,9 @@ public sealed class TicketPdfEndpointTests
         dbContext.Tickets.AddRange(secondTicket, unrelatedTicket, firstTicket);
         await dbContext.SaveChangesAsync();
 
-        var controller = CreateController(dbContext);
+        var controller = CreateController(dbContext, apiKey: "test-key");
 
-        var result = await controller.GetTicketsByBooking(bookingId, CancellationToken.None);
+        var result = await controller.GetTicketsByBooking(bookingId, "test-key", CancellationToken.None);
 
         var response = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
         var tickets = Assert.IsAssignableFrom<IReadOnlyList<TicketResponse>>(response.Value);
@@ -73,12 +91,43 @@ public sealed class TicketPdfEndpointTests
         Assert.All(tickets, ticket => Assert.Equal(bookingId, ticket.BookingId));
     }
 
-    private static TicketsController CreateController(TicketDbContext dbContext) =>
+    [Fact]
+    public async Task GetTicketsByBooking_RequiresInternalApiKey()
+    {
+        await using var dbContext = CreateDbContext();
+        var controller = CreateController(dbContext, apiKey: "test-key");
+
+        var result = await controller.GetTicketsByBooking(Guid.NewGuid(), string.Empty, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task DownloadTicketPdf_CannotUseTicketIdWithAnotherBookingId()
+    {
+        await using var dbContext = CreateDbContext();
+        var ticket = CreateTicket();
+        dbContext.Tickets.Add(ticket);
+        await dbContext.SaveChangesAsync();
+
+        var controller = CreateController(dbContext, apiKey: "test-key");
+
+        var result = await controller.DownloadTicketPdf(
+            Guid.NewGuid(), ticket.TicketId, download: false, "test-key", CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    private static TicketsController CreateController(TicketDbContext dbContext, string? apiKey = null) =>
         new(
             dbContext,
             new IssueTicketsHandler(dbContext, TimeProvider.System),
             new TicketDocumentService(),
-            new ConfigurationBuilder().Build(),
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(apiKey is null
+                    ? new Dictionary<string, string?>()
+                    : new Dictionary<string, string?> { ["TicketService:InternalApiKey"] = apiKey })
+                .Build(),
             NullLogger<TicketsController>.Instance);
 
     private static TicketDbContext CreateDbContext()
