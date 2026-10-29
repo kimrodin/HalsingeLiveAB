@@ -41,6 +41,7 @@ async function readErrorMessage(res: Response): Promise<string> {
 export async function request<T = void>(
   path: string,
   init: RequestInit = {},
+  baseUrl: string = BASE_URL,
 ): Promise<T> {
   if (!keycloak.authenticated) {
     throw new ApiError(401, 'Du behöver logga in.');
@@ -60,7 +61,7 @@ export async function request<T = void>(
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${keycloak.token}`);
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers,
   });

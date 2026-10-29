@@ -33,10 +33,11 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
 
         modelBuilder.Entity<BookingItem>(entity =>
         {
-            entity.ToTable("BookingItems");
+            entity.ToTable("BookingItems", table =>
+                table.HasCheckConstraint("CK_BookingItems_Currency_Valid", "\"Currency\" ~ '^[A-Z]{3}$'"));
             entity.HasKey(item => item.BookingItemId);
             entity.Property(item => item.UnitPrice).HasPrecision(12, 2);
-            entity.Property(item => item.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(item => item.Currency).HasMaxLength(3).HasDefaultValue("SEK").IsRequired();
             entity.Property(item => item.EventName).HasMaxLength(200).IsRequired();
             entity.Property(item => item.VenueName).HasMaxLength(200).IsRequired();
             entity.Property(item => item.SectionName).HasMaxLength(100).IsRequired();

@@ -80,6 +80,7 @@ namespace Booking.data.Migrations
 
                     b.Property<string>("Currency")
                         .IsRequired()
+                        .HasDefaultValue("SEK")
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
@@ -117,7 +118,10 @@ namespace Booking.data.Migrations
 
                     b.HasIndex("InventoryId");
 
-                    b.ToTable("BookingItems", (string)null);
+                    b.ToTable("BookingItems", (string)null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BookingItems_Currency_Valid", "\"Currency\" ~ '^[A-Z]{3}$'");
+                        });
                 });
 
             modelBuilder.Entity("Booking.Features.EventInventory.Models.EventInventory", b =>

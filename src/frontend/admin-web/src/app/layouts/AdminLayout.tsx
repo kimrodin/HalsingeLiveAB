@@ -15,6 +15,7 @@ const drawerWidth = 220;
 const navItems = [
   { label: 'Evenemang', to: '/events' },
   { label: 'Scener', to: '/venues' },
+  { label: 'Bokningar', to: '/bookings' },
 ];
 
 export default function AdminLayout() {

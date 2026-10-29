@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Booking.Features.EventCatalog;
 using Booking.Features.Tickets;
 
@@ -9,19 +10,15 @@ namespace Booking.Features.Bookings;
 public sealed class BookingsController(
     BookingService bookingService,
     ITicketServiceClient ticketServiceClient,
-    ILogger<BookingsController> logger,
-    IWebHostEnvironment environment) : ControllerBase
+    ILogger<BookingsController> logger) : ControllerBase
 {
+    [Authorize(Policy = "AdminOnly")]
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<BookingDetailsResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(IReadOnlyList<AdminBookingListItemResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListBookings(CancellationToken cancellationToken)
     {
-        if (!environment.IsDevelopment())
-            return NotFound();
-
         var bookings = await bookingService.ListBookingsAsync(cancellationToken);
-        return Ok(bookings.Select(ToDetailsResponse).ToArray());
+        return Ok(bookings.Select(ToAdminListResponse).ToArray());
     }
 
     [HttpGet("{bookingId:guid}")]
@@ -272,6 +269,28 @@ public sealed class BookingsController(
                 item.InventoryId,
                 item.Quantity,
                 item.UnitPrice)).ToArray());
+
+    private static AdminBookingListItemResponse ToAdminListResponse(
+        Booking.Features.Bookings.Models.Booking booking) =>
+        new(
+            booking.BookingId,
+            booking.CustomerName,
+            booking.CustomerEmail,
+            booking.Status,
+            booking.TotalPrice,
+            booking.CreatedAt,
+            booking.ExpiresAt,
+            booking.PaymentRequested,
+            booking.PaymentSettled,
+            booking.Items.Select(item => new AdminBookingListItem(
+                item.InventoryId,
+                item.Quantity,
+                item.UnitPrice,
+                item.Currency,
+                item.EventName,
+                item.EventStartsAt,
+                item.VenueName,
+                item.SectionName)).ToArray());
 }
 
 public sealed record CreateBookingResponse(
@@ -291,5 +310,27 @@ public sealed record BookingDetailsResponse(
     IReadOnlyList<BookingItemResponse> Items);
 
 public sealed record BookingItemResponse(Guid InventoryId, int Quantity, decimal UnitPrice);
+
+public sealed record AdminBookingListItemResponse(
+    Guid BookingId,
+    string CustomerName,
+    string CustomerEmail,
+    string Status,
+    decimal TotalPrice,
+    DateTime CreatedAt,
+    DateTime? ExpiresAt,
+    bool PaymentRequested,
+    bool PaymentSettled,
+    IReadOnlyList<AdminBookingListItem> Items);
+
+public sealed record AdminBookingListItem(
+    Guid InventoryId,
+    int Quantity,
+    decimal UnitPrice,
+    string Currency,
+    string EventName,
+    DateTimeOffset EventStartsAt,
+    string VenueName,
+    string SectionName);
 
 public sealed record BookingStatusResponse(Guid BookingId, string Status);
