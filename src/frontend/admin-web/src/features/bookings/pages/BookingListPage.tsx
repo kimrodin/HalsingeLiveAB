@@ -17,6 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { Link as RouterLink } from 'react-router';
 import { useState } from 'react';
 import { getBookings } from '../api/bookings';
 import type { Booking } from '../types';
@@ -205,7 +206,9 @@ export default function BookingListPage() {
               {bookings.map((booking: Booking) => (
                 <TableRow key={booking.bookingId} hover>
                   <TableCell sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                    {booking.bookingId}
+                    <RouterLink to={`/bookings/${booking.bookingId}`}>
+                      {booking.bookingId}
+                    </RouterLink>
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{booking.customerName}</Typography>

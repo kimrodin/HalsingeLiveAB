@@ -61,6 +61,25 @@ public sealed class BookingListTests
         Assert.Equal(firstId, Assert.Single(eventResult.Bookings).BookingId);
     }
 
+    [Fact]
+    public async Task UpdateBookingCustomer_TrimsAndSavesCustomerDetails()
+    {
+        await using var db = CreateDbContext();
+        var bookingId = Guid.NewGuid();
+        db.Bookings.Add(CreateBooking(
+            bookingId, "Old Name", "old@example.com", BookingStatuses.Reserved, DateTime.UtcNow));
+        await db.SaveChangesAsync();
+
+        var service = new BookingService(db, null!, null!, null!);
+        var updated = await service.UpdateBookingCustomerAsync(
+            bookingId, " New Name ", " new@example.com ");
+        var booking = await db.Bookings.SingleAsync();
+
+        Assert.True(updated);
+        Assert.Equal("New Name", booking.CustomerName);
+        Assert.Equal("new@example.com", booking.CustomerEmail);
+    }
+
     private static BookingDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<BookingDbContext>()

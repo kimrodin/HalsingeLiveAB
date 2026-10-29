@@ -6,6 +6,7 @@ import VenueListPage from '../features/venues/pages/VenueListPage';
 import NotFoundPage from './pages/NotFoundPage';
 import VenueFormPage from '../features/venues/pages/VenueFormPage';
 import BookingListPage from '../features/bookings/pages/BookingListPage';
+import BookingDetailsPage from '../features/bookings/pages/BookingDetailsPage';
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: 'venues/new', element: <VenueFormPage /> },
       { path: 'venues/:id', element: <VenueFormPage /> },
       { path: 'bookings', element: <BookingListPage /> },
+      { path: 'bookings/:id', element: <BookingDetailsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

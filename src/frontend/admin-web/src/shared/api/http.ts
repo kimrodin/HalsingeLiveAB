@@ -38,11 +38,7 @@ async function readErrorMessage(res: Response): Promise<string> {
   }
 }
 
-export async function request<T = void>(
-  path: string,
-  init: RequestInit = {},
-  baseUrl: string = BASE_URL,
-): Promise<T> {
+async function authenticatedHeaders(headers?: HeadersInit): Promise<Headers> {
   if (!keycloak.authenticated) {
     throw new ApiError(401, 'Du behöver logga in.');
   }
@@ -58,8 +54,17 @@ export async function request<T = void>(
     throw new ApiError(401, 'Ingen giltig inloggning finns.');
   }
 
-  const headers = new Headers(init.headers);
-  headers.set('Authorization', `Bearer ${keycloak.token}`);
+  const result = new Headers(headers);
+  result.set('Authorization', `Bearer ${keycloak.token}`);
+  return result;
+}
+
+export async function request<T = void>(
+  path: string,
+  init: RequestInit = {},
+  baseUrl: string = BASE_URL,
+): Promise<T> {
+  const headers = await authenticatedHeaders(init.headers);
 
   const res = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -72,6 +77,19 @@ export async function request<T = void>(
 
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+export async function requestBlob(
+  path: string,
+  init: RequestInit = {},
+  baseUrl: string = BASE_URL,
+): Promise<Blob> {
+  const headers = await authenticatedHeaders(init.headers);
+  const res = await fetch(`${baseUrl}${path}`, { ...init, headers });
+  if (!res.ok) {
+    throw new ApiError(res.status, await readErrorMessage(res));
+  }
+  return res.blob();
 }
 
 export function sendJson<T = void>(
