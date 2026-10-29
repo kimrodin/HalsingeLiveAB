@@ -4,6 +4,13 @@ Each event can have one uploaded PNG or JPEG poster (maximum 10 MiB by default).
 Metadata is stored in `EventImages`; file contents use `IEventImageStorage`, following
 the venue seating map storage pattern. Existing events need no image.
 
+Both features use `Shared/Files` (`IFileStorage`, `LocalFileStorage`,
+`FileUploadReader` and `FileContentType`) for disk access, bounded upload reads
+and signature/extension checks. Feature-specific interfaces and options keep
+their directories and format policies separate. Models, HTTP endpoints and
+database/file compensation remain in each feature; no schema migration is
+needed for this shared-file refactor.
+
 In admin, save the event first, then open **Redigera** and use **Evenemangsbild**
 to upload, replace or remove its poster. Replacing uses a new image ID and URL;
 the old URL stops resolving. Event list/detail responses include a nullable
