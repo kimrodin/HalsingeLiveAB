@@ -4,7 +4,7 @@ import { Box, Button, Card, CardContent, Stack, Typography } from '@mui/material
 import { Link as RouterLink } from 'react-router'
 import type { EventListItem } from '../api/events'
 import TicketAction from './TicketAction'
-import EventDatePoster from './EventDatePoster'
+import EventPoster from './EventPoster'
 
 const eventDateFormatter = new Intl.DateTimeFormat('sv-SE', {
   weekday: 'long',
@@ -201,7 +201,7 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
                         justifySelf: 'start',
                       }}
                     >
-                      <EventDatePoster imageUrl={event.imageUrl} startDate={event.startDate} eventName={event.eventName} />
+                      <EventPoster imageUrl={event.imageUrl} eventName={event.eventName} />
                     </Box>
                     <Box sx={{ minWidth: 0, gridColumn: 2, gridRow: 1, py: { sm: 1 } }}>
                       <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700, letterSpacing: 1.2 }}>

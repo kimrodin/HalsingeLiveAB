@@ -10,7 +10,7 @@ the old URL stops resolving. Event list/detail responses include a nullable
 `imageUrl` and never expose the internal storage key.
 
 The dashboard and customer list, carousel and detail page use this URL. Customer
-pages retain the date poster when an image is missing or cannot be loaded.
+pages retain the Hälsinge Live brand poster when an image is missing or cannot be loaded.
 
 ## API
 

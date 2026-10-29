@@ -2,7 +2,7 @@ import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/ma
 import { Link as RouterLink } from 'react-router'
 import type { EventListItem } from '../api/events'
 import DateBadge from './DateBadge'
-import EventDatePoster from './EventDatePoster'
+import EventPoster from './EventPoster'
 import TicketAction from './TicketAction'
 import { getSaleState } from './saleState'
 
@@ -56,7 +56,7 @@ function EventCard({ event, venueName, now }: { event: EventListItem; venueName?
             >
               <DateBadge startDate={event.startDate} endDate={event.startDate} />
             </Box>
-            <EventDatePoster startDate={event.startDate} eventName={event.eventName} imageUrl={event.imageUrl} compact />
+            <EventPoster eventName={event.eventName} imageUrl={event.imageUrl} compact />
           </Stack>
 
           <Stack spacing={1} sx={{ minWidth: 0, flex: 1 }}>
