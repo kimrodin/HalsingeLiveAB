@@ -9,10 +9,21 @@ import {
   Snackbar, Toolbar, Typography,
 } from '@mui/material';
 import { deleteSeedData, seedData } from '../../features/seed/api/seed';
+import sidebarLandscape from '../../assets/sidebar-landscape.svg';
 
-const drawerWidth = 220;
+const drawerWidth = 260;
+
+const drawerPaperSx = {
+  width: drawerWidth,
+  boxSizing: 'border-box',
+  backgroundColor: '#091b25',
+  backgroundImage: `linear-gradient(180deg, rgba(7, 22, 31, .15), rgba(7, 22, 31, .25)), url("${sidebarLandscape}")`,
+  backgroundSize: 'cover',
+  backgroundPosition: 'center bottom',
+};
 
 const navItems = [
+  { label: 'Dashboard', to: '/dashboard' },
   { label: 'Evenemang', to: '/events' },
   { label: 'Scener', to: '/venues' },
   { label: 'Bokningar', to: '/bookings' },
@@ -76,14 +87,14 @@ export default function AdminLayout() {
   const seedActionPending = seedMutation.isPending || deleteMutation.isPending;
 
   const navList = (
-    <List>
+    <List sx={{ px: 1.5 }}>
       {navItems.map((item) => (
         <ListItemButton
           key={item.to}
           component={NavLink}
           to={item.to}
           onClick={() => setMobileNavOpen(false)}
-          sx={{ '&.active': { bgcolor: 'action.selected' } }}
+          sx={{ mb: 1, borderRadius: 1 }}
         >
           <ListItemText primary={item.label} />
         </ListItemButton>
@@ -91,10 +102,29 @@ export default function AdminLayout() {
     </List>
   );
 
+  const sidebarContent = (
+    <>
+      <Box sx={{ px: 2.5, py: 3 }}>
+        <Typography sx={{ fontFamily: 'Georgia, serif', fontSize: 28, color: '#f1f5f9' }}>
+          Hälsinge Live
+        </Typography>
+        <Typography sx={{ mt: 1, fontSize: 10, letterSpacing: '.2em', color: '#9ecde4' }}>
+          EVENEMANG SOM FÖRENAR HÄLSINGLAND
+        </Typography>
+      </Box>
+      {navList}
+      <Box sx={{ mt: 'auto', px: 3, py: 4, background: 'linear-gradient(transparent, rgba(6, 25, 35, .85))' }}>
+        <Typography sx={{ maxWidth: 190, fontSize: 12, letterSpacing: '.2em', lineHeight: 1.8, color: '#a3d2ee' }}>
+          KONST, KULTUR OCH UPPLEVELSER I HÄLSINGLAND
+        </Typography>
+      </Box>
+    </>
+  );
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
-      <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ gap: 1, px: { xs: 1, sm: 3 } }}>
+      <AppBar position="fixed" sx={{ width: { sm: `calc(100% - ${drawerWidth}px)` }, ml: { sm: `${drawerWidth}px` } }}>
+        <Toolbar sx={{ gap: 1, px: { xs: 1, sm: 3 }, flexWrap: 'wrap', py: { xs: 1, sm: 0 } }}>
           {isMobile && (
             <IconButton
               color="inherit"
@@ -129,11 +159,10 @@ export default function AdminLayout() {
           display: { xs: 'none', sm: 'block' },
           width: drawerWidth,
           flexShrink: 0,
-          '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+          '& .MuiDrawer-paper': drawerPaperSx,
         }}
       >
-        <Toolbar />
-        {navList}
+        {sidebarContent}
       </Drawer>
 
       <Drawer
@@ -143,11 +172,10 @@ export default function AdminLayout() {
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', sm: 'none' },
-          '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+          '& .MuiDrawer-paper': drawerPaperSx,
         }}
       >
-        <Toolbar />
-        {navList}
+        {sidebarContent}
       </Drawer>
 
       <Box
@@ -157,6 +185,7 @@ export default function AdminLayout() {
           minWidth: 0,
           width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` },
           p: { xs: 2, sm: 3 },
+          backgroundImage: 'radial-gradient(ellipse at top right, rgba(0, 200, 220, .04), transparent 65%)',
         }}
       >
         <Toolbar />

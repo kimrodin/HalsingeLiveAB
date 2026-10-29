@@ -6,13 +6,15 @@ import VenueListPage from '../features/venues/pages/VenueListPage';
 import NotFoundPage from './pages/NotFoundPage';
 import VenueFormPage from '../features/venues/pages/VenueFormPage';
 import BookingListPage from '../features/bookings/pages/BookingListPage';
+import DashboardPage from '../features/dashboard/pages/DashboardPage';
 
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <AdminLayout />,
     children: [
-      { index: true, element: <Navigate to="/events" replace /> },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { path: 'dashboard', element: <DashboardPage /> },
       { path: 'events', element: <EventListPage /> },
       { path: 'events/new', element: <EventFormPage /> },
       { path: 'events/:id', element: <EventFormPage /> },

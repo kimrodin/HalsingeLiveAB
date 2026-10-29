@@ -28,6 +28,7 @@ export interface ListEventsParams {
   eventName?: string;
   venueId?: string;
   startAfter?: string;
+  endsAfter?: string;
   startsBefore?: string;
   page?: number;
   pageSize?: number;
@@ -63,6 +64,7 @@ export async function getEvents(params: ListEventsParams = {}): Promise<ListEven
   if (params.venueId) query.set('VenueId', params.venueId);
   // datetime-local has no timezone; send UTC just like the event form does.
   if (params.startAfter) query.set('StartAfter', new Date(params.startAfter).toISOString());
+  if (params.endsAfter) query.set('EndsAfter', new Date(params.endsAfter).toISOString());
   if (params.startsBefore) query.set('StartsBefore', new Date(params.startsBefore).toISOString());
   query.set('Page', String(params.page ?? 1));
   query.set('PageSize', String(params.pageSize ?? 10));

@@ -27,6 +27,9 @@ public class ListEventsHandler(EventCatalogDbContext dbContext)
         if (request.StartAfter.HasValue)
             query = query.Where(e => e.StartDate >= request.StartAfter.Value);
 
+        if (request.EndsAfter.HasValue)
+            query = query.Where(e => e.EndDate > request.EndsAfter.Value);
+
         if (request.StartsBefore.HasValue)
             query = query.Where(e => e.StartDate <= request.StartsBefore.Value);
 

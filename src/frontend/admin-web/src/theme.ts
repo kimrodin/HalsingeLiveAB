@@ -1,5 +1,5 @@
 
-import { alpha, createTheme, lighten, responsiveFontSizes } from '@mui/material/styles';
+import { alpha, createTheme, responsiveFontSizes } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 
 const theme = createTheme({
@@ -8,30 +8,30 @@ const theme = createTheme({
     mode: 'dark',
 
     primary: {
-      main: '#A78BFA',
-      light: '#C4B5FD',
-      dark: '#7C3AED',
-      contrastText: '#1C1233',
+      main: '#00C8DC',
+      light: '#72E5EF',
+      dark: '#008A9B',
+      contrastText: '#04232C',
     },
 
     secondary: {
-      main: '#6EE7B7',
-      light: '#A7F3D0',
-      dark: '#34D399',
-      contrastText: '#06281B',
+      main: '#22D3AE',
+      light: '#8BEBD8',
+      dark: '#12B995',
+      contrastText: '#042B24',
     },
 
     background: {
-      default: '#0B1120',
-      paper: '#151D2E',
+      default: '#0B1923',
+      paper: '#142630',
     },
 
     text: {
       primary: '#F1F5F9',
-      secondary: '#A3B0C2',
+      secondary: '#A8C0D2',
     },
 
-    divider: '#2A3549',
+    divider: '#29424F',
 
     error: {
       main: '#F87171',
@@ -42,7 +42,7 @@ const theme = createTheme({
     },
 
     success: {
-      main: '#34D399',
+      main: '#12B995',
     },
 
     info: {
@@ -127,6 +127,8 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
+          border: '1px solid #29424F',
+          boxShadow: '0 8px 28px rgba(2, 12, 18, 0.12)',
         },
 
         outlined: ({ theme }) => ({ borderColor: theme.palette.divider }),
@@ -147,15 +149,15 @@ const theme = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           borderRadius: 10,
-          backgroundColor: lighten(theme.palette.background.paper, 0.08),
+          backgroundColor: alpha(theme.palette.background.default, 0.45),
           transition: 'background-color 150ms ease',
 
           '&:hover:not(.Mui-focused)': {
-            backgroundColor: lighten(theme.palette.background.paper, 0.11),
+            backgroundColor: alpha(theme.palette.primary.main, 0.04),
           },
 
           '&.Mui-focused': {
-            backgroundColor: lighten(theme.palette.background.paper, 0.09),
+            backgroundColor: alpha(theme.palette.primary.main, 0.06),
           },
 
           '& .MuiOutlinedInput-notchedOutline': {
@@ -184,6 +186,9 @@ const theme = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           backgroundImage: 'none',
+          backgroundColor: alpha(theme.palette.background.default, 0.96),
+          color: theme.palette.text.primary,
+          boxShadow: 'none',
           borderBottom: `1px solid ${theme.palette.divider}`,
         }),
       },
@@ -218,7 +223,8 @@ const theme = createTheme({
 
         head: ({ theme }) => ({
           fontWeight: 600,
-          color: theme.palette.text.primary,
+          color: theme.palette.text.secondary,
+          backgroundColor: alpha(theme.palette.text.secondary, 0.06),
         }),
       },
     },
