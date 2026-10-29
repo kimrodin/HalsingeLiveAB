@@ -17,6 +17,8 @@ services:
       TicketService__BaseUrl: "http://ticketservice:8080/"
       TicketService__TimeoutSeconds: "5"
       TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
+      Authentication__Authority: http://localhost:8180/realms/halsingelive
+      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
     ports:
@@ -172,10 +174,12 @@ services:
       dockerfile: Dockerfile
     environment:
       API_PROXY_TARGET: eventcatalog:8080
+      BOOKING_API_PROXY_TARGET: booking:8080
     ports:
       - "5173:80"
     depends_on:
       - eventcatalog
+      - booking
 
   customer-web:
     build:

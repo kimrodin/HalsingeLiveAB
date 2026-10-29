@@ -9,6 +9,8 @@ using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
 using Booking.Features.Tickets;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -59,6 +61,32 @@ builder.Services.AddScoped<SeedInventoryHandler>();
 builder.Services.AddScoped<DeleteSeedInventoryHandler>();
 builder.Services.AddScoped<ClearBookingDatabaseHandler>();
 builder.Services.AddControllers();
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = builder.Configuration["Authentication:Authority"]
+            ?? "http://localhost:8180/realms/halsingelive";
+        if (builder.Configuration["Authentication:MetadataAddress"] is { Length: > 0 } metadataAddress)
+            options.MetadataAddress = metadataAddress;
+        options.Audience = "eventcatalog";
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = options.Authority.TrimEnd('/'),
+            NameClaimType = "preferred_username",
+            RoleClaimType = "roles"
+        };
+    });
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("admin");
+    });
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -77,5 +105,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 app.Run();
