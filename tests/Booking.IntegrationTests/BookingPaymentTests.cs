@@ -10,6 +10,64 @@ namespace Booking.IntegrationTests;
 public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClassFixture<BookingDatabaseFixture>
 {
     [BookingIntegrationFact]
+    public async Task CreateReservation_StoresCurrentBookingSnapshotAndOnlyTokenHash()
+    {
+        var inventory = await fixture.CreateInventoryAsync(price: 149.75m);
+        var request = new CreateBookingRequest(
+            inventory.InventoryId, 2, "  Integration Customer  ", "  customer@example.com  ");
+        await using var db = fixture.CreateContext();
+
+        var result = await fixture.CreateService(db, new FakePaymentGateway()).CreateReservationAsync(request);
+
+        Assert.Equal(ReservationStatus.Reserved, result.Status);
+        Assert.NotNull(result.BookingId);
+        Assert.False(string.IsNullOrWhiteSpace(result.GuestAccessToken));
+        var booking = await db.Bookings.Include(row => row.Items)
+            .SingleAsync(row => row.BookingId == result.BookingId);
+        Assert.Equal("Integration Customer", booking.CustomerName);
+        Assert.Equal("customer@example.com", booking.CustomerEmail);
+        Assert.Equal(BookingStatuses.Reserved, booking.Status);
+        Assert.Equal(299.50m, booking.TotalPrice);
+        Assert.NotNull(booking.ExpiresAt);
+        Assert.Equal(32, booking.GuestAccessTokenHash.Length);
+        Assert.Equal(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(result.GuestAccessToken)), booking.GuestAccessTokenHash);
+        Assert.True(GuestAccessToken.Matches(result.GuestAccessToken, booking.GuestAccessTokenHash));
+        Assert.True(await fixture.CreateService(db, new FakePaymentGateway())
+            .GuestHasAccessAsync(result.BookingId.Value, result.GuestAccessToken));
+        Assert.False(await fixture.CreateService(db, new FakePaymentGateway())
+            .GuestHasAccessAsync(result.BookingId.Value, "wrong-token"));
+        var item = Assert.Single(booking.Items);
+        Assert.Equal("Integration event", item.EventName);
+        Assert.Equal("Integration venue", item.VenueName);
+        Assert.Equal("Integration section", item.SectionName);
+        Assert.Equal(149.75m, item.UnitPrice);
+        Assert.Equal(2, item.Quantity);
+    }
+
+    [BookingIntegrationFact]
+    public async Task CreateReservation_WhenInventoryIsInsufficient_DoesNotCreateBooking()
+    {
+        var inventory = await fixture.CreateInventoryAsync(stock: 1);
+        var request = new CreateBookingRequest(
+            inventory.InventoryId, 1, "Integration Customer", "customer@example.com");
+        var firstBookingId = await fixture.ReserveAsync(inventory, new FakePaymentGateway());
+        await using var db = fixture.CreateContext();
+        var service = fixture.CreateService(db, new FakePaymentGateway());
+
+        var second = await service.CreateReservationAsync(request);
+
+        Assert.NotEqual(Guid.Empty, firstBookingId);
+        Assert.Equal(ReservationStatus.InsufficientInventory, second.Status);
+        Assert.Null(second.BookingId);
+        Assert.Single(await db.Bookings
+            .Where(booking => booking.Items.Any(item => item.InventoryId == inventory.InventoryId))
+            .ToListAsync());
+        Assert.Equal(0, await fixture.Reservations.GetAvailableQuantityAsync(
+            inventory.EventId, inventory.SectionId, inventory.TotalQuantity));
+    }
+
+    [BookingIntegrationFact]
     public async Task SuccessfulPayment_UsesDatabasePriceAndConfirmsExactlyOnce()
     {
         var gateway = new FakePaymentGateway();
@@ -240,7 +298,9 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
     [BookingIntegrationFact]
     public async Task PostgresRejectsOversellingEvenWhenRedisHasExcessStock()
     {
-        var gateway = new FakePaymentGateway();
+        var gate = new ConcurrentRequestGate(2);
+        // Both separate bookings reach payment before either can confirm the last place.
+        var gateway = new FakePaymentGateway { BeforeResult = () => gate.ArriveAsync() };
         var inventory = await fixture.CreateInventoryAsync(stock: 1);
         var firstId = await fixture.ReserveAsync(inventory, gateway);
         // Simulate a stale Redis inventory cache. PostgreSQL must remain authoritative.
@@ -249,9 +309,32 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
 
         var results = await Task.WhenAll(PayAsync(firstId, gateway), PayAsync(secondId, gateway));
 
-        Assert.Single(results, result => result.BookingStatus == BookingStatuses.Confirmed);
+        var winner = Assert.Single(results, result => result.BookingStatus == BookingStatuses.Confirmed);
+        Assert.Equal("Succeeded", winner.PaymentStatus);
+        var loser = Assert.Single(results, result => result.BookingId != winner.BookingId);
+        Assert.Equal(BookingStatuses.Cancelled, loser.BookingStatus);
+        Assert.Equal("Refunded", loser.PaymentStatus);
+        Assert.False(string.IsNullOrWhiteSpace(loser.Message));
         Assert.Equal(0, await DatabaseStockAsync(inventory));
+        Assert.Equal(2, gateway.ProcessCalls);
         Assert.Equal(1, gateway.RefundCalls);
+        Assert.Null(gateway.Payments[winner.BookingId].RefundedAt);
+        Assert.NotNull(gateway.Payments[loser.BookingId].RefundedAt);
+
+        await using var db = fixture.CreateContext();
+        var bookings = await db.Bookings.Include(row => row.Items)
+            .Where(row => row.Items.Any(item => item.InventoryId == inventory.InventoryId)).ToListAsync();
+        Assert.Equal(2, bookings.Count);
+        Assert.All(bookings, booking => Assert.True(booking.PaymentSettled));
+        var confirmed = Assert.Single(bookings, booking => booking.Status == BookingStatuses.Confirmed);
+        Assert.Equal(winner.BookingId, confirmed.BookingId);
+        Assert.Equal(1, Assert.Single(confirmed.Items).Quantity);
+        Assert.Equal(BookingStatuses.Cancelled,
+            Assert.Single(bookings, booking => booking.BookingId == loser.BookingId).Status);
+        var message = Assert.Single(await db.TicketIssueOutboxMessages
+            .Where(row => row.EventId == inventory.EventId).ToListAsync());
+        Assert.Equal(winner.BookingId, message.BookingId);
+        Assert.Equal(1, message.Quantity);
     }
 
     private async Task<StartPaymentResult> PayAsync(Guid id, IPaymentGateway gateway)

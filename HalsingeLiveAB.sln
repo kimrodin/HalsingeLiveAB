@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketService", "src\servic
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketService.UnitTests", "tests\TicketService.UnitTests\TicketService.UnitTests.csproj", "{01B79BE0-AAD3-4B47-8B15-BFEE2608BE59}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaymentSimulator.UnitTests", "tests\PaymentSimulator.UnitTests\PaymentSimulator.UnitTests.csproj", "{F5274718-E394-4604-8623-A84C08CCD6CE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -159,6 +161,18 @@ Global
 		{01B79BE0-AAD3-4B47-8B15-BFEE2608BE59}.Release|x64.Build.0 = Release|Any CPU
 		{01B79BE0-AAD3-4B47-8B15-BFEE2608BE59}.Release|x86.ActiveCfg = Release|Any CPU
 		{01B79BE0-AAD3-4B47-8B15-BFEE2608BE59}.Release|x86.Build.0 = Release|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Debug|x64.Build.0 = Debug|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Debug|x86.Build.0 = Debug|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Release|x64.ActiveCfg = Release|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Release|x64.Build.0 = Release|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Release|x86.ActiveCfg = Release|Any CPU
+		{F5274718-E394-4604-8623-A84C08CCD6CE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -175,5 +189,6 @@ Global
 		{CF316705-EAF0-45CD-8576-CD376E7F2880} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{89065649-2756-42D0-A727-0DBD9A9F6E8C} = {984BB9B3-3FA3-BE33-9484-CAC21695A33C}
 		{01B79BE0-AAD3-4B47-8B15-BFEE2608BE59} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{F5274718-E394-4604-8623-A84C08CCD6CE} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
