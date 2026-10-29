@@ -8,7 +8,7 @@ public sealed class BookingPaymentAuthorizationTests
     [Fact]
     public void ConfirmBooking_DirectClientRequestIsRejected()
     {
-        var controller = new BookingsController(null!, null!, null!, null!);
+        var controller = new BookingsController(null!, null!, null!);
 
         var result = Assert.IsType<ObjectResult>(controller.ConfirmBooking(Guid.NewGuid()));
 
