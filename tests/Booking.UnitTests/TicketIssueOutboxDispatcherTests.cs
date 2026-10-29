@@ -1,5 +1,6 @@
 using Booking.Data;
 using Booking.Features.Tickets;
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -14,7 +15,7 @@ public sealed class TicketIssueOutboxDispatcherTests
         var outboxMessage = CreateOutboxMessage();
         dbContext.TicketIssueOutboxMessages.Add(outboxMessage);
         await dbContext.SaveChangesAsync();
-        var client = new RecordingTicketServiceClient();
+        var client = new RecordingBookingConfirmedPublisher();
         var dispatcher = CreateDispatcher(dbContext, client);
 
         await dispatcher.DispatchPendingAsync();
@@ -24,7 +25,8 @@ public sealed class TicketIssueOutboxDispatcherTests
         Assert.NotNull(savedMessage.DeliveredAtUtc);
         Assert.Null(savedMessage.LastError);
         Assert.NotNull(client.Message);
-        Assert.Equal(outboxMessage.MessageId, client.Message.CorrelationId);
+        Assert.Equal(outboxMessage.MessageId, client.Message.MessageId);
+        Assert.Equal(outboxMessage.BookingId, client.Message.CorrelationId);
         Assert.Equal(outboxMessage.BookingId, client.Message.BookingId);
         Assert.Equal(outboxMessage.BookingItemId, client.Message.BookingItemId);
         Assert.Equal(outboxMessage.EventName, client.Message.EventName);
@@ -42,7 +44,7 @@ public sealed class TicketIssueOutboxDispatcherTests
         await dbContext.SaveChangesAsync();
         var dispatcher = CreateDispatcher(
             dbContext,
-            new RecordingTicketServiceClient(new HttpRequestException("TicketService unavailable.")));
+            new RecordingBookingConfirmedPublisher(new HttpRequestException("RabbitMQ unavailable.")));
 
         await dispatcher.DispatchPendingAsync();
 
@@ -50,13 +52,13 @@ public sealed class TicketIssueOutboxDispatcherTests
             .SingleAsync(message => message.MessageId == outboxMessage.MessageId);
         Assert.Null(savedMessage.DeliveredAtUtc);
         Assert.Equal(1, savedMessage.AttemptCount);
-        Assert.Equal("TicketService unavailable.", savedMessage.LastError);
+        Assert.Equal("RabbitMQ unavailable.", savedMessage.LastError);
         Assert.True(savedMessage.NextAttemptAtUtc > originalNextAttemptAtUtc);
     }
 
     private static TicketIssueOutboxDispatcher CreateDispatcher(
         BookingDbContext dbContext,
-        ITicketServiceClient client) =>
+        IBookingConfirmedPublisher client) =>
         new(
             dbContext,
             client,
@@ -92,12 +94,12 @@ public sealed class TicketIssueOutboxDispatcherTests
         };
     }
 
-    private sealed class RecordingTicketServiceClient(Exception? exception = null) : ITicketServiceClient
+    private sealed class RecordingBookingConfirmedPublisher(Exception? exception = null) : IBookingConfirmedPublisher
     {
-        public BookingConfirmedMessage? Message { get; private set; }
+        public BookingConfirmedV1? Message { get; private set; }
 
-        public Task IssueTicketsAsync(
-            BookingConfirmedMessage message,
+        public Task PublishAsync(
+            BookingConfirmedV1 message,
             CancellationToken cancellationToken = default)
         {
             Message = message;

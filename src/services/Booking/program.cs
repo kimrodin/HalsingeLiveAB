@@ -44,6 +44,8 @@ builder.Services.AddHttpClient<ITicketServiceClient, HttpTicketServiceClient>(cl
         ?? throw new InvalidOperationException("TicketService base URL is missing."));
     client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TicketService:TimeoutSeconds", 5));
 });
+builder.Services.AddSingleton<RabbitMqConnectionProvider>();
+builder.Services.AddSingleton<IBookingConfirmedPublisher, RabbitMqBookingConfirmedPublisher>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<TicketIssueOutboxDispatcher>();
 builder.Services.AddHostedService<TicketIssueOutboxBackgroundService>();

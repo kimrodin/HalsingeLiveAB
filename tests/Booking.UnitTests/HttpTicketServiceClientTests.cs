@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Booking.Features.Tickets;
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.Extensions.Configuration;
 
 namespace Booking.UnitTests;
@@ -11,7 +12,7 @@ public sealed class HttpTicketServiceClientTests
     [Fact]
     public async Task IssueTicketsAsync_PostsConfirmationWithInternalApiKey()
     {
-        var message = new BookingConfirmedMessage
+        var message = new BookingConfirmedV1
         {
             CorrelationId = Guid.NewGuid(),
             BookingId = Guid.NewGuid(),
@@ -57,7 +58,7 @@ public sealed class HttpTicketServiceClientTests
 
         var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
             new HttpTicketServiceClient(client, configuration)
-                .IssueTicketsAsync(new BookingConfirmedMessage()));
+                .IssueTicketsAsync(new BookingConfirmedV1()));
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
     }
@@ -71,9 +72,9 @@ public sealed class HttpTicketServiceClientTests
 
     private static async Task<HttpResponseMessage> VerifyBodyAndRespondAsync(
         HttpRequestMessage request,
-        BookingConfirmedMessage expected)
+        BookingConfirmedV1 expected)
     {
-        var actual = await request.Content!.ReadFromJsonAsync<BookingConfirmedMessage>();
+        var actual = await request.Content!.ReadFromJsonAsync<BookingConfirmedV1>();
         Assert.Equal(expected, actual);
         return new HttpResponseMessage(HttpStatusCode.OK);
     }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TicketService.Data;
+using HalsingeLive.Contracts.Messaging;
 using TicketService.Features.Tickets.IssueTickets;
 using TicketService.Features.Tickets.Models;
 
@@ -81,7 +82,7 @@ public sealed class IssueTicketsHandlerTests
         return new TicketDbContext(options);
     }
 
-    private static BookingConfirmedMessage CreateMessage(int quantity) => new()
+    private static BookingConfirmedV1 CreateMessage(int quantity) => new()
     {
         BookingId = Guid.NewGuid(),
         BookingItemId = Guid.NewGuid(),

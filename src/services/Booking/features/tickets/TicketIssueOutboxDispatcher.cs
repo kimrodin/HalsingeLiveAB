@@ -1,11 +1,12 @@
 using Booking.Data;
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
 
 namespace Booking.Features.Tickets;
 
 public sealed class TicketIssueOutboxDispatcher(
     BookingDbContext dbContext,
-    ITicketServiceClient ticketServiceClient,
+    IBookingConfirmedPublisher publisher,
     TimeProvider timeProvider,
     ILogger<TicketIssueOutboxDispatcher> logger)
 {
@@ -25,17 +26,15 @@ public sealed class TicketIssueOutboxDispatcher(
         {
             try
             {
-                await ticketServiceClient.IssueTicketsAsync(ToContract(message), cancellationToken);
+                await publisher.PublishAsync(ToContract(message), cancellationToken);
                 message.DeliveredAtUtc = timeProvider.GetUtcNow();
                 message.LastError = null;
                 logger.LogInformation(
-                    "Issued tickets for booking {BookingId}, item {BookingItemId}.",
+                    "Published ticket issuance for booking {BookingId}, item {BookingItemId}.",
                     message.BookingId,
                     message.BookingItemId);
             }
-            catch (Exception exception) when (
-                exception is HttpRequestException or OperationCanceledException &&
-                !cancellationToken.IsCancellationRequested)
+            catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
             {
                 message.AttemptCount++;
                 message.NextAttemptAtUtc = timeProvider.GetUtcNow()
@@ -53,9 +52,10 @@ public sealed class TicketIssueOutboxDispatcher(
         }
     }
 
-    private static BookingConfirmedMessage ToContract(TicketIssueOutboxMessage message) => new()
+    private static BookingConfirmedV1 ToContract(TicketIssueOutboxMessage message) => new()
     {
-        CorrelationId = message.MessageId,
+        MessageId = message.MessageId,
+        CorrelationId = message.BookingId,
         BookingId = message.BookingId,
         BookingItemId = message.BookingItemId,
         EventId = message.EventId,

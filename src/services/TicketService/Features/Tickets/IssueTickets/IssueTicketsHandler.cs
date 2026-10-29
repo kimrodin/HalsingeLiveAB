@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using HalsingeLive.Contracts.Messaging;
 using Npgsql;
 using TicketService.Data;
 using TicketService.Features.Tickets.Models;
@@ -14,7 +15,7 @@ public sealed class IssueTicketsHandler(
         "IX_Tickets_BookingItemId_TicketNumberInBookingItem";
 
     public async Task<IssueTicketsResult> HandleAsync(
-        BookingConfirmedMessage message,
+        BookingConfirmedV1 message,
         CancellationToken cancellationToken = default)
     {
         if (message is null)
@@ -70,7 +71,7 @@ public sealed class IssueTicketsHandler(
         }
     }
 
-    private static void Validate(BookingConfirmedMessage message)
+    private static void Validate(BookingConfirmedV1 message)
     {
         var errors = new List<string>();
         if (message.BookingId == Guid.Empty)
@@ -102,7 +103,7 @@ public sealed class IssueTicketsHandler(
 
     private static IssueTicketsResult ExistingOrThrow(
         Ticket[] existingTickets,
-        BookingConfirmedMessage message)
+        BookingConfirmedV1 message)
     {
         var expectedStart = message.EventStartsAtUtc.ToUniversalTime();
         var isSameIssue = existingTickets.Length == message.Quantity &&

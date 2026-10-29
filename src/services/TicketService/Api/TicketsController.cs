@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TicketService.Data;
@@ -25,7 +26,7 @@ public sealed class TicketsController(
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> IssueFromBooking(
-        [FromBody] BookingConfirmedMessage message,
+        [FromBody] BookingConfirmedV1 message,
         [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
         CancellationToken cancellationToken)
     {

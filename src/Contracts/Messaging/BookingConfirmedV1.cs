@@ -1,8 +1,10 @@
-namespace TicketService.Features.Tickets.IssueTickets;
+namespace HalsingeLive.Contracts.Messaging;
 
-public sealed record BookingConfirmedMessage
+/// <summary>Snapshot of a paid booking item used to issue tickets.</summary>
+public sealed record BookingConfirmedV1
 {
-    public Guid CorrelationId { get; init; } = Guid.NewGuid();
+    public Guid MessageId { get; init; }
+    public Guid CorrelationId { get; init; }
     public Guid BookingId { get; init; }
     public Guid BookingItemId { get; init; }
     public Guid EventId { get; init; }
@@ -13,6 +15,5 @@ public sealed record BookingConfirmedMessage
     public int Quantity { get; init; }
     public decimal UnitPrice { get; init; }
     public string Currency { get; init; } = "SEK";
-    public DateTime OccurredAtUtc { get; init; } = DateTime.UtcNow;
-    public string IdempotencyKey => $"{BookingId}:{BookingItemId}";
+    public DateTimeOffset OccurredAtUtc { get; init; }
 }

@@ -1,9 +1,11 @@
+using HalsingeLive.Contracts.Messaging;
+
 namespace Booking.Features.Tickets;
 
 public interface ITicketServiceClient
 {
     Task IssueTicketsAsync(
-        BookingConfirmedMessage message,
+        BookingConfirmedV1 message,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<TicketServiceTicketResponse>> GetTicketsForBookingAsync(

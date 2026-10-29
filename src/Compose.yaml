@@ -17,6 +17,11 @@ services:
       TicketService__BaseUrl: "http://ticketservice:8080/"
       TicketService__TimeoutSeconds: "5"
       TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__VirtualHost: "/"
+      RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
       Authentication__Authority: http://localhost:8180/realms/halsingelive
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       ASPNETCORE_ENVIRONMENT: Development
@@ -32,6 +37,8 @@ services:
         condition: service_started
       ticketservice:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
   ticketservice:
     build:
@@ -42,10 +49,17 @@ services:
       InitializeDatabase: "true"
       TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
       ConnectionStrings__TicketService: "Host=ticketservice-db;Port=5432;Database=ticketservice_dev;Username=postgres;Password=postgres"
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__VirtualHost: "/"
+      RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
     ports:
       - "8082:8080"
     depends_on:
       ticketservice-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   ticketservice-db:
@@ -136,6 +150,22 @@ services:
       timeout: 3s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit loopback_users []"
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   payment-simulator-db:
     image: postgres:18-alpine
     environment:
@@ -217,4 +247,5 @@ volumes:
   payment-simulator-data:
   venue-maps-data:
   booking-redis-data:
+  rabbitmq-data:
   ticketservice-data:
