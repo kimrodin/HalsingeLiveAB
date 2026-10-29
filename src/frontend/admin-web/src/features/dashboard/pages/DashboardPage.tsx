@@ -68,12 +68,11 @@ export default function DashboardPage() {
             <TableContainer>
               <Table aria-label="Nästa fem kommande evenemang">
                 <TableHead><TableRow>
-                  <TableCell>Datum och tid</TableCell><TableCell>Evenemang</TableCell><TableCell>Scen</TableCell>
+                  <TableCell>Evenemang</TableCell><TableCell>Scen</TableCell><TableCell>Datum och tid</TableCell>
                 </TableRow></TableHead>
                 <TableBody>
                   {upcoming.data.events.map((event) => (
                     <TableRow key={event.eventId} hover>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{dateFormatter.format(new Date(event.startDate))}</TableCell>
                       <TableCell><Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                         {event.imageUrl && <Box component="img" src={event.imageUrl} alt="" loading="lazy"
                           onError={(e) => { e.currentTarget.style.display = 'none'; }}
@@ -81,6 +80,7 @@ export default function DashboardPage() {
                         <Link component={RouterLink} to={`/events/${event.eventId}`}>{event.name}</Link>
                       </Box></TableCell>
                       <TableCell>{venues.isPending ? 'Hämtar scen…' : venues.data?.find((venue) => venue.id === event.venueId)?.name ?? 'Scen saknas'}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{dateFormatter.format(new Date(event.startDate))}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
