@@ -23,8 +23,9 @@ public sealed class EventImagesController(UploadEventImageHandler upload, GetEve
             return result is null ? NotFound() : Created(result.DownloadUrl, result);
         }
         catch (EventValidationException ex) { return Invalid(ex); }
+        catch (DbUpdateConcurrencyException) { return ImageChangedConflict(); }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-        { return Conflict(new ProblemDetails { Title = "The image was changed concurrently. Reload and try again." }); }
+        { return ImageChangedConflict(); }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
@@ -53,6 +54,12 @@ public sealed class EventImagesController(UploadEventImageHandler upload, GetEve
         try { return await delete.Handle(eventId, cancellationToken) ? NoContent() : NotFound(); }
         catch (EventValidationException ex) { return Invalid(ex); }
     }
+
+    private ConflictObjectResult ImageChangedConflict() => Conflict(new ProblemDetails
+    {
+        Status = StatusCodes.Status409Conflict,
+        Title = "The image was changed concurrently. Reload and try again."
+    });
 
     private IActionResult Invalid(EventValidationException exception)
     {

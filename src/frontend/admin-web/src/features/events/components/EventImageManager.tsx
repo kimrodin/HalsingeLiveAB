@@ -12,11 +12,9 @@ export default function EventImageManager({ event }: { event: EventDetails }) {
   const [notice, setNotice] = useState('');
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    if (!preview) return;
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
   const mutation = useMutation({
     mutationFn: async (action: 'upload' | 'delete') => {
       if (action === 'delete') return request(`/DeleteEventImage/${event.eventId}`, { method: 'DELETE' });
@@ -48,7 +46,11 @@ export default function EventImageManager({ event }: { event: EventDetails }) {
         <Button component="label" variant="outlined" disabled={mutation.isPending}>
           Välj bild
           <input hidden type="file" accept="image/png,image/jpeg" onChange={(e) => {
-            setFile(e.target.files?.[0] ?? null); setNotice(''); mutation.reset(); e.target.value = '';
+            const selectedFile = e.target.files?.[0] ?? null;
+            setFile(selectedFile);
+            setPreview(selectedFile ? URL.createObjectURL(selectedFile) : null);
+            setFailedUrl(null);
+            setNotice(''); mutation.reset(); e.target.value = '';
           }} />
         </Button>
         {file && <Typography variant="body2">{file.name}</Typography>}

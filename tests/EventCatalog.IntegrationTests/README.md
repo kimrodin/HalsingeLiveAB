@@ -1,10 +1,11 @@
 # EventCatalog tests
 
-The focused suite contains 53 test cases: 24 unit tests and 29 PostgreSQL
+The focused suite contains 54 test cases: 24 unit tests and 30 PostgreSQL
 integration tests. It covers validation boundaries, the default-date regression,
 capacity limits, persisted create/update flows, deletion of referenced data, and
 event image validation, shared file storage and bounded reads,
-upload/replacement/download and deletion, and seating map PDF lifecycle.
+upload/replacement/download and deletion, concurrent poster replacement conflicts,
+and seating map PDF lifecycle.
 Repetitive input variants and simple missing-object cases are intentionally omitted.
 
 Run the unit tests without a database:

@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using Microsoft.AspNetCore.Mvc;
 using EventCatalog.Features.Events;
 using EventCatalog.Features.Events.Images;
 using EventCatalog.Features.Events.GetEvent;
@@ -89,18 +91,59 @@ public sealed class EventImageHandlerTests(EventCatalogDatabaseFixture database)
         Assert.False(await db.EventImages.AnyAsync(i => i.EventId == eventId));
     }
 
+    [Fact]
+    public async Task ConcurrentReplacements_ReturnCreatedAndConflict_AndKeepOnlyWinningFile()
+    {
+        var eventId = await Event();
+        var storage = new MemoryStorage();
+        await using (var seed = database.CreateContext())
+            await Uploader(seed, storage).Handle(eventId, Request());
+
+        // Both requests must read the same old image before either starts replacing it.
+        storage.WaitForTwoUploads();
+        await using var firstDb = database.CreateContext();
+        await using var secondDb = database.CreateContext();
+        EventImagesController Controller(EventCatalog.Data.EventCatalogDbContext db) => new(
+            Uploader(db, storage), new GetEventImageHandler(db, storage),
+            new DeleteEventImageHandler(db, storage, NullLogger<DeleteEventImageHandler>.Instance),
+            NullLogger<EventImagesController>.Instance);
+
+        var responses = await Task.WhenAll(
+            Controller(firstDb).UploadEventImage(eventId, Request(), CancellationToken.None),
+            Controller(secondDb).UploadEventImage(eventId, Request(), CancellationToken.None));
+
+        var created = Assert.Single(responses.OfType<CreatedResult>());
+        var conflict = Assert.Single(responses.OfType<ConflictObjectResult>());
+        Assert.Equal(409, conflict.StatusCode);
+        Assert.Contains("Reload", Assert.IsType<ProblemDetails>(conflict.Value).Title!);
+        var response = Assert.IsType<EventImageResponse>(created.Value);
+        await using var verify = database.CreateContext();
+        var image = await verify.EventImages.SingleAsync(i => i.EventId == eventId);
+        Assert.Equal(response.EventImageId, image.EventImageId);
+        Assert.Equal(image.StorageKey, Assert.Single(storage.Files).Key);
+        Assert.Equal(Png, storage.Files[image.StorageKey]);
+    }
+
     private sealed class MemoryStorage : IEventImageStorage
     {
-        public Dictionary<string, byte[]> Files { get; } = new();
+        public ConcurrentDictionary<string, byte[]> Files { get; } = new();
+        private TaskCompletionSource? uploadsReady;
+        private int waitingUploads;
+        public void WaitForTwoUploads() => uploadsReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public async Task<string> SaveAsync(Stream content, string extension, CancellationToken token)
         {
             using var buffer = new MemoryStream();
             await content.CopyToAsync(buffer, token);
             var key = Guid.NewGuid().ToString("N") + extension;
-            Files.Add(key, buffer.ToArray());
+            Files.TryAdd(key, buffer.ToArray());
+            if (uploadsReady is not null)
+            {
+                if (Interlocked.Increment(ref waitingUploads) == 2) uploadsReady.TrySetResult();
+                await uploadsReady.Task.WaitAsync(TimeSpan.FromSeconds(10), token);
+            }
             return key;
         }
         public Task<Stream> OpenReadAsync(string key, CancellationToken token) => Task.FromResult<Stream>(new MemoryStream(Files[key]));
-        public Task DeleteAsync(string key, CancellationToken token) { Files.Remove(key); return Task.CompletedTask; }
+        public Task DeleteAsync(string key, CancellationToken token) { Files.TryRemove(key, out _); return Task.CompletedTask; }
     }
 }
