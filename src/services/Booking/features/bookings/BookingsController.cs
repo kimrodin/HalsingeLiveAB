@@ -14,11 +14,18 @@ public sealed class BookingsController(
 {
     [Authorize(Policy = "AdminOnly")]
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<AdminBookingListItemResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListBookings(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ListBookingsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListBookings(
+        [FromQuery] ListBookingsRequest request,
+        CancellationToken cancellationToken)
     {
-        var bookings = await bookingService.ListBookingsAsync(cancellationToken);
-        return Ok(bookings.Select(ToAdminListResponse).ToArray());
+        var result = await bookingService.ListBookingsAsync(request, cancellationToken);
+        return Ok(new ListBookingsResponse(
+            result.Bookings.Select(ToAdminListResponse).ToArray(),
+            result.TotalCount,
+            result.Page,
+            result.PageSize,
+            result.Statuses));
     }
 
     [HttpGet("{bookingId:guid}")]
@@ -332,5 +339,22 @@ public sealed record AdminBookingListItem(
     DateTimeOffset EventStartsAt,
     string VenueName,
     string SectionName);
+
+public sealed record ListBookingsRequest(
+    string Search = "",
+    string Status = "",
+    DateTime? From = null,
+    DateTime? To = null,
+    string SortBy = "",
+    string SortDirection = "",
+    int Page = 1,
+    int PageSize = 10);
+
+public sealed record ListBookingsResponse(
+    IReadOnlyList<AdminBookingListItemResponse> Bookings,
+    int TotalCount,
+    int Page,
+    int PageSize,
+    IReadOnlyList<string> Statuses);
 
 public sealed record BookingStatusResponse(Guid BookingId, string Status);
