@@ -1,0 +1,5 @@
+**/bin/
+**/obj/
+frontend/
+Services/EventCatalog/
+Services/PaymentSimulator/

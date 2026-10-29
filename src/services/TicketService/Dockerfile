@@ -1,9 +1,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["TicketService.csproj", "."]
-RUN dotnet restore "TicketService.csproj"
+COPY ["Services/TicketService/TicketService.csproj", "Services/TicketService/"]
+COPY ["Contracts/Messaging/Messaging.csproj", "Contracts/Messaging/"]
+RUN dotnet restore "Services/TicketService/TicketService.csproj"
 COPY . .
-RUN dotnet publish "TicketService.csproj" -c Release -o /app/publish --no-restore
+RUN dotnet publish "Services/TicketService/TicketService.csproj" -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app

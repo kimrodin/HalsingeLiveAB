@@ -5,8 +5,8 @@ services:
 
   booking:
     build:
-      context: ./services/Booking
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Services/Booking/Dockerfile
     environment:
       ConnectionStrings__Booking: "Host=booking-db;Port=5432;Database=booking_dev;Username=postgres;Password=postgres"
       ConnectionStrings__Redis: "booking-redis:6379"
@@ -42,8 +42,8 @@ services:
 
   ticketservice:
     build:
-      context: ./services/TicketService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Services/TicketService/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
