@@ -108,9 +108,7 @@ export default function AdminLayout() {
         <Typography sx={{ fontFamily: 'Georgia, serif', fontSize: 28, color: '#f1f5f9' }}>
           Hälsinge Live
         </Typography>
-        <Typography sx={{ mt: 1, fontSize: 10, letterSpacing: '.2em', color: '#9ecde4' }}>
-          EVENEMANG SOM FÖRENAR HÄLSINGLAND
-        </Typography>
+
       </Box>
       {navList}
       <Box sx={{ mt: 'auto', px: 3, py: 4, background: 'linear-gradient(transparent, rgba(6, 25, 35, .85))' }}>
