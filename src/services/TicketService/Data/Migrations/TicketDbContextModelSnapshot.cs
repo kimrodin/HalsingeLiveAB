@@ -66,6 +66,7 @@ namespace TicketService.Data.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
+                        .IsConcurrencyToken()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 

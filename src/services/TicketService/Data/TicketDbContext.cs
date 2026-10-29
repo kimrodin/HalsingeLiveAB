@@ -40,7 +40,8 @@ public sealed class TicketDbContext(DbContextOptions<TicketDbContext> options) :
             entity.Property(ticket => ticket.Status)
                 .HasConversion<string>()
                 .HasMaxLength(32)
-                .IsRequired();
+                .IsRequired()
+                .IsConcurrencyToken();
 
             entity.HasIndex(ticket => new
                 {

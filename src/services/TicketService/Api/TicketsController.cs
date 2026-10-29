@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using TicketService.Data;
 using TicketService.Features.Tickets.DownloadTicket;
 using TicketService.Features.Tickets.IssueTickets;
+using TicketService.Features.Tickets.Models;
 
 namespace TicketService.Api;
 
@@ -137,6 +138,80 @@ public sealed class TicketsController(
             : File(pdf, "application/pdf");
     }
 
+    [HttpPost("{ticketId:guid}/check-in")]
+    [ProducesResponseType(typeof(TicketStatusChangeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CheckInTicket(
+        Guid ticketId,
+        [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
+        CancellationToken cancellationToken) =>
+        ChangeTicketStatusAsync(ticketId, TicketStatus.CheckedIn, apiKey, cancellationToken);
+
+    [HttpPost("{ticketId:guid}/cancel")]
+    [ProducesResponseType(typeof(TicketStatusChangeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public Task<IActionResult> CancelTicket(
+        Guid ticketId,
+        [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
+        CancellationToken cancellationToken) =>
+        ChangeTicketStatusAsync(ticketId, TicketStatus.Cancelled, apiKey, cancellationToken);
+
+    private async Task<IActionResult> ChangeTicketStatusAsync(
+        Guid ticketId,
+        TicketStatus newStatus,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        var authorizationFailure = AuthorizeInternalRequest(apiKey);
+        if (authorizationFailure is not null)
+            return authorizationFailure;
+
+        if (ticketId == Guid.Empty)
+            return BadRequest(new ProblemDetails
+            {
+                Title = "A ticket ID is required.",
+                Status = StatusCodes.Status400BadRequest
+            });
+
+        var ticket = await dbContext.Tickets
+            .SingleOrDefaultAsync(item => item.TicketId == ticketId, cancellationToken);
+        if (ticket is null)
+            return NotFound();
+
+        if (ticket.Status != TicketStatus.Valid)
+            return InvalidTicketState(ticket);
+
+        var changedAt = DateTimeOffset.UtcNow;
+        ticket.Status = newStatus;
+        if (newStatus == TicketStatus.CheckedIn)
+            ticket.CheckedInAt = changedAt;
+        else
+            ticket.CancelledAt = changedAt;
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await dbContext.Entry(ticket).ReloadAsync(cancellationToken);
+            return InvalidTicketState(ticket);
+        }
+
+        return Ok(new TicketStatusChangeResponse(ticket.TicketId, ticket.Status.ToString(), changedAt));
+    }
+
+    private static ConflictObjectResult InvalidTicketState(Ticket ticket) => new(new ProblemDetails
+    {
+        Title = "The ticket is not valid for this operation.",
+        Detail = $"Current ticket status: {ticket.Status}.",
+        Status = StatusCodes.Status409Conflict
+    });
+
     private IActionResult AuthorizeInternalRequest(string apiKey)
     {
         var configuredApiKey = configuration["TicketService:InternalApiKey"];
@@ -180,3 +255,8 @@ public sealed record TicketResponse(
     string Currency,
     string Status,
     DateTimeOffset IssuedAt);
+
+public sealed record TicketStatusChangeResponse(
+    Guid TicketId,
+    string Status,
+    DateTimeOffset ChangedAt);
