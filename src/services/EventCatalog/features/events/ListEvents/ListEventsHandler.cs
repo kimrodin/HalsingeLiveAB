@@ -43,6 +43,7 @@ public class ListEventsHandler(EventCatalogDbContext dbContext)
             .Select(eventItem => new EventListItemResponseDTO
             {
                 EventId = eventItem.EventId,
+                ImageUrl = eventItem.Image == null ? null : "/DownloadEventImage/" + eventItem.EventId + "/" + eventItem.Image.EventImageId,
                 EventName = eventItem.Name,
                 EventDescription = eventItem.Description,
                 StartDate = eventItem.StartDate,

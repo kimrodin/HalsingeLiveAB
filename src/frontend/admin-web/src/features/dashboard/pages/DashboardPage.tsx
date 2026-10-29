@@ -74,7 +74,12 @@ export default function DashboardPage() {
                   {upcoming.data.events.map((event) => (
                     <TableRow key={event.eventId} hover>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{dateFormatter.format(new Date(event.startDate))}</TableCell>
-                      <TableCell><Link component={RouterLink} to={`/events/${event.eventId}`}>{event.name}</Link></TableCell>
+                      <TableCell><Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                        {event.imageUrl && <Box component="img" src={event.imageUrl} alt="" loading="lazy"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          sx={{ width: 40, height: 52, objectFit: 'cover', borderRadius: 1 }} />}
+                        <Link component={RouterLink} to={`/events/${event.eventId}`}>{event.name}</Link>
+                      </Box></TableCell>
                       <TableCell>{venues.isPending ? 'Hämtar scen…' : venues.data?.find((venue) => venue.id === event.venueId)?.name ?? 'Scen saknas'}</TableCell>
                     </TableRow>
                   ))}

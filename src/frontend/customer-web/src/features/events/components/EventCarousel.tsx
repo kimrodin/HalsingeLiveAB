@@ -201,7 +201,7 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
                         justifySelf: 'start',
                       }}
                     >
-                      <EventDatePoster startDate={event.startDate} eventName={event.eventName} />
+                      <EventDatePoster imageUrl={event.imageUrl} startDate={event.startDate} eventName={event.eventName} />
                     </Box>
                     <Box sx={{ minWidth: 0, gridColumn: 2, gridRow: 1, py: { sm: 1 } }}>
                       <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700, letterSpacing: 1.2 }}>

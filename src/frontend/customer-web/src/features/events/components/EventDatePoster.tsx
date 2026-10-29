@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Box, Typography } from '@mui/material'
 
 const posterMonthFormatter = new Intl.DateTimeFormat('sv-SE', { month: 'long' })
@@ -5,9 +6,18 @@ const posterMonthFormatter = new Intl.DateTimeFormat('sv-SE', { month: 'long' })
 interface EventDatePosterProps {
   startDate: string
   eventName: string
+  imageUrl?: string | null
+  compact?: boolean
 }
 
-export default function EventDatePoster({ startDate, eventName }: EventDatePosterProps) {
+export default function EventDatePoster({ startDate, eventName, imageUrl, compact = false }: EventDatePosterProps) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const width = compact ? { xs: 84, sm: 92 } : { xs: 100, sm: 142, md: 164 }
+  if (imageUrl && failedUrl !== imageUrl) {
+    return <Box component="img" src={imageUrl} alt={`Poster för ${eventName}`}
+      loading="lazy" onError={() => setFailedUrl(imageUrl)}
+      sx={{ width, aspectRatio: '3 / 4', objectFit: 'cover', borderRadius: 2.5, flexShrink: 0, display: 'block' }} />
+  }
   const date = new Date(startDate)
 
   return (
@@ -15,7 +25,7 @@ export default function EventDatePoster({ startDate, eventName }: EventDatePoste
       aria-label={`Grafisk evenemangsposter för ${eventName}`}
       role="img"
       sx={{
-        width: { xs: 100, sm: 142, md: 164 },
+        width,
         aspectRatio: '3 / 4',
         p: { xs: 1.25, sm: 2 },
         boxSizing: 'border-box',
