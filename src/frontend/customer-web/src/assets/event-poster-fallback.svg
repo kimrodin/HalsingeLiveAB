@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640" fill="none">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="480" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#132E3A"/><stop offset="1" stop-color="#061822"/>
+    </linearGradient>
+    <linearGradient id="mountains" x1="132" y1="240" x2="347" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3AE"/><stop offset="1" stop-color="#009B9E"/>
+    </linearGradient>
+    <linearGradient id="water" x1="148" y1="300" x2="320" y2="347" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#72D5FF"/><stop offset="1" stop-color="#00B9D2"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#background)" d="M0 0h480v640H0z"/>
+  <path d="M24 24h432v592H24z" stroke="#80C8DA" stroke-opacity=".16"/>
+  <path d="m0 506 87-85 69 47 92-88 96 82 68-42 68 75v145H0Z" fill="#173E4D" opacity=".35"/>
+  <path d="m0 561 82-52 83 45 83-51 77 41 87-29 68 47v78H0Z" fill="#0B2835"/>
+  <path d="m143 282 27-35 22 24 38-65 40 65 25-38 42 60H143Z" stroke="url(#mountains)" stroke-width="10" stroke-linejoin="miter"/>
+  <path d="M142 307c32-14 123-14 162-3 40 11 18 24-41 32-45 6-74 9-107 4 66-8 95-15 85-19-13-5-63-5-99-3-17 1-20-4 0-11Z" fill="url(#water)"/>
+  <text x="240" y="399" text-anchor="middle" fill="#F1F5F9" font-family="Georgia, 'Times New Roman', serif" font-size="43">Hälsinge Live</text>
+  <path d="M205 429h70" stroke="#22D3AE" stroke-width="2"/>
+  <text x="240" y="462" text-anchor="middle" fill="#9ECDE4" font-family="Arial, sans-serif" font-size="12" letter-spacing="3">EVENEMANG SOM FÖRENAR</text>
+  <text x="240" y="484" text-anchor="middle" fill="#9ECDE4" font-family="Arial, sans-serif" font-size="12" letter-spacing="3">HÄLSINGLAND</text>
+</svg>

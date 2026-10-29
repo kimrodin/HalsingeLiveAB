@@ -93,10 +93,12 @@ services:
       Authentication__Authority: http://localhost:8180/realms/halsingelive
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       VenueMapStorage__RootPath: /app/uploads/venue-maps
+      EventImageStorage__RootPath: /app/uploads/event-images
     ports:
       - "8080:8080"
     volumes:
       - venue-maps-data:/app/uploads/venue-maps
+      - event-images-data:/app/uploads/event-images
     depends_on:
       eventcatalog-db:
         condition: service_healthy
@@ -215,6 +217,7 @@ volumes:
   keycloak-data:
   eventcatalog-data:
   payment-simulator-data:
+  event-images-data:
   venue-maps-data:
   booking-redis-data:
   ticketservice-data:
