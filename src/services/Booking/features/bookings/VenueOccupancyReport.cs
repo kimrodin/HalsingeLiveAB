@@ -8,28 +8,32 @@ public sealed class VenueOccupancyReport(BookingDbContext db, HttpClient catalog
 {
     public async Task<IReadOnlyList<VenueOccupancyRow>> Get(DateTime? from, DateTime? to, CancellationToken ct)
     {
-        var inventory = await db.EventInventory.AsNoTracking().ToListAsync(ct);
-        var events = inventory.Select(x => x.EventId).Distinct().ToArray();
-        var rows = new List<VenueOccupancyRow>();
-        foreach (var eventId in events)
-        {
-            var eventInfo = await catalog.GetFromJsonAsync<EventInfo>($"GetEvent/{eventId}", ct)
-                ?? throw new HttpRequestException("EventCatalog returned no event.");
-            if (from.HasValue && eventInfo.StartDate.Date < from.Value.Date
-                || to.HasValue && eventInfo.StartDate.Date > to.Value.Date) continue;
-            var venue = await catalog.GetFromJsonAsync<VenueInfo>($"GetVenue/{eventInfo.VenueId}", ct)
-                ?? throw new HttpRequestException("EventCatalog returned no venue.");
-            var sections = inventory.Where(x => x.EventId == eventId).ToArray();
-            var total = sections.Sum(x => x.TotalQuantity);
-            var sold = sections.Sum(x => x.TotalQuantity - x.AvailableQuantity);
-            rows.Add(new(eventId, eventInfo.Name, eventInfo.StartDate, venue.VenueId, venue.Name,
-                total, sold, total == 0 ? 0 : Math.Round(100m * sold / total, 2)));
-        }
-        return rows.OrderBy(x => x.EventStartsAt).ThenBy(x => x.VenueName).ToArray();
+        var totals = await db.EventInventory.AsNoTracking()
+            .GroupBy(item => item.EventId)
+            .Select(group => new InventoryTotal(group.Key,
+                group.Sum(item => item.TotalQuantity),
+                group.Sum(item => item.TotalQuantity - item.AvailableQuantity)))
+            .ToArrayAsync(ct);
+        if (totals.Length == 0) return [];
+
+        using var response = await catalog.PostAsJsonAsync("GetEvents",
+            new GetEventsRequest(totals.Select(x => x.EventId).ToArray(), from?.Date, to?.Date), ct);
+        response.EnsureSuccessStatusCode();
+        var events = await response.Content.ReadFromJsonAsync<EventInfo[]>(cancellationToken: ct)
+            ?? throw new HttpRequestException("EventCatalog returned no event data.");
+        var byId = events.ToDictionary(item => item.EventId);
+        return totals.Where(total => byId.ContainsKey(total.EventId))
+            .Select(total => (Total: total, Event: byId[total.EventId]))
+            .Select(item => new VenueOccupancyRow(item.Event.EventId, item.Event.Name,
+                item.Event.StartDate, item.Event.VenueId, item.Event.VenueName,
+                item.Total.Capacity, item.Total.Sold,
+                item.Total.Capacity == 0 ? 0 : Math.Round(100m * item.Total.Sold / item.Total.Capacity, 2)))
+            .OrderBy(item => item.EventStartsAt).ThenBy(item => item.VenueName).ToArray();
     }
 
-    private sealed record EventInfo(Guid EventId, string Name, DateTime StartDate, Guid VenueId);
-    private sealed record VenueInfo(Guid VenueId, string Name);
+    private sealed record InventoryTotal(Guid EventId, int Capacity, int Sold);
+    private sealed record EventInfo(Guid EventId, string Name, DateTime StartDate, Guid VenueId, string VenueName);
+    private sealed record GetEventsRequest(Guid[] EventIds, DateTime? From, DateTime? To);
 }
 
 public sealed record VenueOccupancyRow(Guid EventId, string EventName, DateTime EventStartsAt,
