@@ -71,7 +71,8 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, IConfiguration co
             .Where(p => p.Status == PaymentStatus.Pending && p.CompleteAfter <= now)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(p => p.Status, p => p.PlannedOutcome)
-                .SetProperty(p => p.CompletedAt, now), cancellationToken);
+                .SetProperty(p => p.CompletedAt, now)
+                .SetProperty(p => p.PaidAt, p => p.PlannedOutcome == PaymentStatus.Succeeded ? now : p.PaidAt), cancellationToken);
     }
 
     public async Task<ProcessPaymentResponse> Cancel(ProcessPaymentRequest request, CancellationToken cancellationToken)
@@ -110,7 +111,7 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, IConfiguration co
 
     public static ProcessPaymentResponse ToResponse(Payment payment) => new(
         payment.Id, payment.BookingId, payment.Amount, payment.Currency,
-        payment.Status, payment.CreatedAt, payment.CompletedAt, payment.RefundedAt);
+        payment.Status, payment.CreatedAt, payment.CompletedAt, payment.PaidAt, payment.RefundedAt);
 }
 
 public sealed class PaymentConflictException(string message) : Exception(message);

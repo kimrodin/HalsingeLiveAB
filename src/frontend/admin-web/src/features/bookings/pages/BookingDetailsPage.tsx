@@ -150,6 +150,7 @@ export default function BookingDetailsPage() {
         <Typography>Betalningsstatus: {payment ? statusLabel(payment.status) : 'Ingen betalning'}</Typography>
         <Typography>Betalning skapad: {formatDate(payment?.createdAt)}</Typography>
         <Typography>Betalning slutförd: {formatDate(payment?.completedAt)}</Typography>
+        <Typography>Betald: {formatDate(payment?.paidAt)}</Typography>
         <Typography>Återbetalad: {formatDate(payment?.refundedAt)}</Typography>
       </Paper>
 

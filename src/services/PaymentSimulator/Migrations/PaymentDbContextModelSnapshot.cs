@@ -38,6 +38,9 @@ namespace PaymentSimulator.Migrations
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CompleteAfter")
                         .HasColumnType("timestamp with time zone");
 

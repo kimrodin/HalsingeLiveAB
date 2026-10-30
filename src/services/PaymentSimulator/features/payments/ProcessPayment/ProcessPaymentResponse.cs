@@ -11,5 +11,6 @@ public sealed record ProcessPaymentResponse(
     PaymentStatus Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    DateTimeOffset? PaidAt,
     DateTimeOffset? RefundedAt = null
 );

@@ -17,4 +17,5 @@ public sealed record PaymentResult(
     string Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    DateTimeOffset? PaidAt,
     DateTimeOffset? RefundedAt);
