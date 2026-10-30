@@ -360,7 +360,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         public int ProcessCalls { get; private set; }
         public PaymentResult? StoredPayment { get; set; }
         public PaymentResult Payment { get; } = new(Guid.NewGuid(), bookingId, amount, "SEK", "Succeeded",
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
