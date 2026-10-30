@@ -24,6 +24,7 @@ public class GetPaymentHandler(PaymentDbContext dbContext)
                 payment.Status,
                 payment.CreatedAt,
                 payment.CompletedAt,
+                payment.PaidAt,
                 payment.RefundedAt))
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -34,6 +35,6 @@ public class GetPaymentHandler(PaymentDbContext dbContext)
             .SingleOrDefaultAsync(p => p.BookingId == bookingId, cancellationToken);
         return payment is null ? null : new GetPaymentResponse(payment.Id, payment.BookingId,
             payment.Amount, payment.Currency, payment.Status, payment.CreatedAt,
-            payment.CompletedAt, payment.RefundedAt);
+            payment.CompletedAt, payment.PaidAt, payment.RefundedAt);
     }
 }

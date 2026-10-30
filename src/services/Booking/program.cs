@@ -30,6 +30,12 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 builder.Services.AddSingleton<Booking.Features.BookingHolds.RedisReservationService>();
 builder.Services.AddScoped<Booking.Features.Bookings.BookingService>();
+builder.Services.AddHttpClient<Booking.Features.Bookings.VenueOccupancyReport>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["EventCatalog:BaseUrl"]
+        ?? throw new InvalidOperationException("EventCatalog base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("EventCatalog:TimeoutSeconds", 5));
+});
 builder.Services.AddHostedService<Booking.Features.Bookings.BookingExpirationService>();
 builder.Services.AddHostedService<Booking.Features.Bookings.PaymentReconciliationService>();
 builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>

@@ -12,6 +12,7 @@ public class Payment
 
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
+    public DateTimeOffset? PaidAt { get; set; }
     public DateTimeOffset CompleteAfter { get; set; }
     public PaymentStatus PlannedOutcome { get; set; }
     public DateTimeOffset? RefundedAt { get; set; }

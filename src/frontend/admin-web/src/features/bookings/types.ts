@@ -34,6 +34,7 @@ export interface BookingPayment {
   status: string;
   createdAt: string;
   completedAt: string | null;
+  paidAt: string | null;
   refundedAt: string | null;
 }
 

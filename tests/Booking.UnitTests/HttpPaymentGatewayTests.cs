@@ -165,7 +165,7 @@ public sealed class HttpPaymentGatewayTests
     }
 
     private static PaymentResult Payment(Guid bookingId) => new(Guid.NewGuid(), bookingId, 299.50m, "SEK",
-        "Succeeded", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
+        "Succeeded", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
 
     private static HttpClient CreateClient(Func<HttpRequestMessage, Task<HttpResponseMessage>> handle) =>
         new(new StubHandler(handle)) { BaseAddress = new Uri("http://payment-simulator/") };
