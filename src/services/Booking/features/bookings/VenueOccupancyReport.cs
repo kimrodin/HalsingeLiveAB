@@ -28,8 +28,8 @@ public sealed class VenueOccupancyReport(BookingDbContext db, HttpClient catalog
             response.EnsureSuccessStatusCode();
             var batch = await response.Content.ReadFromJsonAsync<GetEventsResponse>(cancellationToken: ct)
                 ?? throw new HttpRequestException("EventCatalog returned no event data.");
-            if (batch.MissingEventIds.Length != 0)
-                throw new InvalidDataException($"EventCatalog is missing {batch.MissingEventIds.Length} requested event(s).");
+            // Deleted catalog events can leave inventory behind. Only events still
+            // present in the catalog and within the requested dates contribute.
             events.AddRange(batch.Events);
         }
         var byId = events.ToDictionary(item => item.EventId);

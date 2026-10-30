@@ -39,5 +39,10 @@ public sealed class VenueOccupancyController(VenueOccupancyReport report) : Cont
             return StatusCode(StatusCodes.Status502BadGateway,
                 new ProblemDetails { Title = "Event catalog is temporarily unavailable.", Status = 502 });
         }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway,
+                new ProblemDetails { Title = "Event catalog request timed out.", Status = 502 });
+        }
     }
 }
