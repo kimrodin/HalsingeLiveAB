@@ -166,14 +166,14 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
                   overflow: 'hidden',
                   borderRadius: 3,
                   borderColor: 'divider',
-                  boxShadow: 2,
+                  boxShadow: '0 5px 18px rgba(28, 48, 48, 0.075)',
                   position: 'relative',
                   '&::before': {
                     content: '""',
                     position: 'absolute',
                     inset: '0 0 auto',
-                    height: 4,
-                    bgcolor: 'primary.main',
+                    height: 3,
+                    bgcolor: 'primary.light',
                   },
                 }}
               >
