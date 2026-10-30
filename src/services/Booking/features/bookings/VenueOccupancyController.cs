@@ -7,6 +7,7 @@ namespace Booking.Features.Bookings;
 [Route("/[action]")]
 public sealed class VenueOccupancyController(VenueOccupancyReport report) : ControllerBase
 {
+    [Authorize(Policy = "AdminOnly")]
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<VenueOccupancyRow>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
