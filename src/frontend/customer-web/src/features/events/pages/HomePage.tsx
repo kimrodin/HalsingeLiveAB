@@ -13,6 +13,7 @@ import { getVenues } from '../../venues/api/venues'
 import { useNow } from '../../../shared/hooks/useNow'
 import EventCarousel from '../components/EventCarousel'
 import EventCard from '../components/EventCard'
+import bannerImage from '../../../assets/banner.png'
 
 export default function HomePage() {
   const now = useNow()
@@ -70,15 +71,42 @@ export default function HomePage() {
   )
 
   return (
-    <Stack spacing={3}>
-      <EventCarousel events={featuredEvents} venuesById={venuesById} now={now} />
+    <Stack spacing={3} useFlexGap>
+      <Stack
+        spacing={3}
+        sx={{
+          position: 'relative',
+          isolation: 'isolate',
+          mt: { xs: -3, sm: -5 },
+          pt: { xs: 3, sm: 5 },
+          pb: 3,
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            zIndex: -1,
+            top: 'calc(-1 * var(--customer-header-height, 77px))',
+            bottom: 0,
+            left: 'calc(50% - 50vw)',
+            width: '100vw',
+            backgroundColor: '#062b3c',
+            backgroundImage: `url("${bannerImage}")`,
+            // Beskär bort mer himmel och lyft fram landskapet längst ned.
+            backgroundSize: 'cover',
+            backgroundPosition: 'center bottom',
+            backgroundRepeat: 'no-repeat',
+          },
+        }}
+      >
+        <EventCarousel events={featuredEvents} venuesById={venuesById} now={now} />
 
-      <TextField
-        label="Sök evenemang"
-        value={searchTerm}
-        onChange={(event) => setSearchTerm(event.target.value)}
-        fullWidth
-      />
+        <TextField
+          label="Sök evenemang"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          fullWidth
+          sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
+        />
+      </Stack>
 
       {filteredEvents.length === 0 ? (
         <Alert severity="info">

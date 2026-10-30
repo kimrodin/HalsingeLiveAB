@@ -28,8 +28,8 @@ function EventCard({ event, venueName, now }: { event: EventListItem; venueName?
         transition: 'transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease',
         '&:hover, &:focus-within': {
           transform: 'translateY(-2px)',
-          boxShadow: 3,
-          borderColor: 'primary.main',
+          boxShadow: '0 8px 22px rgba(28, 48, 48, 0.10)',
+          borderColor: 'primary.light',
         },
         '@media (prefers-reduced-motion: reduce)': {
           transition: 'none',
