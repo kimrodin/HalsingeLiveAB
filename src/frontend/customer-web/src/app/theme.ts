@@ -51,6 +51,9 @@ export const theme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
+        html: {
+          backgroundColor: '#062b3c',
+        },
         body: {
           backgroundColor: colors.canvas,
           overflowX: 'hidden',
