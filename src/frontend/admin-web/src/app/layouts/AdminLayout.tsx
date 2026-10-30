@@ -5,8 +5,8 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Alert, AppBar, Box, Button, Drawer, IconButton, List, ListItemButton, ListItemText,
-  Snackbar, Toolbar, Typography,
+  Alert, Box, Button, Drawer, IconButton, List, ListItemButton, ListItemText,
+  Snackbar, Typography,
 } from '@mui/material';
 import { deleteSeedData, seedData } from '../../features/seed/api/seed';
 import sidebarLandscape from '../../assets/sidebar-landscape.svg';
@@ -111,7 +111,22 @@ export default function AdminLayout() {
 
       </Box>
       {navList}
-      <Box sx={{ mt: 'auto', px: 3, py: 4, background: 'linear-gradient(transparent, rgba(6, 25, 35, .85))' }}>
+      <Box sx={{ mt: 'auto', px: 2, py: 3, background: 'linear-gradient(transparent, rgba(6, 25, 35, .85))' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          {import.meta.env.DEV && (
+            <>
+              <Button color="inherit" disabled={seedActionPending} onClick={() => seedMutation.mutate()} sx={{ justifyContent: 'flex-start' }}>
+                Skapa seeddata
+              </Button>
+              <Button color="inherit" disabled={seedActionPending} onClick={handleDeleteSeed} sx={{ justifyContent: 'flex-start' }}>
+                Ta bort seeddata
+              </Button>
+            </>
+          )}
+          <Button color="inherit" onClick={() => void logout()} sx={{ justifyContent: 'flex-start' }}>
+            Logga ut
+          </Button>
+        </Box>
         <Typography sx={{ maxWidth: 190, fontSize: 12, letterSpacing: '.2em', lineHeight: 1.8, color: '#a3d2ee' }}>
           KONST, KULTUR OCH UPPLEVELSER I HÄLSINGLAND
         </Typography>
@@ -121,36 +136,6 @@ export default function AdminLayout() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
-      <AppBar position="fixed" sx={{ width: { sm: `calc(100% - ${drawerWidth}px)` }, ml: { sm: `${drawerWidth}px` } }}>
-        <Toolbar sx={{ gap: 1, px: { xs: 1, sm: 3 }, flexWrap: 'wrap', py: { xs: 1, sm: 0 } }}>
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              edge="start"
-              aria-label="Öppna menyn"
-              onClick={() => setMobileNavOpen(true)}
-            >
-              <span aria-hidden="true">☰</span>
-            </IconButton>
-          )}
-          <Typography variant="h6" noWrap>Hälsinge Live – Admin</Typography>
-          <Box sx={{ flexGrow: 1 }} />
-          {import.meta.env.DEV && (
-            <>
-              <Button color="inherit" disabled={seedActionPending} onClick={() => seedMutation.mutate()}>
-                Skapa seeddata
-              </Button>
-              <Button color="inherit" disabled={seedActionPending} onClick={handleDeleteSeed}>
-                Ta bort seeddata
-              </Button>
-            </>
-          )}
-          <Button color="inherit" onClick={() => void logout()}>
-            Logga ut
-          </Button>
-        </Toolbar>
-      </AppBar>
-
       <Drawer
         variant="permanent"
         sx={{
@@ -186,7 +171,16 @@ export default function AdminLayout() {
           backgroundImage: 'radial-gradient(ellipse at top right, rgba(0, 200, 220, .04), transparent 65%)',
         }}
       >
-        <Toolbar />
+        {isMobile && (
+          <IconButton
+            color="inherit"
+            aria-label="Öppna menyn"
+            onClick={() => setMobileNavOpen(true)}
+            sx={{ mb: 1 }}
+          >
+            <span aria-hidden="true">☰</span>
+          </IconButton>
+        )}
         <Outlet />
       </Box>
       <Snackbar
