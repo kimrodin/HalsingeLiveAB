@@ -66,13 +66,11 @@ export const theme = createTheme({
           borderRadius: 8,
           transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
           '&:focus-visible': { outline: `3px solid ${alpha(colors.teal, 0.38)}`, outlineOffset: 2 },
-        },
-        containedPrimary: {
-          '&:hover': { backgroundColor: colors.tealDark },
-        },
-        outlinedPrimary: {
-          borderColor: alpha(colors.teal, 0.55),
-          '&:hover': { borderColor: colors.tealDark, backgroundColor: alpha(colors.teal, 0.06) },
+          '&.MuiButton-containedPrimary:hover': { backgroundColor: colors.tealDark },
+          '&.MuiButton-outlinedPrimary': {
+            borderColor: alpha(colors.teal, 0.55),
+            '&:hover': { borderColor: colors.tealDark, backgroundColor: alpha(colors.teal, 0.06) },
+          },
         },
       },
     },
