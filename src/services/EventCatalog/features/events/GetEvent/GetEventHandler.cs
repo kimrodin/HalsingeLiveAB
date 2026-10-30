@@ -46,9 +46,15 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
     {
         var query = dbContext.Events.AsNoTracking().Where(e => eventIds.Contains(e.EventId));
         if (from.HasValue)
-            query = query.Where(e => e.StartDate >= from.Value.Date);
+        {
+            var fromUtc = DateTime.SpecifyKind(from.Value.Date, DateTimeKind.Utc);
+            query = query.Where(e => e.StartDate >= fromUtc);
+        }
         if (to.HasValue)
-            query = query.Where(e => e.StartDate < to.Value.Date.AddDays(1));
+        {
+            var toUtcExclusive = DateTime.SpecifyKind(to.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(e => e.StartDate < toUtcExclusive);
+        }
 
         var events = await query
             .Include(e => e.Image)

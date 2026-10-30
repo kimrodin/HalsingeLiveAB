@@ -7,7 +7,6 @@ namespace Booking.Features.Bookings;
 [Route("/[action]")]
 public sealed class VenueOccupancyController(VenueOccupancyReport report) : ControllerBase
 {
-    [Authorize(Policy = "AdminOnly")]
     [HttpGet]
     public async Task<IActionResult> GetVenueOccupancy([FromQuery] DateTime? from,
         [FromQuery] DateTime? to, CancellationToken cancellationToken)
