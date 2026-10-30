@@ -12,6 +12,7 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
 
         var eventItem = await dbContext.Events
             .AsNoTracking()
+            .Include(e => e.Image)
             .Include(e => e.SectionPrices)
                 .ThenInclude(sectionPrice => sectionPrice.Section)
             .Where(e => e.EventId == request.EventId)
@@ -33,6 +34,7 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
                     price.SectionId,
                     price.Price,
                     price.Section.SectionCapacity))
-                .ToList());
+                .ToList(),
+            eventItem.Image is null ? null : $"/DownloadEventImage/{eventItem.EventId}/{eventItem.Image.EventImageId}");
     }
 }

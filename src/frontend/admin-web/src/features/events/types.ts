@@ -4,6 +4,7 @@ export interface EventSectionPrice {
 }
 
 export interface EventDetails {
+  imageUrl?: string | null;
   eventId: string;
   venueId: string;
   name: string;

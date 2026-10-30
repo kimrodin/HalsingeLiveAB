@@ -72,6 +72,10 @@ public sealed class DeleteSeedDataHandler(EventCatalogDbContext dbContext)
                 "A seeded venue has seating maps. Remove the maps before deleting the seeded venues.");
         }
 
+        if (await dbContext.EventImages.AnyAsync(image => eventIds.Contains(image.EventId), cancellationToken))
+            throw new SeedDataDeleteConflictException(
+                "A seeded event has an image. Remove the image before deleting seed data.");
+
         var unrelatedSectionPrices = await dbContext.EventSectionPrice
             .AnyAsync(price => sectionIds.Contains(price.SectionId)
                 && !eventIds.Contains(price.EventId), cancellationToken);

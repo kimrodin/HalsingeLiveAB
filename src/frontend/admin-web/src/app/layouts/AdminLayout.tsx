@@ -5,14 +5,25 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Alert, AppBar, Box, Button, Drawer, IconButton, List, ListItemButton, ListItemText,
-  Snackbar, Toolbar, Typography,
+  Alert, Box, Button, Drawer, IconButton, List, ListItemButton, ListItemText,
+  Snackbar, Typography,
 } from '@mui/material';
 import { deleteSeedData, seedData } from '../../features/seed/api/seed';
+import sidebarLandscape from '../../assets/sidebar-landscape.svg';
 
-const drawerWidth = 220;
+const drawerWidth = 260;
+
+const drawerPaperSx = {
+  width: drawerWidth,
+  boxSizing: 'border-box',
+  backgroundColor: '#091b25',
+  backgroundImage: `linear-gradient(180deg, rgba(7, 22, 31, .15), rgba(7, 22, 31, .25)), url("${sidebarLandscape}")`,
+  backgroundSize: 'cover',
+  backgroundPosition: 'center bottom',
+};
 
 const navItems = [
+  { label: 'Dashboard', to: '/dashboard' },
   { label: 'Evenemang', to: '/events' },
   { label: 'Scener', to: '/venues' },
   { label: 'Bokningar', to: '/bookings' },
@@ -76,14 +87,14 @@ export default function AdminLayout() {
   const seedActionPending = seedMutation.isPending || deleteMutation.isPending;
 
   const navList = (
-    <List>
+    <List sx={{ px: 1.5 }}>
       {navItems.map((item) => (
         <ListItemButton
           key={item.to}
           component={NavLink}
           to={item.to}
           onClick={() => setMobileNavOpen(false)}
-          sx={{ '&.active': { bgcolor: 'action.selected' } }}
+          sx={{ mb: 1, borderRadius: 1 }}
         >
           <ListItemText primary={item.label} />
         </ListItemButton>
@@ -91,49 +102,50 @@ export default function AdminLayout() {
     </List>
   );
 
-  return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
-      <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ gap: 1, px: { xs: 1, sm: 3 } }}>
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              edge="start"
-              aria-label="Öppna menyn"
-              onClick={() => setMobileNavOpen(true)}
-            >
-              <span aria-hidden="true">☰</span>
-            </IconButton>
-          )}
-          <Typography variant="h6" noWrap>Hälsinge Live – Admin</Typography>
-          <Box sx={{ flexGrow: 1 }} />
+  const sidebarContent = (
+    <>
+      <Box sx={{ px: 2.5, py: 3 }}>
+        <Typography sx={{ fontFamily: 'Georgia, serif', fontSize: 28, color: '#f1f5f9' }}>
+          Hälsinge Live
+        </Typography>
+
+      </Box>
+      {navList}
+      <Box sx={{ mt: 'auto', px: 2, py: 3, background: 'linear-gradient(transparent, rgba(6, 25, 35, .85))' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           {import.meta.env.DEV && (
             <>
-              <Button color="inherit" disabled={seedActionPending} onClick={() => seedMutation.mutate()}>
+              <Button color="inherit" disabled={seedActionPending} onClick={() => seedMutation.mutate()} sx={{ justifyContent: 'flex-start' }}>
                 Skapa seeddata
               </Button>
-              <Button color="inherit" disabled={seedActionPending} onClick={handleDeleteSeed}>
+              <Button color="inherit" disabled={seedActionPending} onClick={handleDeleteSeed} sx={{ justifyContent: 'flex-start' }}>
                 Ta bort seeddata
               </Button>
             </>
           )}
-          <Button color="inherit" onClick={() => void logout()}>
+          <Button color="inherit" onClick={() => void logout()} sx={{ justifyContent: 'flex-start' }}>
             Logga ut
           </Button>
-        </Toolbar>
-      </AppBar>
+        </Box>
+        <Typography sx={{ maxWidth: 190, fontSize: 12, letterSpacing: '.2em', lineHeight: 1.8, color: '#a3d2ee' }}>
+          KONST, KULTUR OCH UPPLEVELSER I HÄLSINGLAND
+        </Typography>
+      </Box>
+    </>
+  );
 
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
       <Drawer
         variant="permanent"
         sx={{
           display: { xs: 'none', sm: 'block' },
           width: drawerWidth,
           flexShrink: 0,
-          '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+          '& .MuiDrawer-paper': drawerPaperSx,
         }}
       >
-        <Toolbar />
-        {navList}
+        {sidebarContent}
       </Drawer>
 
       <Drawer
@@ -143,11 +155,10 @@ export default function AdminLayout() {
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', sm: 'none' },
-          '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+          '& .MuiDrawer-paper': drawerPaperSx,
         }}
       >
-        <Toolbar />
-        {navList}
+        {sidebarContent}
       </Drawer>
 
       <Box
@@ -157,9 +168,19 @@ export default function AdminLayout() {
           minWidth: 0,
           width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` },
           p: { xs: 2, sm: 3 },
+          backgroundImage: 'radial-gradient(ellipse at top right, rgba(0, 200, 220, .04), transparent 65%)',
         }}
       >
-        <Toolbar />
+        {isMobile && (
+          <IconButton
+            color="inherit"
+            aria-label="Öppna menyn"
+            onClick={() => setMobileNavOpen(true)}
+            sx={{ mb: 1 }}
+          >
+            <span aria-hidden="true">☰</span>
+          </IconButton>
+        )}
         <Outlet />
       </Box>
       <Snackbar

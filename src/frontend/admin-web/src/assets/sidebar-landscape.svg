@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 900" fill="none">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="900" gradientUnits="userSpaceOnUse"><stop stop-color="#091b25"/><stop offset=".55" stop-color="#164052"/><stop offset="1" stop-color="#06212b"/></linearGradient>
+    <linearGradient id="lake" x2="0" y1="600" y2="900" gradientUnits="userSpaceOnUse"><stop stop-color="#246174"/><stop offset="1" stop-color="#071d28"/></linearGradient>
+    <g id="pine"><path d="M0 0-13 33h7l-14 22h12l-17 27h22v18h6V82h22L8 55h12L6 33h7Z" fill="currentColor"/></g>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h260v900H0z"/>
+  <path fill="#315667" opacity=".55" d="m0 550 48-50 31 23 54-59 58 56 37-29 32 27v182H0Z"/>
+  <path fill="#173e4c" d="m0 579 39-33 39 16 48-37 40 24 40-28 54 45v134H0Z"/>
+  <path fill="url(#lake)" d="M0 615h260v285H0z"/>
+  <path fill="#0b2b37" d="m0 577 39 29 32 27 40 12-44 13-25 46L0 726Zm260-18-34 38-26 29-40 18 40 16 26 45 34 24Z"/>
+  <g color="#061b25">
+    <use href="#pine" transform="translate(11 473) scale(1.6)"/>
+    <use href="#pine" transform="translate(43 528) scale(.9)"/>
+    <use href="#pine" transform="translate(68 573) scale(.5)"/>
+    <use href="#pine" transform="translate(240 441) scale(1.9)"/>
+    <use href="#pine" transform="translate(211 532) scale(.9)"/>
+    <use href="#pine" transform="translate(186 586) scale(.4)"/>
+  </g>
+  <g color="#061b25" opacity=".35">
+    <use href="#pine" transform="translate(11 802) scale(1.6 -1.6)"/>
+    <use href="#pine" transform="translate(240 817) scale(1.9 -1.9)"/>
+  </g>
+  <path stroke="#72b5c8" stroke-opacity=".25" d="M104 677h48m-62 18h72m-60 29h54m-66 31h81"/>
+</svg>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using EventCatalog.Data;
+using EventCatalog.Features.Events.Images;
 using EventCatalog.Features.Events.CreateEvent;
 using EventCatalog.Features.Events.GetEvent;
 using EventCatalog.Features.Events.DeleteEvent;
@@ -30,6 +31,11 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.Configure<EventImageStorageOptions>(builder.Configuration.GetSection("EventImageStorage"));
+builder.Services.AddSingleton<IEventImageStorage, LocalEventImageStorage>();
+builder.Services.AddScoped<UploadEventImageHandler>();
+builder.Services.AddScoped<GetEventImageHandler>();
+builder.Services.AddScoped<DeleteEventImageHandler>();
 builder.Services.AddScoped<GetEventHandler>();
 builder.Services.AddScoped<CreateEventHandler>();
 builder.Services.AddHttpClient<IBookingInventoryClient, HttpBookingInventoryClient>(client =>

@@ -1,4 +1,4 @@
-import { request, sendJson } from '../../../shared/api/http';
+import { BASE_URL, request, sendJson } from '../../../shared/api/http';
 import type {
   CreateEventRequest,
   EventDetails,
@@ -10,6 +10,7 @@ interface EventListItemDto {
   eventId: string;
   eventName: string;
   eventDescription: string;
+  imageUrl?: string | null;
   sectionPrices: EventSectionPrice[];
   startDate: string;
   endDate: string;
@@ -28,6 +29,7 @@ export interface ListEventsParams {
   eventName?: string;
   venueId?: string;
   startAfter?: string;
+  endsAfter?: string;
   startsBefore?: string;
   page?: number;
   pageSize?: number;
@@ -50,6 +52,7 @@ function eventFromListItem(event: EventListItemDto): EventDetails {
     venueId: event.venueId,
     name: event.eventName,
     description: event.eventDescription,
+    imageUrl: eventImageUrl(event.imageUrl),
     startDate: event.startDate,
     endDate: event.endDate,
     onSaleFrom: event.onSaleFrom,
@@ -63,6 +66,7 @@ export async function getEvents(params: ListEventsParams = {}): Promise<ListEven
   if (params.venueId) query.set('VenueId', params.venueId);
   // datetime-local has no timezone; send UTC just like the event form does.
   if (params.startAfter) query.set('StartAfter', new Date(params.startAfter).toISOString());
+  if (params.endsAfter) query.set('EndsAfter', new Date(params.endsAfter).toISOString());
   if (params.startsBefore) query.set('StartsBefore', new Date(params.startsBefore).toISOString());
   query.set('Page', String(params.page ?? 1));
   query.set('PageSize', String(params.pageSize ?? 10));
@@ -74,8 +78,14 @@ export async function getEvents(params: ListEventsParams = {}): Promise<ListEven
   };
 }
 
+export function eventImageUrl(url?: string | null): string | null {
+  if (!url) return null;
+  return /^https?:\/\//i.test(url) ? url : `${BASE_URL.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+}
+
 export async function getEvent(eventId: string): Promise<EventDetails> {
-  return request<EventDetails>(`/GetEvent/${eventId}`);
+  const event = await request<EventDetails>(`/GetEvent/${eventId}`);
+  return { ...event, imageUrl: eventImageUrl(event.imageUrl) };
 }
 
 export function createEvent(data: CreateEventRequest): Promise<CreateEventResponseDto> {

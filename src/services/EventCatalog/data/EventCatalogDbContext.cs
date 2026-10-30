@@ -7,6 +7,7 @@ namespace EventCatalog.Data;
 
 public class EventCatalogDbContext : DbContext
 {
+    public DbSet<EventImage> EventImages => Set<EventImage>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<EventSectionPrice> EventSectionPrice => Set<EventSectionPrice>();
     public DbSet<Venue> Venues => Set<Venue>();
@@ -67,6 +68,18 @@ public class EventCatalogDbContext : DbContext
             .WithMany(v => v.Events)
             .HasForeignKey(e => e.VenueId);
         #endregion
+
+        modelBuilder.Entity<EventImage>(image =>
+        {
+            image.HasKey(i => i.EventImageId);
+            image.HasOne<Event>().WithOne(e => e.Image)
+                .HasForeignKey<EventImage>(i => i.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            image.Property(i => i.Name).IsRequired().HasMaxLength(200);
+            image.Property(i => i.FileName).IsRequired().HasMaxLength(255);
+            image.Property(i => i.StorageKey).IsRequired().HasMaxLength(100);
+            image.Property(i => i.ContentType).IsRequired().HasMaxLength(100);
+        });
 
         #region EventSectionPriceDbModel
         modelBuilder.Entity<EventSectionPrice>()

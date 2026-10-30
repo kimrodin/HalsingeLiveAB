@@ -4,6 +4,7 @@ namespace EventCatalog.Features.Events.Models;
 
 public class Event
 {
+    public EventImage Image { get; set; }
     public Guid EventId { get; set; }
     public Guid VenueId { get; set; }
     public Venue Venue { get; set; } = null!;
