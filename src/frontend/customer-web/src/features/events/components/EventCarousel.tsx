@@ -264,7 +264,24 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
       </Box>
 
       {events.length > 1 && (
-        <Stack direction="row" spacing={1} sx={{ mt: 1.5, alignItems: 'center', justifyContent: 'center' }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            mt: 1.5,
+            alignItems: 'center',
+            justifyContent: 'center',
+            '& .MuiButton-root': {
+              color: '#9CBEC1',
+              '&:hover': { bgcolor: 'rgba(156, 190, 193, 0.12)' },
+              '&:focus-visible': {
+                outline: '2px solid',
+                outlineColor: 'currentColor',
+                outlineOffset: 2,
+              },
+            },
+          }}
+        >
           <Button
             aria-label="Föregående evenemang"
             onClick={() => scrollToIndex(currentIndex - 1)}
@@ -278,7 +295,7 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
               aria-label={`Visa evenemang ${index + 1}: ${event.eventName}`}
               aria-current={index === currentIndex ? 'true' : undefined}
               onClick={() => scrollToIndex(index)}
-              sx={{ minWidth: 32, px: 1, color: index === currentIndex ? 'primary.main' : 'text.disabled' }}
+              sx={{ minWidth: 32, px: 1 }}
             >
               {index === currentIndex ? '●' : '○'}
             </Button>
