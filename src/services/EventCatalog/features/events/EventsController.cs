@@ -107,10 +107,10 @@ public class EventsController(
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(IReadOnlyList<GetEventResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(GetEventsResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetEvents([FromBody] GetEventsRequest request, CancellationToken cancellationToken)
     {
-        if (request.EventIds.Length == 0 || request.EventIds.Length > 500
+        if (request is null || request.EventIds is null || request.EventIds.Length == 0 || request.EventIds.Length > 500
             || request.EventIds.Any(id => id == Guid.Empty)
             || request.From > request.To)
             return BadRequest("Provide between 1 and 500 valid event IDs.");

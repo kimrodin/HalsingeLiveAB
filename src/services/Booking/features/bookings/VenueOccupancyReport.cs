@@ -11,16 +11,27 @@ public sealed class VenueOccupancyReport(BookingDbContext db, HttpClient catalog
         var totals = await db.EventInventory.AsNoTracking()
             .GroupBy(item => item.EventId)
             .Select(group => new InventoryTotal(group.Key,
-                group.Sum(item => item.TotalQuantity),
-                group.Sum(item => item.TotalQuantity - item.AvailableQuantity)))
+                group.Sum(item => (long)item.TotalQuantity),
+                group.Sum(item => (long)item.TotalQuantity - item.AvailableQuantity),
+                group.Sum(item => item.TotalQuantity <= 0 || item.AvailableQuantity < 0
+                    || item.AvailableQuantity > item.TotalQuantity ? 1 : 0)))
             .ToArrayAsync(ct);
         if (totals.Length == 0) return [];
+        if (totals.Any(item => item.InvalidInventoryCount != 0))
+            throw new InvalidOperationException("Inventory contains invalid capacity or availability values.");
 
-        using var response = await catalog.PostAsJsonAsync("GetEvents",
-            new GetEventsRequest(totals.Select(x => x.EventId).ToArray(), from?.Date, to?.Date), ct);
-        response.EnsureSuccessStatusCode();
-        var events = await response.Content.ReadFromJsonAsync<EventInfo[]>(cancellationToken: ct)
-            ?? throw new HttpRequestException("EventCatalog returned no event data.");
+        var events = new List<EventInfo>();
+        foreach (var ids in totals.Select(item => item.EventId).Chunk(500))
+        {
+            using var response = await catalog.PostAsJsonAsync("GetEvents",
+                new GetEventsRequest(ids, from?.Date, to?.Date), ct);
+            response.EnsureSuccessStatusCode();
+            var batch = await response.Content.ReadFromJsonAsync<GetEventsResponse>(cancellationToken: ct)
+                ?? throw new HttpRequestException("EventCatalog returned no event data.");
+            if (batch.MissingEventIds.Length != 0)
+                throw new InvalidDataException($"EventCatalog is missing {batch.MissingEventIds.Length} requested event(s).");
+            events.AddRange(batch.Events);
+        }
         var byId = events.ToDictionary(item => item.EventId);
         var eventRows = totals.Where(total => byId.ContainsKey(total.EventId))
             .Select(total => (Total: total, Event: byId[total.EventId]))
@@ -42,12 +53,13 @@ public sealed class VenueOccupancyReport(BookingDbContext db, HttpClient catalog
             .ToArray();
     }
 
-    private sealed record InventoryTotal(Guid EventId, int Capacity, int Sold);
+    private sealed record InventoryTotal(Guid EventId, long Capacity, long Sold, int InvalidInventoryCount);
     private sealed record EventInfo(Guid EventId, string Name, DateTime StartDate, Guid VenueId, string VenueName);
+    private sealed record GetEventsResponse(EventInfo[] Events, Guid[] MissingEventIds);
     private sealed record GetEventsRequest(Guid[] EventIds, DateTime? From, DateTime? To);
-    private sealed record EventOccupancyRow(Guid VenueId, string VenueName, int Capacity, int Sold,
+    private sealed record EventOccupancyRow(Guid VenueId, string VenueName, long Capacity, long Sold,
         decimal OccupancyPercent);
 }
 
-public sealed record VenueOccupancyRow(Guid VenueId, string VenueName, int Capacity,
-    int Sold, decimal OccupancyPercent);
+public sealed record VenueOccupancyRow(Guid VenueId, string VenueName, long Capacity,
+    long Sold, decimal OccupancyPercent);

@@ -40,10 +40,14 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
             eventItem.Venue.VenueName);
     }
 
-    public async Task<IReadOnlyList<GetEventResponse>> HandleMany(
+    public async Task<GetEventsResponse> HandleMany(
         IReadOnlyCollection<Guid> eventIds, DateTime? from, DateTime? to,
         CancellationToken cancellationToken)
     {
+        var existingIds = await dbContext.Events.AsNoTracking()
+            .Where(e => eventIds.Contains(e.EventId))
+            .Select(e => e.EventId)
+            .ToArrayAsync(cancellationToken);
         var query = dbContext.Events.AsNoTracking().Where(e => eventIds.Contains(e.EventId));
         if (from.HasValue)
         {
@@ -62,12 +66,18 @@ public class GetEventHandler(EventCatalogDbContext dbContext)
             .Include(e => e.SectionPrices).ThenInclude(price => price.Section)
             .ToListAsync(cancellationToken);
 
-        return events.Select(eventItem => new GetEventResponse(
+        var responses = events.Select(eventItem => new GetEventResponse(
             eventItem.EventId, eventItem.Name, eventItem.Description, eventItem.StartDate,
             eventItem.EndDate, eventItem.OnSaleFrom, eventItem.VenueId,
             eventItem.SectionPrices.Select(price => new EventSectionPriceResponse(
                 price.SectionId, price.Price, price.Section.SectionCapacity)).ToArray(),
             eventItem.Image is null ? null : $"/DownloadEventImage/{eventItem.EventId}/{eventItem.Image.EventImageId}",
             eventItem.Venue.VenueName)).ToArray();
+        var missingIds = eventIds.Except(existingIds).ToArray();
+        return new GetEventsResponse(responses, missingIds);
     }
 }
+
+public sealed record GetEventsResponse(
+    IReadOnlyList<GetEventResponse> Events,
+    IReadOnlyList<Guid> MissingEventIds);
