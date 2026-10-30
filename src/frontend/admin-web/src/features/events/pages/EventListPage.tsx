@@ -1,7 +1,7 @@
 import { Link as RouterLink } from 'react-router';
 import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Pagination,
-  Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { getEvents, deleteEvent } from '../api/events';
 import { getVenues } from '../../venues/api/venues';
@@ -63,26 +63,94 @@ export default function EventsPage() {
 
       {isPending && <CircularProgress />}
       {isError && <Alert severity="error">Kunde inte hämta evenemang.</Alert>}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-          <TextField label="Sök evenemang" value={eventName} fullWidth
-            onChange={(event) => { setEventName(event.target.value); setPage(1); }} />
-          <TextField select label="Scen" value={venueId} sx={{ minWidth: { md: 220 } }}
-            onChange={(event) => { setVenueId(event.target.value); setPage(1); }}>
+
+      <Paper sx={{ p: 2, mb: 2, overflow: 'visible' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'row',
+            gap: 2,
+            alignItems: 'center',
+            overflowX: 'auto',
+            py: 1,
+            '& > *': {
+              flexShrink: 0,
+            },
+          }}
+        >
+          <TextField
+            label="Sök evenemang"
+            value={eventName}
+            sx={{ flex: '2 1 260px', minWidth: 220 }}
+            onChange={(event) => {
+              setEventName(event.target.value);
+              setPage(1);
+            }}
+          />
+
+          <TextField
+            select
+            label="Scen"
+            value={venueId}
+            sx={{ flex: '1 0 180px', minWidth: 180 }}
+            onChange={(event) => {
+              setVenueId(event.target.value);
+              setPage(1);
+            }}
+          >
             <MenuItem value="">Alla scener</MenuItem>
-            {venues?.map((venue) => <MenuItem key={venue.id} value={venue.id}>{venue.name}</MenuItem>)}
+            {venues?.map((venue) => (
+              <MenuItem key={venue.id} value={venue.id}>
+                {venue.name}
+              </MenuItem>
+            ))}
           </TextField>
-          <TextField label="Från" type="datetime-local" value={startAfter}
-            onChange={(event) => { setStartAfter(event.target.value); setPage(1); }}
-            slotProps={{ inputLabel: { shrink: true } }} />
-          <TextField label="Till" type="datetime-local" value={startsBefore}
-            onChange={(event) => { setStartsBefore(event.target.value); setPage(1); }}
-            slotProps={{ inputLabel: { shrink: true } }} />
-          <Button onClick={() => {
-            setEventName(''); setVenueId(''); setStartAfter(''); setStartsBefore(''); setPage(1);
-          }}>Rensa</Button>
-        </Stack>
+
+          <TextField
+            label="Från"
+            type="datetime-local"
+            value={startAfter}
+            sx={{
+              width: 225,
+              '& .MuiInputBase-root': { minHeight: 56 },
+            }}
+            onChange={(event) => {
+              setStartAfter(event.target.value);
+              setPage(1);
+            }}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+
+          <TextField
+            label="Till"
+            type="datetime-local"
+            value={startsBefore}
+            sx={{
+              width: 225,
+              '& .MuiInputBase-root': { minHeight: 56 },
+            }}
+            onChange={(event) => {
+              setStartsBefore(event.target.value);
+              setPage(1);
+            }}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+
+          <Button
+            sx={{ whiteSpace: 'nowrap' }}
+            onClick={() => {
+              setEventName('');
+              setVenueId('');
+              setStartAfter('');
+              setStartsBefore('');
+              setPage(1);
+            }}
+          >
+            Rensa
+          </Button>
+        </Box>
       </Paper>
+
       {data && data.totalCount === 0 && (
         <Alert severity="info">Det finns inga evenemang ännu.</Alert>
       )}

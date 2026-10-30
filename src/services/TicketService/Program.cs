@@ -18,6 +18,8 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TicketDocumentService>();
 builder.Services.AddScoped<IssueTicketsHandler>();
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
@@ -26,6 +28,12 @@ if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Ini
     await using var scope = app.Services.CreateAsyncScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<TicketDbContext>();
     await dbContext.Database.MigrateAsync();
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));

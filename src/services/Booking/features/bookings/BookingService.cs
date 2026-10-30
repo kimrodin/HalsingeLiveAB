@@ -108,6 +108,34 @@ public sealed partial class BookingService(
             .FirstOrDefaultAsync(booking => booking.BookingId == bookingId, cancellationToken);
     }
 
+    public Task<List<BookingModel>> GetBookingHistoryAsync(
+        Guid bookingId,
+        string customerEmail,
+        CancellationToken cancellationToken = default) =>
+        dbContext.Bookings.AsNoTracking()
+            .Where(booking => booking.BookingId != bookingId
+                && booking.CustomerEmail.ToLower() == customerEmail.ToLower())
+            .OrderByDescending(booking => booking.CreatedAt)
+            .Take(10)
+            .ToListAsync(cancellationToken);
+
+    public async Task<bool> UpdateBookingCustomerAsync(
+        Guid bookingId,
+        string customerName,
+        string customerEmail,
+        CancellationToken cancellationToken = default)
+    {
+        var booking = await dbContext.Bookings
+            .SingleOrDefaultAsync(item => item.BookingId == bookingId, cancellationToken);
+        if (booking is null)
+            return false;
+
+        booking.CustomerName = customerName.Trim();
+        booking.CustomerEmail = customerEmail.Trim();
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<BookingModel> GetBookingForGuestAsync(
         Guid bookingId,
         string accessToken,
@@ -136,12 +164,67 @@ public sealed partial class BookingService(
         return GuestAccessToken.Matches(accessToken, tokenHash);
     }
 
-    public Task<List<BookingModel>> ListBookingsAsync(CancellationToken cancellationToken = default) =>
-        dbContext.Bookings.AsNoTracking()
+    public async Task<BookingPage> ListBookingsAsync(
+        ListBookingsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = dbContext.Bookings.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim().ToLower();
+            query = query.Where(booking =>
+                booking.BookingId.ToString().Contains(search)
+                || booking.CustomerName.ToLower().Contains(search)
+                || booking.CustomerEmail.ToLower().Contains(search)
+                || booking.Items.Any(item => item.EventName.ToLower().Contains(search)));
+        }
+        if (!string.IsNullOrWhiteSpace(request.Status))
+            query = query.Where(booking => booking.Status == request.Status);
+        if (request.From is DateTime from)
+        {
+            var start = DateTime.SpecifyKind(from.Date, DateTimeKind.Utc);
+            query = query.Where(booking => booking.CreatedAt >= start);
+        }
+        if (request.To is DateTime to)
+        {
+            var end = DateTime.SpecifyKind(to.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(booking => booking.CreatedAt < end);
+        }
+
+        var statuses = await dbContext.Bookings.AsNoTracking()
+            .Select(booking => booking.Status)
+            .Distinct()
+            .OrderBy(status => status)
+            .ToArrayAsync(cancellationToken);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var sortBy = request.SortBy?.ToLowerInvariant();
+        var ascending = request.SortDirection?.Equals("asc", StringComparison.OrdinalIgnoreCase) == true;
+        IOrderedQueryable<BookingModel> ordered = (sortBy, ascending) switch
+        {
+            ("bookingid", true) => query.OrderBy(booking => booking.BookingId),
+            ("bookingid", false) => query.OrderByDescending(booking => booking.BookingId),
+            ("customer", true) => query.OrderBy(booking => booking.CustomerName),
+            ("customer", false) => query.OrderByDescending(booking => booking.CustomerName),
+            ("status", true) => query.OrderBy(booking => booking.Status),
+            ("status", false) => query.OrderByDescending(booking => booking.Status),
+            ("totalprice", true) => query.OrderBy(booking => booking.TotalPrice),
+            ("totalprice", false) => query.OrderByDescending(booking => booking.TotalPrice),
+            ("createdat", true) => query.OrderBy(booking => booking.CreatedAt),
+            _ => query.OrderByDescending(booking => booking.CreatedAt)
+        };
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var skip = (int)Math.Min((long)(page - 1) * pageSize, int.MaxValue);
+        var bookings = await ordered
+            .ThenBy(booking => booking.BookingId)
+            .Skip(skip)
+            .Take(pageSize)
             .Include(booking => booking.Items)
             .ThenInclude(item => item.EventInventory)
-            .OrderByDescending(booking => booking.CreatedAt)
             .ToListAsync(cancellationToken);
+
+        return new BookingPage(bookings, totalCount, page, pageSize, statuses);
+    }
 
     // Only the controlled payment workflow can call confirmation.
     private async Task<BookingActionResult> ConfirmAsync(
@@ -311,10 +394,12 @@ public sealed partial class BookingService(
                 break;
         }
 
+        var cancelledAt = DateTime.UtcNow;
         await dbContext.Bookings
             .Where(item => item.BookingId == bookingId && item.Status == BookingStatuses.Cancelling)
             .ExecuteUpdateAsync(update => update
-                .SetProperty(item => item.Status, BookingStatuses.Cancelled), cancellationToken);
+                .SetProperty(item => item.Status, BookingStatuses.Cancelled)
+                .SetProperty(item => item.CancelledAt, cancelledAt), cancellationToken);
 
         return new BookingActionResult(BookingActionStatus.Completed, BookingStatuses.Cancelled);
     }
@@ -343,6 +428,13 @@ public sealed partial class BookingService(
             .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, BookingStatuses.Expired), cancellationToken);
     }
 }
+
+public sealed record BookingPage(
+    IReadOnlyList<BookingModel> Bookings,
+    int TotalCount,
+    int Page,
+    int PageSize,
+    IReadOnlyList<string> Statuses);
 
 public enum ReservationStatus
 {

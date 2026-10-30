@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.ComponentModel.DataAnnotations;
 using Booking.Features.EventCatalog;
+using Booking.Features.Payments;
 using Booking.Features.Tickets;
 
 namespace Booking.Features.Bookings;
@@ -9,16 +11,123 @@ namespace Booking.Features.Bookings;
 [Route("/[action]")]
 public sealed class BookingsController(
     BookingService bookingService,
+    IPaymentGateway paymentGateway,
     ITicketServiceClient ticketServiceClient,
     ILogger<BookingsController> logger) : ControllerBase
 {
     [Authorize(Policy = "AdminOnly")]
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<AdminBookingListItemResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListBookings(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ListBookingsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListBookings(
+        [FromQuery] ListBookingsRequest request,
+        CancellationToken cancellationToken)
     {
-        var bookings = await bookingService.ListBookingsAsync(cancellationToken);
-        return Ok(bookings.Select(ToAdminListResponse).ToArray());
+        var result = await bookingService.ListBookingsAsync(request, cancellationToken);
+        return Ok(new ListBookingsResponse(
+            result.Bookings.Select(ToAdminListResponse).ToArray(),
+            result.TotalCount,
+            result.Page,
+            result.PageSize,
+            result.Statuses));
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpGet("{bookingId:guid}")]
+    [ProducesResponseType(typeof(AdminBookingDetailsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAdminBookingDetails(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        var booking = await bookingService.GetBookingAsync(bookingId, cancellationToken);
+        if (booking is null)
+            return NotFound();
+
+        PaymentResult payment;
+        IReadOnlyList<TicketServiceTicketResponse> tickets;
+        try
+        {
+            payment = await paymentGateway.GetByBookingAsync(bookingId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or PaymentContractException)
+        {
+            logger.LogError(exception, "Payment lookup failed for admin booking {BookingId}.", bookingId);
+            return StatusCode(StatusCodes.Status502BadGateway, new ProblemDetails
+            {
+                Title = "Payment details are temporarily unavailable.",
+                Status = StatusCodes.Status502BadGateway
+            });
+        }
+
+        try
+        {
+            tickets = await ticketServiceClient.GetTicketsForBookingAsync(bookingId, cancellationToken);
+        }
+        catch (HttpRequestException exception)
+        {
+            return TicketServiceUnavailable(exception);
+        }
+
+        var history = await bookingService.GetBookingHistoryAsync(
+            booking.BookingId, booking.CustomerEmail, cancellationToken);
+        return Ok(new AdminBookingDetailsResponse(
+            ToAdminListResponse(booking),
+            history.Select(item => new BookingHistoryItem(
+                item.BookingId,
+                item.Status,
+                item.TotalPrice,
+                item.CreatedAt)).ToArray(),
+            payment,
+            tickets));
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpPut("{bookingId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateBookingCustomer(
+        Guid bookingId,
+        [FromBody] UpdateBookingCustomerRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.CustomerName))
+            ModelState.AddModelError(nameof(request.CustomerName), "Kundnamn får inte vara tomt.");
+
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var updated = await bookingService.UpdateBookingCustomerAsync(
+            bookingId, request.CustomerName, request.CustomerEmail, cancellationToken);
+        return updated ? NoContent() : NotFound();
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpGet("{bookingId:guid}/{ticketId:guid}")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAdminTicketPdf(
+        Guid bookingId,
+        Guid ticketId,
+        [FromQuery] bool download,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pdf = await ticketServiceClient.GetTicketPdfAsync(
+                bookingId, ticketId, download, cancellationToken);
+            return download
+                ? File(pdf, "application/pdf", $"ticket-{ticketId:N}.pdf")
+                : File(pdf, "application/pdf");
+        }
+        catch (HttpRequestException exception)
+        {
+            if (exception.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return NotFound();
+
+            return TicketServiceUnavailable(exception);
+        }
     }
 
     [HttpGet("{bookingId:guid}")]
@@ -280,6 +389,7 @@ public sealed class BookingsController(
             booking.TotalPrice,
             booking.CreatedAt,
             booking.ExpiresAt,
+            booking.CancelledAt,
             booking.PaymentRequested,
             booking.PaymentSettled,
             booking.Items.Select(item => new AdminBookingListItem(
@@ -319,9 +429,22 @@ public sealed record AdminBookingListItemResponse(
     decimal TotalPrice,
     DateTime CreatedAt,
     DateTime? ExpiresAt,
+    DateTime? CancelledAt,
     bool PaymentRequested,
     bool PaymentSettled,
     IReadOnlyList<AdminBookingListItem> Items);
+
+public sealed record AdminBookingDetailsResponse(
+    AdminBookingListItemResponse Booking,
+    IReadOnlyList<BookingHistoryItem> History,
+    PaymentResult Payment,
+    IReadOnlyList<TicketServiceTicketResponse> Tickets);
+
+public sealed record BookingHistoryItem(Guid BookingId, string Status, decimal TotalPrice, DateTime CreatedAt);
+
+public sealed record UpdateBookingCustomerRequest(
+    [property: Required, StringLength(200)] string CustomerName,
+    [property: Required, EmailAddress, StringLength(254)] string CustomerEmail);
 
 public sealed record AdminBookingListItem(
     Guid InventoryId,
@@ -332,5 +455,22 @@ public sealed record AdminBookingListItem(
     DateTimeOffset EventStartsAt,
     string VenueName,
     string SectionName);
+
+public sealed record ListBookingsRequest(
+    string Search = "",
+    string Status = "",
+    DateTime? From = null,
+    DateTime? To = null,
+    string SortBy = "",
+    string SortDirection = "",
+    int Page = 1,
+    int PageSize = 10);
+
+public sealed record ListBookingsResponse(
+    IReadOnlyList<AdminBookingListItemResponse> Bookings,
+    int TotalCount,
+    int Page,
+    int PageSize,
+    IReadOnlyList<string> Statuses);
 
 public sealed record BookingStatusResponse(Guid BookingId, string Status);
