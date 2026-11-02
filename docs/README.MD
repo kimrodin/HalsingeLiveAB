@@ -4,6 +4,24 @@ Booking och PaymentSimulator: [betalningsflöde via HTTP och test med Docker Com
 
 Repositoryt innehåller EventCatalog API:t, Booking-tjänsten, PaymentSimulator och två separata webbklienter: admin-web och customer-web. Compose-filen `src/Compose.yaml` startar tjänsterna, databaserna, Keycloak och båda webbklienterna. Inloggning och lokal utveckling beskrivs i [keycloak.md](keycloak.md).
 
+## Enkel start för lokal utveckling
+
+Kopiera `.env.example` till `.env` i projektets rot och fyll i
+`TICKET_SERVICE_INTERNAL_API_KEY` med en egen genererad nyckel, exempelvis med
+`openssl rand -hex 32`. Behåll samma nyckel mellan starter. `.env` ignoreras av Git.
+På Windows används semikolon i stället för kolon mellan filerna i `COMPOSE_FILE`.
+
+Kör sedan från projektets rot:
+
+```bash
+docker compose up -d
+```
+
+`COMPOSE_FILE` i `.env` väljer både grundkonfigurationen och utvecklingskonfigurationen
+med hot reload. Vid första starten eller när Docker-avbildningarna behöver byggas
+om, kör `docker compose up -d --build`. EventCatalog-databasens första migration
+behöver fortfarande appliceras enligt instruktionerna nedan.
+
 ## Starta EventCatalog med Docker och Swagger
 
 ### Förutsättningar
