@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, CircularProgress, Divider, Skeleton, Stack, Typography } from '@mui/material'
+import { Alert, AlertTitle, Button, CircularProgress, Divider, Skeleton, Stack, Typography } from '@mui/material'
 import { ApiError } from '../../../shared/api/http'
 import { useNow } from '../../../shared/hooks/useNow'
 import { cancelBooking, getBooking, getTicketPdf, getTicketsForBooking, startPayment } from '../api/bookings'
+import type { BookingDetails } from '../api/bookings'
+import { paymentFeedback } from '../paymentFeedback'
 
 interface BookingLocationState {
   eventId?: string
@@ -44,6 +46,7 @@ export default function BookingPage() {
     refetchInterval: (query) => {
       const booking = query.state.data
       if (!booking) return false
+      if (['Pending', 'Unknown'].includes(booking.paymentStatus ?? '')) return 2000
       if (['Confirming', 'Cancelling', 'Expiring'].includes(booking.status)) return 1000
       // Payment reconciliation may finish after a lost HTTP response or page reload.
       if (booking.status === 'Reserved') return 2000
@@ -64,7 +67,12 @@ export default function BookingPage() {
   }
   const paymentMutation = useMutation({
     mutationFn: () => startPayment(bookingId!, guestAccessToken!),
-    onSuccess: invalidateBooking,
+    onSuccess: async (result) => {
+      queryClient.setQueryData<BookingDetails>(['booking', bookingId], (current) => current && ({
+        ...current, status: result.bookingStatus, paymentStatus: result.paymentStatus,
+      }))
+      await invalidateBooking()
+    },
     onError: refreshAfterActionError,
   })
   const cancelMutation = useMutation({
@@ -114,8 +122,16 @@ export default function BookingPage() {
   const isPending = paymentMutation.isPending || cancelMutation.isPending
   const isTransitioning = ['Confirming', 'Cancelling', 'Expiring'].includes(booking.status)
   const isReserved = booking.status === 'Reserved'
-  const isPaymentWaiting = isReserved && (paymentMutation.isPending
-    || ['Pending', 'Unknown'].includes(paymentMutation.data?.paymentStatus ?? ''))
+  const paymentStatus = booking.paymentStatus ?? paymentMutation.data?.paymentStatus
+  const paymentTransportError = paymentMutation.isError
+    && (!(paymentMutation.error instanceof ApiError)
+      || paymentMutation.error.status >= 500 || paymentMutation.error.status === 408)
+  const isPaymentWaiting = booking.status !== 'Confirmed' && (
+    ['Pending', 'Unknown'].includes(paymentStatus ?? '')
+    // A terminal payment result can arrive before Booking has confirmed or cancelled.
+    || (isReserved && (paymentMutation.isPending || paymentTransportError
+      || Boolean(paymentStatus && paymentStatus !== 'NotStarted'))))
+  const paymentNotice = paymentFeedback(booking.status, paymentStatus)
   const isExpiredByTime = Boolean(booking.expiresAt && new Date(booking.expiresAt).getTime() <= now)
   const handleTicketPdf = async (ticketId: string, download: boolean) => {
     setPdfError(null)
@@ -173,7 +189,12 @@ export default function BookingPage() {
 
       {isPaymentWaiting && (
         <Alert severity="info" icon={<CircularProgress color="inherit" size={20} />}>
-          Betalningen behandlas. Bokningens status uppdateras automatiskt när resultatet är klart.
+          <AlertTitle>{paymentStatus === 'Succeeded' ? 'Vi slutför din bokning' : 'Vi kontrollerar din betalning'}</AlertTitle>
+          {paymentStatus === 'Succeeded'
+            ? 'Betalningen har gått igenom. Vi väntar på att bokningen ska bli klar.'
+            : 'Vi väntar fortfarande på betalningsresultatet.'}
+          {' '}Du behöver inte betala igen.
+          {' '}Bokningens status uppdateras automatiskt.
         </Alert>
       )}
       {isTransitioning && (
@@ -181,7 +202,13 @@ export default function BookingPage() {
           {booking.status === 'Confirming' ? 'Bekräftar bokningen…' : 'Uppdaterar bokningen…'}
         </Alert>
       )}
-      {statusContent[booking.status] && (
+      {paymentNotice && (
+        <Alert severity={paymentNotice.severity}>
+          <AlertTitle>{paymentNotice.title}</AlertTitle>
+          {paymentNotice.message}
+        </Alert>
+      )}
+      {!paymentNotice && !isPaymentWaiting && statusContent[booking.status] && (
         <Alert severity={statusContent[booking.status].severity}>{statusContent[booking.status].message}</Alert>
       )}
       {booking.status === 'Confirmed' && ticketsQuery.isPending && (
@@ -243,13 +270,18 @@ export default function BookingPage() {
       {isReserved && isExpiredByTime && (
         <Alert severity="warning">Reservationen har gått ut. Hämtar aktuell status…</Alert>
       )}
-      {actionMessage && (
+      {actionMessage && !(isPaymentWaiting && paymentTransportError) && (
         <Alert severity={actionErrorStatus === 404 ? 'error' : 'warning'}>
           {actionMessage}
           {actionError instanceof ApiError && actionError.errors
             ? ` ${Object.values(actionError.errors).flat().join(' ')}`
             : ''}
         </Alert>
+      )}
+
+      {paymentNotice && (
+        <Button variant="contained" sx={{ alignSelf: 'flex-start' }}
+          onClick={() => navigate(state.eventId ? `/events/${encodeURIComponent(state.eventId)}` : '/')}>Boka igen</Button>
       )}
 
       {isReserved && !isExpiredByTime && (
@@ -263,7 +295,7 @@ export default function BookingPage() {
           </Button>
           <Button
             onClick={() => { paymentMutation.reset(); cancelMutation.reset(); cancelMutation.mutate() }}
-            disabled={isPending}
+            disabled={isPending || isPaymentWaiting}
           >
             Avbryt bokning
           </Button>

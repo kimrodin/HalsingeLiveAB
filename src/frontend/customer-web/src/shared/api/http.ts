@@ -1,12 +1,14 @@
 export class ApiError extends Error {
   readonly status: number
   readonly errors?: Record<string, string[]>
+  readonly body?: unknown
 
-  constructor(message: string, status: number, errors?: Record<string, string[]>) {
+  constructor(message: string, status: number, errors?: Record<string, string[]>, body?: unknown) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.errors = errors
+    this.body = body
   }
 }
 
@@ -19,7 +21,7 @@ interface ApiProblem {
 function toApiError(problem: ApiProblem | null, status: number, fallback: string): ApiError {
   const errors = problem?.errors
   const fieldMessages = errors ? Object.values(errors).flat().join(' ') : undefined
-  return new ApiError(problem?.detail ?? fieldMessages ?? problem?.title ?? fallback, status, errors)
+  return new ApiError(problem?.detail ?? fieldMessages ?? problem?.title ?? fallback, status, errors, problem)
 }
 
 async function readError(response: Response, fallback: string): Promise<ApiError> {
