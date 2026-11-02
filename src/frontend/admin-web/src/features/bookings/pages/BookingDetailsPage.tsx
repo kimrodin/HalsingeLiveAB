@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
+import { ApiError } from '../../../shared/api/http';
 import {
   cancelTicket,
   checkInTicket,
@@ -86,7 +87,12 @@ export default function BookingDetailsPage() {
       setTicketActionError('');
       await queryClient.invalidateQueries({ queryKey: ['booking', id] });
     },
-    onError: (actionError: Error) => setTicketActionError(actionError.message),
+    onError: async (actionError: Error) => {
+      setTicketActionError(actionError.message);
+      if (!(actionError instanceof ApiError) || actionError.status === 409 || actionError.status >= 500) {
+        await queryClient.invalidateQueries({ queryKey: ['booking', id] });
+      }
+    },
   });
 
   const openTicket = async (ticketId: string) => {
