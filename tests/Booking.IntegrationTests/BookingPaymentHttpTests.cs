@@ -347,6 +347,16 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
             bool download,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Array.Empty<byte>());
+
+        public Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
+            Guid ticketId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new TicketServiceStatusChangeResponse(ticketId, "CheckedIn", DateTimeOffset.UtcNow));
+
+        public Task<TicketServiceStatusChangeResponse> CancelTicketAsync(
+            Guid ticketId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new TicketServiceStatusChangeResponse(ticketId, "Cancelled", DateTimeOffset.UtcNow));
     }
 
     private sealed class SimulatorHandler(Guid bookingId, decimal amount) : HttpMessageHandler
