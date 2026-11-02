@@ -71,6 +71,20 @@ builder.Services.AddHttpClient<IEventCatalogClient, HttpEventCatalogClient>(clie
 });
 builder.Services.AddScoped<GetEventInventoryHandler>();
 builder.Services.AddScoped<ListEventInventoryHandler>();
+builder.Services.AddScoped<Booking.Features.Seed.SeedPurchases.SeedPurchasesHandler>();
+builder.Services.AddScoped<Booking.Features.Seed.SeedPurchases.DeleteSeedPurchasesHandler>();
+builder.Services.AddHttpClient<Booking.Features.Seed.SeedPurchases.ISeedTicketsClient, Booking.Features.Seed.SeedPurchases.SeedTicketsClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["TicketService:BaseUrl"]
+        ?? throw new InvalidOperationException("TicketService base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient<Booking.Features.Seed.SeedPurchases.ISeedPaymentsClient, Booking.Features.Seed.SeedPurchases.SeedPaymentsClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["PaymentSimulator:BaseUrl"]
+        ?? throw new InvalidOperationException("PaymentSimulator base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddScoped<SeedInventoryHandler>();
 builder.Services.AddScoped<DeleteSeedInventoryHandler>();
 builder.Services.AddScoped<ClearBookingDatabaseHandler>();

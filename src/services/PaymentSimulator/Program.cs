@@ -15,6 +15,7 @@ var connectionString = builder.Configuration.GetConnectionString("PaymentSimulat
 
 builder.Services.AddDbContext<PaymentDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddScoped<PaymentSimulator.Features.Seed.SeedPaymentsHandler>();
 builder.Services.AddScoped<GetPaymentHandler>();
 builder.Services.AddScoped<ProcessPaymentHandler>();
 builder.Services.AddScoped<RefundPaymentHandler>();

@@ -41,3 +41,30 @@ export function formatPeriod(period: DashboardPeriod): string {
   return period.from === period.to ? formatDate(period.from)
     : `${formatDate(period.from)} – ${formatDate(period.to)}`;
 }
+
+const swedishOffset = new Intl.DateTimeFormat('en', {
+  timeZone: 'Europe/Stockholm', timeZoneName: 'longOffset',
+});
+
+function swedishMidnight(value: string): number {
+  const midnight = Date.parse(`${value}T00:00:00Z`);
+  let timestamp = midnight;
+  // Resolve each boundary separately: Swedish days can span 23 or 25 hours.
+  for (let i = 0; i < 3; i++) {
+    const offset = swedishOffset.formatToParts(timestamp).find(part => part.type === 'timeZoneName')!.value;
+    const match = /^GMT([+-])(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(offset);
+    const offsetSeconds = match
+      ? (match[1] === '+' ? 1 : -1) * (Number(match[2]) * 3600 + Number(match[3]) * 60 + Number(match[4] ?? 0)) : 0;
+    const resolved = midnight - offsetSeconds * 1000;
+    if (resolved === timestamp) break;
+    timestamp = resolved;
+  }
+  return timestamp;
+}
+
+export function eventPeriodBounds(period: DashboardPeriod): { startAfter: string; startsBefore: string } {
+  return {
+    startAfter: new Date(swedishMidnight(period.from)).toISOString(),
+    startsBefore: new Date(swedishMidnight(shiftDate(period.to, 1)) - 1).toISOString(),
+  };
+}

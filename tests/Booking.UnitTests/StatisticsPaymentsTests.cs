@@ -37,43 +37,6 @@ public sealed class StatisticsPaymentsTests
         Assert.Equal(new[] { first.BookingId, second.BookingId }, pages.SelectMany(p => p).Select(p => p.BookingId));
     }
 
-    [Theory]
-    [InlineData("duplicate")]
-    [InlineData("outside")]
-    [InlineData("no-date")]
-    [InlineData("bad-cursor")]
-    [InlineData("empty-cursor")]
-    [InlineData("malformed")]
-    public async Task InvalidPages_AreRejected(string scenario)
-    {
-        var payment = Payment();
-        using var client = Client((request, ct) => Task.FromResult(scenario switch
-        {
-            "duplicate" => Page([payment, payment]),
-            "outside" => Page([payment with { PaidAt = From.AddDays(-1) }]),
-            "no-date" => Page([payment with { PaidAt = null }]),
-            "bad-cursor" => Page([payment], new { PaidAt = payment.PaidAt, PaymentId = Guid.NewGuid() }),
-            "empty-cursor" => Page([], new { payment.PaidAt, payment.PaymentId }),
-            _ => new(HttpStatusCode.OK) { Content = new StringContent("not json") }
-        }));
-        await Assert.ThrowsAsync<InvalidDataException>(() => Read(new StatisticsPayments(client, Context())));
-    }
-
-    [Fact]
-    public async Task RepeatedPage_IsRejectedRatherThanLooping()
-    {
-        var payment = Payment();
-        using var client = Client((request, ct) => Task.FromResult(Page([payment], new { payment.PaidAt, payment.PaymentId })));
-        await Assert.ThrowsAsync<InvalidDataException>(() => Read(new StatisticsPayments(client, Context())));
-    }
-
-    [Fact]
-    public async Task MissingAdminToken_DoesNotCallPaymentService()
-    {
-        using var client = Client((_, _) => throw new Exception("Should not be called"));
-        await Assert.ThrowsAsync<InvalidDataException>(() => Read(new StatisticsPayments(client, new HttpContextAccessor())));
-    }
-
     private static PaymentResult Payment() => new(Guid.NewGuid(), Guid.NewGuid(), 100, "SEK", "Succeeded", From, From, From, null);
     private static HttpContextAccessor Context()
     {

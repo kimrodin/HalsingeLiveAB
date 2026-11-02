@@ -36,9 +36,6 @@ export default function DashboardPeriodFilter({ period, onApply }: Props) {
         }}>Senaste 30 dagarna</Button>
       </Box>
       {error && <Alert severity="warning" sx={{ mt: 2 }}>{error}</Alert>}
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        Försäljningen avser betalningsdagen i svensk tid. Återbetalningar räknas på den ursprungliga försäljningsdagen.
-      </Typography>
     </Paper>
   );
 }

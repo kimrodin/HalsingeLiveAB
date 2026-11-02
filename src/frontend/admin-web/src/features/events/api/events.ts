@@ -60,7 +60,7 @@ function eventFromListItem(event: EventListItemDto): EventDetails {
   };
 }
 
-export async function getEvents(params: ListEventsParams = {}): Promise<ListEventsResult> {
+export async function getEvents(params: ListEventsParams = {}, signal?: AbortSignal): Promise<ListEventsResult> {
   const query = new URLSearchParams();
   if (params.eventName) query.set('EventName', params.eventName);
   if (params.venueId) query.set('VenueId', params.venueId);
@@ -71,7 +71,7 @@ export async function getEvents(params: ListEventsParams = {}): Promise<ListEven
   query.set('Page', String(params.page ?? 1));
   query.set('PageSize', String(params.pageSize ?? 10));
 
-  const result = await request<ListEventsDto>(`/ListEvents?${query.toString()}`);
+  const result = await request<ListEventsDto>(`/ListEvents?${query.toString()}`, { signal });
   return {
     ...result,
     events: result.events.map(eventFromListItem),

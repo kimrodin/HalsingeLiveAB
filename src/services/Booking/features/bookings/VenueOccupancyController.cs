@@ -16,11 +16,12 @@ public sealed class VenueOccupancyController(VenueOccupancyReport report) : Cont
     public async Task<IActionResult> GetVenueOccupancy([FromQuery] DateTime? from,
         [FromQuery] DateTime? to, CancellationToken cancellationToken)
     {
-        if (from > to)
+        if (from?.Date > to?.Date || from?.Year < 2 || to?.Year < 2
+            || to?.Date == DateTime.MaxValue.Date)
             return BadRequest(new ProblemDetails
             {
                 Title = "Invalid date range.",
-                Detail = "The from date must be on or before the to date.",
+                Detail = "Choose calendar dates from year 2 through 9999-12-30, with from on or before to.",
                 Status = StatusCodes.Status400BadRequest
             });
         try { return Ok(await report.Get(from, to, cancellationToken)); }

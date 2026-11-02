@@ -4,8 +4,8 @@
 existing `AdminOnly` policy. Through admin-web use `/booking-api/GetSalesStatistics`.
 The typed client is `features/dashboard/api/salesStatistics.ts`. The dashboard
 renders the net-revenue and sold-ticket cards, comparisons and daily sales chart
-from this endpoint. The existing active-event card and upcoming-event queries
-retain their behavior.
+from this endpoint. The event-count card uses event start dates within the selected
+Swedish calendar period. The upcoming-event list keeps its independent query.
 
 ## Meaning of the numbers
 
@@ -84,24 +84,27 @@ next refresh. Admin cards and the API client contract remain unchanged.
 and calls the page's setter when **Visa period** or **Senaste 30 dagarna** is used.
 It remounts with the applied dates when the shared period changes.
 
-The page passes `period` to `SalesStatisticsSection` via props. Future dashboard
-components, such as venue occupancy, can receive the same prop without their own
-period state or a context provider. Sales uses payment dates; occupancy uses event
-dates, so each component must explain that distinction. Active events and upcoming
-events retain their existing independent queries.
+The page passes `period` to `SalesStatisticsSection` and `OccupancySection` via
+props. The event-count card uses the same period, converted to UTC boundaries for
+inclusive Swedish dates, including DST transitions. Its query cache includes both
+dates and requests can be cancelled when the period changes. Sales uses payment
+dates; occupancy and event counts use event start dates. The upcoming-event list
+retains its independent query.
 
 `SalesStatisticsSection` fetches totals and daily values for its `period` prop.
 Each range has its own query cache entry. Superseded requests can be aborted and
 the active range is refreshed every minute. `SalesMetricCard` formats totals and
-changes; when the preceding value is zero, it shows that value instead of a
-fabricated percentage.
+changes. Cards show the title, total, percentage change and the comparison date range beneath
+the percentage, using the previous period returned by the API. When the preceding
+value is zero and a percentage cannot be calculated, the percentage is omitted.
 
-`TicketSalesChart` is a simple SVG line chart with an accessible summary. There
-is no day-selection state, slider or daily-values table. The 7-day and current-month
-shortcuts have been removed; custom dates and the last-30-days shortcut remain.
-Empty, loading and API-error states are still handled. No chart dependency is
-required. Backend calculations and refund rules are unchanged by this frontend
-simplification.
+`TicketSalesChart` uses MUI X Charts `LineChart`, loaded on demand, with the admin
+theme's primary color and an accessible summary. Each day has a vertical grid line
+and a data point. Axis labels appear every five days with the day and a three-letter
+Swedish month (for example, `5 sep`); tooltips show the full date and ticket count. Longer periods scroll
+horizontally. There is no day-selection state, slider or daily-values table. Custom
+dates and the last-30-days shortcut remain. Empty, loading and API-error states
+are still handled. Backend calculations and refund rules are unchanged.
 
 Frontend checks from `src/frontend/admin-web`:
 
@@ -111,6 +114,6 @@ npm run build
 node --experimental-strip-types --test tests/dashboardPeriod.test.mjs
 ```
 
-Date tests cover Swedish midnight, DST changes, leap days, invalid dates and the
-366-day limit. Browser QA uses temporary simulated API responses; it does not
+Two date tests cover the default Swedish period, invalid ranges, the maximum range
+and both DST transitions. Browser QA uses temporary simulated API responses; it does not
 replace authenticated end-to-end backend verification.

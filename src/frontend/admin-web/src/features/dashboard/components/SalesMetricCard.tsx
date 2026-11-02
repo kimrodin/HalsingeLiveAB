@@ -3,15 +3,13 @@ import { Paper, Skeleton, Typography } from '@mui/material';
 interface SalesMetricCardProps {
   title: string;
   value?: string;
-  previousValue?: string;
   change?: number | null;
   comparisonPeriod?: string;
-  caption: string;
   pending: boolean;
 }
 const percent = new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, signDisplay: 'exceptZero' });
 
-export default function SalesMetricCard({ title, value, previousValue, change, comparisonPeriod, caption, pending }: SalesMetricCardProps) {
+export default function SalesMetricCard({ title, value, change, comparisonPeriod, pending }: SalesMetricCardProps) {
   return (
     <Paper sx={{ p: 3, minWidth: 0 }}>
       <Typography component="h2" variant="h6">{title}</Typography>
@@ -20,14 +18,15 @@ export default function SalesMetricCard({ title, value, previousValue, change, c
           {value ?? '—'}
         </Typography>
       )}
-      <Typography variant="body2" color="text.secondary">{caption}</Typography>
-      {value !== undefined && !pending && (
+      {value !== undefined && !pending && change !== null && change !== undefined && (
         <>
-          <Typography variant="body2" sx={{ mt: 1, color: change === null || change === undefined || change === 0 ? 'text.secondary' : change > 0 ? 'success.main' : 'error.main' }}>
-            {change === null || change === undefined ? `Föregående period: ${previousValue}`
-              : `${percent.format(change)} % jämfört med föregående period`}
+          <Typography variant="body2" aria-label={`${percent.format(change)} procent jämfört med ${comparisonPeriod ?? 'föregående period'}`}
+            sx={{ mt: 1, color: change === 0 ? 'text.secondary' : change > 0 ? 'success.main' : 'error.main' }}>
+            {percent.format(change)} %
           </Typography>
-          <Typography variant="caption" color="text.secondary">{comparisonPeriod}</Typography>
+          {comparisonPeriod && <Typography variant="caption" component="p" color="text.secondary">
+            {comparisonPeriod}
+          </Typography>}
         </>
       )}
     </Paper>
