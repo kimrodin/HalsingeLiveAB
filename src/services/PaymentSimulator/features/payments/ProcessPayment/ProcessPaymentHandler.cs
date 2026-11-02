@@ -3,10 +3,11 @@ using Npgsql;
 using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.RefundPayment;
+using PaymentSimulator.Features.Payments.Simulation;
 
 namespace PaymentSimulator.Features.Payments.ProcessPayment;
 
-public class ProcessPaymentHandler(PaymentDbContext dbContext, IConfiguration configuration,
+public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSettingsService settingsService,
     RefundPaymentHandler refundPaymentHandler)
 {
     public async Task<ProcessPaymentResponse> Handle(
@@ -18,7 +19,7 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, IConfiguration co
             .SingleOrDefaultAsync(p => p.BookingId == request.BookingId, cancellationToken);
         if (payment is null)
         {
-            var (outcome, delayMs, timeoutMs) = PaymentValidation.ReadSimulationSettings(configuration);
+            var (outcome, delayMs, timeoutMs) = await settingsService.Get(cancellationToken);
             var now = DateTimeOffset.UtcNow;
             payment = new Payment
             {

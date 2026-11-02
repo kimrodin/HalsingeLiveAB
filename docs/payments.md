@@ -86,6 +86,11 @@ Med standardinställningarna ska betalningen bli `Succeeded` och bokningen `Conf
 
 ## Simulera fel och timeout
 
+Simulatorn kan nu styras vid körning via ett skyddat admin-API. Se
+[Payment simulation admin API](payment-simulation-admin.md). Sparade API-inställningar
+har företräde framför miljövariablerna nedan och finns kvar efter omstart.
+Återställ i så fall också inställningarna via API:t.
+
 Compose läser följande miljövariabler när simulatorcontainern skapas. Inställningarna gäller nya betalningar; ett redan skapat betalningsförsöks utfall ska inte ändras av ändrad konfiguration.
 
 ```powershell

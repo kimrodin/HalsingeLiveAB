@@ -35,4 +35,7 @@ public static class PaymentValidation
     }
 }
 
-public sealed record PaymentSimulationSettings(PaymentStatus Outcome, int DelayMs, int TimeoutMs);
+public sealed record PaymentSimulationSettings(
+    [property: System.Text.Json.Serialization.JsonRequired] PaymentStatus Outcome,
+    [property: System.Text.Json.Serialization.JsonRequired] int DelayMs,
+    [property: System.Text.Json.Serialization.JsonRequired] int TimeoutMs);

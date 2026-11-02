@@ -7,6 +7,7 @@ using PaymentSimulator.Features.Payments.GetPayment;
 using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
+using PaymentSimulator.Features.Payments.Simulation;
 
 namespace PaymentSimulator.IntegrationTests;
 
@@ -47,13 +48,50 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         .UseNpgsql(connectionString).Options);
 
     private static ProcessPaymentHandler Handler(PaymentDbContext db, string outcome = "Succeeded",
-        int delay = 0, int timeout = 5000) => new(db, new ConfigurationBuilder()
+        int delay = 0, int timeout = 5000) => new(db, new SimulationSettingsService(db, new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["PaymentSimulation:Outcome"] = outcome,
             ["PaymentSimulation:DelayMs"] = delay.ToString(),
             ["PaymentSimulation:TimeoutMs"] = timeout.ToString()
-        }).Build(), new RefundPaymentHandler(db));
+        }).Build()), new RefundPaymentHandler(db));
+
+    [Fact]
+    public async Task Settings_survive_new_context_and_only_affect_new_payments()
+    {
+        var originalRequest = new ProcessPaymentRequest(Guid.NewGuid(), 100m, "SEK");
+        await using (var db = CreateDb())
+        {
+            var defaults = new ConfigurationBuilder().Build();
+            var settings = new SimulationSettingsService(db, defaults);
+            Assert.Equal(new(PaymentStatus.Succeeded, 500, 5000), await settings.Get(default));
+            await Handler(db).Handle(originalRequest, default);
+            db.Payments.Add(new Payment
+            {
+                Id = Guid.NewGuid(), BookingId = Guid.NewGuid(), Amount = 100m, Currency = "SEK",
+                CreatedAt = DateTimeOffset.UtcNow, CompleteAfter = DateTimeOffset.UtcNow.AddSeconds(-1),
+                PlannedOutcome = PaymentStatus.Succeeded, Status = PaymentStatus.Pending
+            });
+            await db.SaveChangesAsync();
+            await settings.Update(new(PaymentStatus.Failed, 0, 5000), default);
+        }
+
+        await using var fresh = CreateDb();
+        var saved = new SimulationSettingsService(fresh, new ConfigurationBuilder().Build());
+        Assert.Equal(new(PaymentStatus.Failed, 0, 5000), await saved.Get(default));
+        var handler = Handler(fresh);
+        Assert.Equal(PaymentStatus.Succeeded, (await handler.Handle(originalRequest, default)).Status);
+        await handler.CompleteDuePayments(default);
+        Assert.Equal(2, await fresh.Payments.CountAsync(p => p.Status == PaymentStatus.Succeeded));
+        Assert.Equal(PaymentStatus.Failed,
+            (await handler.Handle(new(Guid.NewGuid(), 100m, "SEK"), default)).Status);
+        await saved.Update(new(PaymentStatus.TimedOut, 0, 5000), default);
+        Assert.Equal(PaymentStatus.TimedOut,
+            (await handler.Handle(new(Guid.NewGuid(), 100m, "SEK"), default)).Status);
+        await saved.Update(new(PaymentStatus.Succeeded, 10, 1), default);
+        Assert.Equal(PaymentStatus.TimedOut,
+            (await handler.Handle(new(Guid.NewGuid(), 100m, "SEK"), default)).Status);
+    }
 
     [Theory]
     [InlineData("Succeeded", PaymentStatus.Succeeded)]
