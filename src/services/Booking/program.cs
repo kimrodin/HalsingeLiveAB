@@ -38,6 +38,14 @@ builder.Services.AddHttpClient<Booking.Features.Bookings.VenueOccupancyReport>(c
 });
 builder.Services.AddHostedService<Booking.Features.Bookings.BookingExpirationService>();
 builder.Services.AddHostedService<Booking.Features.Bookings.PaymentReconciliationService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Booking.Features.Statistics.SalesStatistics>();
+builder.Services.AddHttpClient<Booking.Features.Statistics.IStatisticsPayments, Booking.Features.Statistics.StatisticsPayments>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["PaymentSimulator:BaseUrl"]
+        ?? throw new InvalidOperationException("PaymentSimulator base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("PaymentSimulator:TimeoutSeconds", 5));
+});
 builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["PaymentSimulator:BaseUrl"]

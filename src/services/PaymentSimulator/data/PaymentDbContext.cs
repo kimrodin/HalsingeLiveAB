@@ -14,6 +14,8 @@ public sealed class PaymentDbContext(DbContextOptions<PaymentDbContext> options)
         {
             entity.HasKey(payment => payment.Id);
             entity.HasIndex(payment => payment.BookingId).IsUnique();
+            entity.HasIndex(payment => new { payment.PaidAt, payment.Id })
+                .HasFilter("\"PaidAt\" IS NOT NULL");
             entity.Property(payment => payment.Amount).HasPrecision(18, 2);
             entity.Property(payment => payment.Currency).HasMaxLength(3).IsRequired();
             entity.Property(payment => payment.Status).HasConversion<string>().HasMaxLength(20);

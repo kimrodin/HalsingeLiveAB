@@ -160,6 +160,8 @@ services:
       dockerfile: Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      Authentication__Authority: http://localhost:8180/realms/halsingelive
+      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       ConnectionStrings__PaymentSimulator: "Host=payment-simulator-db;Port=5432;Database=payment_simulator;Username=postgres;Password=postgres"
       PaymentSimulation__Outcome: "${PAYMENT_SIMULATION_OUTCOME:-Succeeded}"
       PaymentSimulation__DelayMs: "${PAYMENT_SIMULATION_DELAY_MS:-500}"

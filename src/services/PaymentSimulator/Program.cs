@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.GetPayment;
@@ -21,6 +23,22 @@ builder.Services
     .AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+{
+    options.Authority = builder.Configuration["Authentication:Authority"]
+        ?? "http://localhost:8180/realms/halsingelive";
+    if (builder.Configuration["Authentication:MetadataAddress"] is { Length: > 0 } metadataAddress)
+        options.MetadataAddress = metadataAddress;
+    options.Audience = "eventcatalog";
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+    options.MapInboundClaims = false;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidIssuer = options.Authority.TrimEnd('/'), NameClaimType = "preferred_username", RoleClaimType = "roles"
+    };
+});
+builder.Services.AddAuthorization(options => options.AddPolicy("AdminOnly", policy =>
+    policy.RequireAuthenticatedUser().RequireRole("admin")));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
@@ -41,6 +59,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();

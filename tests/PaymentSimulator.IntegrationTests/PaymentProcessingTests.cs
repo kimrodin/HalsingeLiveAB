@@ -43,6 +43,51 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         await command.ExecuteNonQueryAsync();
     }
 
+    [Fact]
+    public async Task SalesRange_ExcludesOldPaymentsAndPaginatesTiedTimestamps()
+    {
+        await using var db = CreateDb();
+        var paid = new DateTimeOffset(2026, 10, 25, 0, 0, 0, TimeSpan.Zero);
+        var expected = new List<Guid>();
+        for (var i = 0; i < 505; i++)
+        {
+            var id = Guid.NewGuid();
+            var date = i < 501 ? paid.AddYears(-1) : i == 504 ? paid.AddDays(1) : paid;
+            if (date == paid) expected.Add(id);
+            db.Payments.Add(new Payment
+            {
+                Id = id, BookingId = Guid.NewGuid(), Amount = i < 501 ? 99m : 125m, Currency = "SEK",
+                Status = PaymentStatus.Succeeded, PlannedOutcome = PaymentStatus.Succeeded,
+                CreatedAt = date, CompleteAfter = date, CompletedAt = date, PaidAt = date
+            });
+        }
+        await db.SaveChangesAsync();
+        var index = await db.Database.SqlQueryRaw<string>(
+            "SELECT indexdef AS \"Value\" FROM pg_indexes WHERE tablename = 'Payments' AND indexname = 'IX_Payments_PaidAt_Id'").SingleAsync();
+        Assert.Contains("PaidAt", index);
+        Assert.Contains("WHERE", index);
+        var controller = new PaymentSimulator.Features.Payments.Statistics.PaymentSalesController(db);
+        var found = new List<Guid>();
+        PaymentSimulator.Features.Payments.Statistics.PaymentSalesCursor? cursor = null;
+        do
+        {
+            var result = await controller.Get(new(paid, paid.AddDays(1), cursor?.PaidAt, cursor?.PaymentId, 1), default);
+            var page = Assert.IsType<PaymentSimulator.Features.Payments.Statistics.PaymentSalesPage>(
+                Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result).Value);
+            Assert.Equal(125m, Assert.Single(page.Payments).Amount);
+            found.Add(page.Payments[0].PaymentId);
+            cursor = page.Next;
+        } while (cursor is not null);
+        Assert.Equal(expected.Order(), found);
+        Assert.Equal(3, found.Count);
+        Assert.IsType<Microsoft.AspNetCore.Mvc.BadRequestObjectResult>(await controller.Get(new(paid.AddDays(1), paid), default));
+        Assert.IsType<Microsoft.AspNetCore.Mvc.BadRequestObjectResult>(await controller.Get(new(paid, paid.AddDays(1), PageSize: 501), default));
+        Assert.IsType<Microsoft.AspNetCore.Mvc.BadRequestObjectResult>(await controller.Get(new(paid, paid.AddDays(1), AfterPaidAt: paid), default));
+        var method = typeof(PaymentSimulator.Features.Payments.Statistics.PaymentSalesController).GetMethod("Get")!;
+        Assert.Equal("AdminOnly", Assert.Single(method.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), false)
+            .Cast<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>()).Policy);
+    }
+
     private PaymentDbContext CreateDb() => new(new DbContextOptionsBuilder<PaymentDbContext>()
         .UseNpgsql(connectionString).Options);
 
