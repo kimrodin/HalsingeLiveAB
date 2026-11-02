@@ -8,8 +8,13 @@ namespace TicketService.IntegrationTests;
 public sealed class TicketIntegrationTheoryAttribute : TheoryAttribute
 {
     public TicketIntegrationTheoryAttribute()
+        : this(Environment.GetEnvironmentVariable("TICKET_TEST_POSTGRES"))
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TICKET_TEST_POSTGRES")))
+    }
+
+    internal TicketIntegrationTheoryAttribute(string? connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
             Skip = "Set TICKET_TEST_POSTGRES to run against PostgreSQL.";
     }
 }
