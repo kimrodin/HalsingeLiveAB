@@ -45,6 +45,12 @@ export interface BookingTicket {
   issuedAt: string;
 }
 
+export interface TicketStatusChange {
+  ticketId: string;
+  status: string;
+  changedAt: string;
+}
+
 export interface BookingDetails {
   booking: Booking;
   history: BookingHistoryItem[];

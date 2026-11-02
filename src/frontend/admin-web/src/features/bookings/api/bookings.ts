@@ -1,5 +1,5 @@
 import { request, requestBlob, sendJson } from '../../../shared/api/http';
-import type { Booking, BookingDetails } from '../types';
+import type { Booking, BookingDetails, TicketStatusChange } from '../types';
 
 export interface ListBookingsParams {
   search?: string;
@@ -45,6 +45,22 @@ export function getTicketPdf(bookingId: string, ticketId: string): Promise<Blob>
   return requestBlob(
     `/GetAdminTicketPdf/${bookingId}/${ticketId}?download=false`,
     {},
+    '/booking-api',
+  );
+}
+
+export function checkInTicket(ticketId: string): Promise<TicketStatusChange> {
+  return request<TicketStatusChange>(
+    `/admin/tickets/${ticketId}/check-in`,
+    { method: 'POST' },
+    '/booking-api',
+  );
+}
+
+export function cancelTicket(ticketId: string): Promise<TicketStatusChange> {
+  return request<TicketStatusChange>(
+    `/admin/tickets/${ticketId}/cancel`,
+    { method: 'POST' },
     '/booking-api',
   );
 }

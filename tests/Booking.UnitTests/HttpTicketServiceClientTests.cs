@@ -62,12 +62,66 @@ public sealed class HttpTicketServiceClientTests
         Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
     }
 
+    [Theory]
+    [InlineData("check-in", "CheckedIn")]
+    [InlineData("cancel", "Cancelled")]
+    public async Task TicketStatusChange_PostsWithInternalApiKeyAndReturnsStatus(
+        string action,
+        string status)
+    {
+        var ticketId = Guid.NewGuid();
+        var changedAt = DateTimeOffset.UtcNow;
+        var httpClient = CreateClient(request =>
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal($"/tickets/{ticketId:D}/{action}", request.RequestUri!.AbsolutePath);
+            Assert.Equal("configured-key", request.Headers.GetValues("X-Internal-Api-Key").Single());
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(
+                    new TicketServiceStatusChangeResponse(ticketId, status, changedAt))
+            });
+        });
+        var client = CreateTicketClient(httpClient);
+
+        var result = action == "check-in"
+            ? await client.CheckInTicketAsync(ticketId)
+            : await client.CancelTicketAsync(ticketId);
+
+        Assert.Equal(ticketId, result.TicketId);
+        Assert.Equal(status, result.Status);
+        Assert.Equal(changedAt, result.ChangedAt);
+    }
+
+    [Fact]
+    public async Task CheckInTicketAsync_PreservesConflictStatus()
+    {
+        var client = CreateTicketClient(CreateClient(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict))));
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            client.CheckInTicketAsync(Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+    }
+
     private static HttpClient CreateClient(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync) =>
         new(new StubHttpMessageHandler(sendAsync))
         {
             BaseAddress = new Uri("http://ticket-service/")
         };
+
+    private static HttpTicketServiceClient CreateTicketClient(HttpClient httpClient)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["TicketService:InternalApiKey"] = "configured-key"
+            })
+            .Build();
+        return new HttpTicketServiceClient(httpClient, configuration);
+    }
 
     private static async Task<HttpResponseMessage> VerifyBodyAndRespondAsync(
         HttpRequestMessage request,

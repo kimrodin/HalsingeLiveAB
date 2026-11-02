@@ -50,6 +50,29 @@ public sealed class HttpTicketServiceClient(
         return await response.Content.ReadAsByteArrayAsync(cancellationToken);
     }
 
+    public Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
+        Guid ticketId,
+        CancellationToken cancellationToken = default) =>
+        ChangeTicketStatusAsync(ticketId, "check-in", "ticket check-in", cancellationToken);
+
+    public Task<TicketServiceStatusChangeResponse> CancelTicketAsync(
+        Guid ticketId,
+        CancellationToken cancellationToken = default) =>
+        ChangeTicketStatusAsync(ticketId, "cancel", "ticket cancellation", cancellationToken);
+
+    private async Task<TicketServiceStatusChangeResponse> ChangeTicketStatusAsync(
+        Guid ticketId,
+        string action,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateRequest(HttpMethod.Post, $"tickets/{ticketId:D}/{action}");
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, operation);
+        return await response.Content.ReadFromJsonAsync<TicketServiceStatusChangeResponse>(cancellationToken)
+            ?? throw new HttpRequestException($"TicketService returned an empty response for {operation}.");
+    }
+
     private HttpRequestMessage CreateRequest(HttpMethod method, string uri)
     {
         var apiKey = configuration["TicketService:InternalApiKey"];

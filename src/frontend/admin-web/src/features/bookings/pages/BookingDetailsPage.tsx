@@ -16,7 +16,13 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import { getBookingDetails, getTicketPdf, updateBookingCustomer } from '../api/bookings';
+import {
+  cancelTicket,
+  checkInTicket,
+  getBookingDetails,
+  getTicketPdf,
+  updateBookingCustomer,
+} from '../api/bookings';
 
 const formatDate = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' })
@@ -47,6 +53,7 @@ export default function BookingDetailsPage() {
   const customerName = useRef<HTMLInputElement>(null);
   const customerEmail = useRef<HTMLInputElement>(null);
   const [ticketError, setTicketError] = useState('');
+  const [ticketActionError, setTicketActionError] = useState('');
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['booking', id],
     queryFn: () => {
@@ -70,6 +77,16 @@ export default function BookingDetailsPage() {
         queryClient.invalidateQueries({ queryKey: ['bookings'] }),
       ]);
     },
+  });
+
+  const changeTicketStatus = useMutation({
+    mutationFn: ({ ticketId, action }: { ticketId: string; action: 'check-in' | 'cancel' }) =>
+      action === 'check-in' ? checkInTicket(ticketId) : cancelTicket(ticketId),
+    onSuccess: async () => {
+      setTicketActionError('');
+      await queryClient.invalidateQueries({ queryKey: ['booking', id] });
+    },
+    onError: (actionError: Error) => setTicketActionError(actionError.message),
   });
 
   const openTicket = async (ticketId: string) => {
@@ -186,6 +203,7 @@ export default function BookingDetailsPage() {
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>Biljetter</Typography>
         {ticketError && <Alert severity="error" sx={{ mb: 1 }}>{ticketError}</Alert>}
+        {ticketActionError && <Alert severity="error" sx={{ mb: 1 }}>{ticketActionError}</Alert>}
         {tickets.length === 0 && <Typography>Inga biljetter har utfärdats.</Typography>}
         {tickets.map((ticket) => (
           <Box key={ticket.ticketId} sx={{
@@ -204,7 +222,36 @@ export default function BookingDetailsPage() {
                 Utfärdad: {formatDate(ticket.issuedAt)}
               </Typography>
             </Box>
-            <Button onClick={() => void openTicket(ticket.ticketId)}>Öppna biljett</Button>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              <Button onClick={() => void openTicket(ticket.ticketId)}>Öppna biljett</Button>
+              {ticket.status === 'Valid' && (
+                <>
+                  <Button
+                    disabled={changeTicketStatus.isPending}
+                    onClick={() => changeTicketStatus.mutate({
+                      ticketId: ticket.ticketId,
+                      action: 'check-in',
+                    })}
+                  >
+                    Checka in
+                  </Button>
+                  <Button
+                    color="error"
+                    disabled={changeTicketStatus.isPending}
+                    onClick={() => {
+                      if (window.confirm('Vill du makulera biljetten?')) {
+                        changeTicketStatus.mutate({
+                          ticketId: ticket.ticketId,
+                          action: 'cancel',
+                        });
+                      }
+                    }}
+                  >
+                    Makulera
+                  </Button>
+                </>
+              )}
+            </Stack>
           </Box>
         ))}
       </Paper>
