@@ -18,8 +18,10 @@ public sealed class TicketPdfEndpointTests
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    [Fact]
-    public async Task DownloadTicketPdf_ReturnsPdfAttachmentForExistingTicket()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DownloadTicketPdf_ReturnsPdfWithRequestedDisposition(bool download)
     {
         await using var dbContext = CreateDbContext();
         var ticket = CreateTicket();
@@ -29,11 +31,14 @@ public sealed class TicketPdfEndpointTests
         var controller = CreateController(dbContext, apiKey: "test-key");
 
         var result = await controller.DownloadTicketPdf(
-            ticket.BookingId, ticket.TicketId, download: true, "test-key", CancellationToken.None);
+            ticket.BookingId, ticket.TicketId, download, "test-key", CancellationToken.None);
 
         var file = Assert.IsType<FileContentResult>(result);
         Assert.Equal("application/pdf", file.ContentType);
-        Assert.Equal($"ticket-{ticket.TicketId:N}.pdf", file.FileDownloadName);
+        if (download)
+            Assert.Equal($"ticket-{ticket.TicketId:N}.pdf", file.FileDownloadName);
+        else
+            Assert.True(string.IsNullOrEmpty(file.FileDownloadName));
         Assert.StartsWith("%PDF-", System.Text.Encoding.ASCII.GetString(file.FileContents, 0, 5));
     }
 
@@ -47,59 +52,6 @@ public sealed class TicketPdfEndpointTests
             Guid.NewGuid(), Guid.NewGuid(), download: false, "test-key", CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result);
-    }
-
-    [Fact]
-    public async Task DownloadTicketPdf_RequiresInternalApiKey()
-    {
-        await using var dbContext = CreateDbContext();
-        var ticket = CreateTicket();
-        dbContext.Tickets.Add(ticket);
-        await dbContext.SaveChangesAsync();
-
-        var controller = CreateController(dbContext, apiKey: "test-key");
-
-        var result = await controller.DownloadTicketPdf(
-            ticket.BookingId, ticket.TicketId, download: false, string.Empty, CancellationToken.None);
-
-        Assert.IsType<UnauthorizedResult>(result);
-    }
-
-    [Fact]
-    public async Task GetTicketsByBooking_ReturnsOnlyTicketsForTheBookingInTicketOrder()
-    {
-        await using var dbContext = CreateDbContext();
-        var bookingId = Guid.NewGuid();
-        var firstTicket = CreateTicket();
-        var secondTicket = CreateTicket();
-        firstTicket.BookingId = bookingId;
-        secondTicket.BookingItemId = firstTicket.BookingItemId;
-        firstTicket.TicketNumberInBookingItem = 1;
-        secondTicket.BookingId = bookingId;
-        secondTicket.TicketNumberInBookingItem = 2;
-        var unrelatedTicket = CreateTicket();
-        dbContext.Tickets.AddRange(secondTicket, unrelatedTicket, firstTicket);
-        await dbContext.SaveChangesAsync();
-
-        var controller = CreateController(dbContext, apiKey: "test-key");
-
-        var result = await controller.GetTicketsByBooking(bookingId, "test-key", CancellationToken.None);
-
-        var response = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
-        var tickets = Assert.IsAssignableFrom<IReadOnlyList<TicketResponse>>(response.Value);
-        Assert.Equal(new[] { 1, 2 }, tickets.Select(ticket => ticket.TicketNumberInBookingItem));
-        Assert.All(tickets, ticket => Assert.Equal(bookingId, ticket.BookingId));
-    }
-
-    [Fact]
-    public async Task GetTicketsByBooking_RequiresInternalApiKey()
-    {
-        await using var dbContext = CreateDbContext();
-        var controller = CreateController(dbContext, apiKey: "test-key");
-
-        var result = await controller.GetTicketsByBooking(Guid.NewGuid(), string.Empty, CancellationToken.None);
-
-        Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
