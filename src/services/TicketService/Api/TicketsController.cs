@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using TicketService.Data;
 using TicketService.Features.Tickets.DownloadTicket;
@@ -18,6 +19,46 @@ public sealed class TicketsController(
     IConfiguration configuration,
     ILogger<TicketsController> logger) : ControllerBase
 {
+    [Authorize(Policy = "AdminOnly")]
+    [HttpGet("admin/bookings/{bookingId:guid}")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAdminTicketsByBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        var tickets = await dbContext.Tickets.AsNoTracking()
+            .Where(ticket => ticket.BookingId == bookingId)
+            .OrderBy(ticket => ticket.BookingItemId)
+            .ThenBy(ticket => ticket.TicketNumberInBookingItem)
+            .ToArrayAsync(cancellationToken);
+        return Ok(tickets.Select(ticket => new TicketResponse(
+            ticket.TicketId, ticket.BookingId, ticket.BookingItemId,
+            ticket.TicketNumberInBookingItem, ticket.EventId, ticket.EventName,
+            ticket.EventStartsAt, ticket.VenueName, ticket.SectionName,
+            ticket.UnitPrice, ticket.Currency, ticket.Status.ToString(), ticket.IssuedAt)).ToArray());
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpGet("admin/bookings/{bookingId:guid}/{ticketId:guid}/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAdminTicketPdf(
+        Guid bookingId,
+        Guid ticketId,
+        [FromQuery] bool download,
+        CancellationToken cancellationToken)
+    {
+        var ticket = await dbContext.Tickets.AsNoTracking().SingleOrDefaultAsync(
+            item => item.TicketId == ticketId && item.BookingId == bookingId,
+            cancellationToken);
+        if (ticket is null) return NotFound();
+        var pdf = ticketDocumentService.GeneratePdf(ticket);
+        return download
+            ? File(pdf, "application/pdf", $"ticket-{ticketId:N}.pdf")
+            : File(pdf, "application/pdf");
+    }
+
     [HttpPost("issue-from-booking")]
     [ProducesResponseType(typeof(IssueTicketsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

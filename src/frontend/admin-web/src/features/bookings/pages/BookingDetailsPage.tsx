@@ -21,6 +21,7 @@ import {
   cancelTicket,
   checkInTicket,
   getBookingDetails,
+  getBookingTickets,
   getTicketPdf,
   updateBookingCustomer,
 } from '../api/bookings';
@@ -63,6 +64,14 @@ export default function BookingDetailsPage() {
     },
     enabled: Boolean(id),
   });
+  const { data: tickets = [], isError: ticketsFailed } = useQuery({
+    queryKey: ['booking-tickets', id],
+    queryFn: () => {
+      if (!id) throw new Error('Bokningsnummer saknas.');
+      return getBookingTickets(id);
+    },
+    enabled: Boolean(id),
+  });
 
   const updateCustomer = useMutation({
     mutationFn: () => {
@@ -85,12 +94,12 @@ export default function BookingDetailsPage() {
       action === 'check-in' ? checkInTicket(ticketId) : cancelTicket(ticketId),
     onSuccess: async () => {
       setTicketActionError('');
-      await queryClient.invalidateQueries({ queryKey: ['booking', id] });
+      await queryClient.invalidateQueries({ queryKey: ['booking-tickets', id] });
     },
     onError: async (actionError: Error) => {
       setTicketActionError(actionError.message);
       if (!(actionError instanceof ApiError) || actionError.status === 409 || actionError.status >= 500) {
-        await queryClient.invalidateQueries({ queryKey: ['booking', id] });
+        await queryClient.invalidateQueries({ queryKey: ['booking-tickets', id] });
       }
     },
   });
@@ -123,7 +132,7 @@ export default function BookingDetailsPage() {
   if (isError) return <Alert severity="error">Kunde inte hämta bokningen. {error.message}</Alert>;
   if (!data) return <Alert severity="error">Bokningen kunde inte hittas.</Alert>;
 
-  const { booking, history, payment, tickets } = data;
+  const { booking, history, payment } = data;
   return (
     <Stack spacing={2}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
@@ -210,6 +219,7 @@ export default function BookingDetailsPage() {
         <Typography variant="h6" gutterBottom>Biljetter</Typography>
         {ticketError && <Alert severity="error" sx={{ mb: 1 }}>{ticketError}</Alert>}
         {ticketActionError && <Alert severity="error" sx={{ mb: 1 }}>{ticketActionError}</Alert>}
+        {ticketsFailed && <Alert severity="error" sx={{ mb: 1 }}>Kunde inte hämta biljetterna.</Alert>}
         {tickets.length === 0 && <Typography>Inga biljetter har utfärdats.</Typography>}
         {tickets.map((ticket) => (
           <Box key={ticket.ticketId} sx={{

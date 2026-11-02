@@ -19,10 +19,12 @@ export default function EventsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [venueId, setVenueId] = useState('');
-  const [startAfter, setStartAfter] = useState('');
+  const [endsAfter, setEndsAfter] = useState('');
   const [startsBefore, setStartsBefore] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const isDateRangeInvalid = Boolean(endsAfter && startsBefore
+    && new Date(endsAfter).getTime() > new Date(startsBefore).getTime());
 
   const mutation = useMutation({
     mutationFn: deleteEvent,
@@ -32,12 +34,14 @@ export default function EventsPage() {
     },
   });
 
-  const { data, isPending, isError } = useQuery({
-    queryKey: ['events', { eventName, venueId, startAfter, startsBefore, page, pageSize }],
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['events', { eventName, venueId, endsAfter, startsBefore, page, pageSize }],
+    enabled: !isDateRangeInvalid,
     queryFn: () => getEvents({
       eventName: eventName.trim() || undefined,
       venueId: venueId || undefined,
-      startAfter: startAfter || undefined,
+      // Perioden ska även omfatta evenemang som redan har börjat.
+      endsAfter: endsAfter || undefined,
       startsBefore: startsBefore || undefined,
       page,
       pageSize,
@@ -61,8 +65,8 @@ export default function EventsPage() {
         </Button>
       </Box>
 
-      {isPending && <CircularProgress />}
-      {isError && <Alert severity="error">Kunde inte hämta evenemang.</Alert>}
+      {isLoading && <CircularProgress />}
+      {!isDateRangeInvalid && isError && <Alert severity="error">Kunde inte hämta evenemang.</Alert>}
 
       <Paper sx={{ p: 2, mb: 2, overflow: 'visible' }}>
         <Box
@@ -109,13 +113,14 @@ export default function EventsPage() {
           <TextField
             label="Från"
             type="datetime-local"
-            value={startAfter}
+            value={endsAfter}
+            error={isDateRangeInvalid}
             sx={{
               width: 225,
               '& .MuiInputBase-root': { minHeight: 56 },
             }}
             onChange={(event) => {
-              setStartAfter(event.target.value);
+              setEndsAfter(event.target.value);
               setPage(1);
             }}
             slotProps={{ inputLabel: { shrink: true } }}
@@ -125,6 +130,8 @@ export default function EventsPage() {
             label="Till"
             type="datetime-local"
             value={startsBefore}
+            error={isDateRangeInvalid}
+            helperText={isDateRangeInvalid ? 'Till måste vara samma tid som eller senare än Från.' : undefined}
             sx={{
               width: 225,
               '& .MuiInputBase-root': { minHeight: 56 },
@@ -141,7 +148,7 @@ export default function EventsPage() {
             onClick={() => {
               setEventName('');
               setVenueId('');
-              setStartAfter('');
+              setEndsAfter('');
               setStartsBefore('');
               setPage(1);
             }}
@@ -151,11 +158,11 @@ export default function EventsPage() {
         </Box>
       </Paper>
 
-      {data && data.totalCount === 0 && (
+      {!isDateRangeInvalid && data && data.totalCount === 0 && (
         <Alert severity="info">Det finns inga evenemang ännu.</Alert>
       )}
 
-      {data && data.events.length > 0 && (
+      {!isDateRangeInvalid && data && data.events.length > 0 && (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -196,7 +203,7 @@ export default function EventsPage() {
         </TableContainer>
       )}
 
-      {data && data.totalCount > pageSize && (
+      {!isDateRangeInvalid && data && data.totalCount > pageSize && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
           <Pagination count={Math.ceil(data.totalCount / pageSize)} page={page}
             onChange={(_, nextPage) => setPage(nextPage)} color="primary" />
