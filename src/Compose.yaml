@@ -41,6 +41,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
       TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
+      Authentication__Authority: http://localhost:8180/realms/halsingelive
+      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       ConnectionStrings__TicketService: "Host=ticketservice-db;Port=5432;Database=ticketservice_dev;Username=postgres;Password=postgres"
     ports:
       - "8082:8080"
@@ -177,11 +179,13 @@ services:
     environment:
       API_PROXY_TARGET: eventcatalog:8080
       BOOKING_API_PROXY_TARGET: booking:8080
+      TICKET_API_PROXY_TARGET: ticketservice:8080
     ports:
       - "5173:80"
     depends_on:
       - eventcatalog
       - booking
+      - ticketservice
 
   customer-web:
     build:

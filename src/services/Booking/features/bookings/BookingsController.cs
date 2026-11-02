@@ -44,7 +44,6 @@ public sealed class BookingsController(
             return NotFound();
 
         PaymentResult payment;
-        IReadOnlyList<TicketServiceTicketResponse> tickets;
         try
         {
             payment = await paymentGateway.GetByBookingAsync(bookingId, cancellationToken);
@@ -59,15 +58,6 @@ public sealed class BookingsController(
             });
         }
 
-        try
-        {
-            tickets = await ticketServiceClient.GetTicketsForBookingAsync(bookingId, cancellationToken);
-        }
-        catch (HttpRequestException exception)
-        {
-            return TicketServiceUnavailable(exception);
-        }
-
         var history = await bookingService.GetBookingHistoryAsync(
             booking.BookingId, booking.CustomerEmail, cancellationToken);
         return Ok(new AdminBookingDetailsResponse(
@@ -77,8 +67,7 @@ public sealed class BookingsController(
                 item.Status,
                 item.TotalPrice,
                 item.CreatedAt)).ToArray(),
-            payment,
-            tickets));
+            payment));
     }
 
     [Authorize(Policy = "AdminOnly")]
@@ -100,34 +89,6 @@ public sealed class BookingsController(
         var updated = await bookingService.UpdateBookingCustomerAsync(
             bookingId, request.CustomerName, request.CustomerEmail, cancellationToken);
         return updated ? NoContent() : NotFound();
-    }
-
-    [Authorize(Policy = "AdminOnly")]
-    [HttpGet("{bookingId:guid}/{ticketId:guid}")]
-    [Produces("application/pdf")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetAdminTicketPdf(
-        Guid bookingId,
-        Guid ticketId,
-        [FromQuery] bool download,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var pdf = await ticketServiceClient.GetTicketPdfAsync(
-                bookingId, ticketId, download, cancellationToken);
-            return download
-                ? File(pdf, "application/pdf", $"ticket-{ticketId:N}.pdf")
-                : File(pdf, "application/pdf");
-        }
-        catch (HttpRequestException exception)
-        {
-            if (exception.StatusCode == System.Net.HttpStatusCode.NotFound)
-                return NotFound();
-
-            return TicketServiceUnavailable(exception);
-        }
     }
 
     [HttpGet("{bookingId:guid}")]
@@ -437,8 +398,7 @@ public sealed record AdminBookingListItemResponse(
 public sealed record AdminBookingDetailsResponse(
     AdminBookingListItemResponse Booking,
     IReadOnlyList<BookingHistoryItem> History,
-    PaymentResult Payment,
-    IReadOnlyList<TicketServiceTicketResponse> Tickets);
+    PaymentResult Payment);
 
 public sealed record BookingHistoryItem(Guid BookingId, string Status, decimal TotalPrice, DateTime CreatedAt);
 
