@@ -115,7 +115,24 @@ public sealed class BookingsController(
         if (booking is null)
             return NotFound();
 
-        return Ok(ToDetailsResponse(booking));
+        string paymentStatus = null;
+        if (booking.PaymentRequested)
+        {
+            paymentStatus = booking.PaymentSettled ? null : "Unknown";
+            try
+            {
+                var payment = await paymentGateway.GetByBookingAsync(bookingId, cancellationToken);
+                if (payment is not null && payment.PaymentId != Guid.Empty && payment.BookingId == bookingId
+                    && payment.Amount == booking.TotalPrice && payment.Currency == "SEK")
+                    paymentStatus = payment.RefundedAt is not null ? "Refunded" : payment.Status;
+            }
+            catch (Exception exception) when (exception is HttpRequestException or PaymentContractException
+                || exception is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(exception, "Payment status unavailable for guest booking {BookingId}.", bookingId);
+            }
+        }
+        return Ok(ToDetailsResponse(booking) with { PaymentStatus = paymentStatus });
     }
 
     [HttpGet("{bookingId:guid}/tickets")]
@@ -378,7 +395,8 @@ public sealed record BookingDetailsResponse(
     decimal TotalPrice,
     DateTime CreatedAt,
     DateTime? ExpiresAt,
-    IReadOnlyList<BookingItemResponse> Items);
+    IReadOnlyList<BookingItemResponse> Items,
+    string PaymentStatus = null);
 
 public sealed record BookingItemResponse(Guid InventoryId, int Quantity, decimal UnitPrice);
 
