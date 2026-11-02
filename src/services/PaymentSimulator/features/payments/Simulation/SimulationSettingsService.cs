@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using PaymentSimulator.Data;
-using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 
 namespace PaymentSimulator.Features.Payments.Simulation;
@@ -8,7 +7,7 @@ namespace PaymentSimulator.Features.Payments.Simulation;
 public sealed class SimulationSettings
 {
     public int Id { get; set; } = 1;
-    public PaymentStatus Outcome { get; set; }
+    public SimulationOutcome Outcome { get; set; }
     public int DelayMs { get; set; }
     public int TimeoutMs { get; set; }
 }
@@ -26,8 +25,8 @@ public sealed class SimulationSettingsService(PaymentDbContext db, IConfiguratio
     public async Task<PaymentSimulationSettings> Update(PaymentSimulationSettings settings,
         CancellationToken cancellationToken)
     {
-        if (settings.Outcome is not (PaymentStatus.Succeeded or PaymentStatus.Failed or PaymentStatus.TimedOut))
-            throw new ArgumentException("Outcome must be Succeeded, Failed or TimedOut.");
+        if (!Enum.IsDefined(settings.Outcome))
+            throw new ArgumentException("Outcome must be Succeeded, Failed, TimedOut or Random.");
         if (settings.DelayMs < 0 || settings.TimeoutMs is < 1 or > 30000)
             throw new ArgumentException("DelayMs must be non-negative; TimeoutMs must be 1..30000.");
 

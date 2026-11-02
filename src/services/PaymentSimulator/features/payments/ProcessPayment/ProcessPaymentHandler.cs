@@ -26,7 +26,7 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSetting
                 Id = Guid.NewGuid(), BookingId = request.BookingId, Amount = request.Amount,
                 Currency = currency, Status = PaymentStatus.Pending, CreatedAt = now,
                 CompleteAfter = now.AddMilliseconds(Math.Min(delayMs, timeoutMs)),
-                PlannedOutcome = delayMs > timeoutMs ? PaymentStatus.TimedOut : outcome
+                PlannedOutcome = delayMs > timeoutMs ? PaymentStatus.TimedOut : PaymentValidation.ResolveOutcome(outcome)
             };
             dbContext.Payments.Add(payment);
             try

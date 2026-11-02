@@ -13,12 +13,12 @@ namespace PaymentSimulator.UnitTests;
 public sealed class SimulationSettingsTests
 {
     [Theory]
-    [InlineData(PaymentStatus.Pending, 0, 5000)]
-    [InlineData((PaymentStatus)99, 0, 5000)]
-    [InlineData(PaymentStatus.Failed, -1, 5000)]
-    [InlineData(PaymentStatus.Failed, 0, 0)]
-    [InlineData(PaymentStatus.Failed, 0, 30001)]
-    public async Task Invalid_settings_are_rejected_before_database_access(PaymentStatus outcome, int delay, int timeout)
+    [InlineData((SimulationOutcome)0, 0, 5000)]
+    [InlineData((SimulationOutcome)99, 0, 5000)]
+    [InlineData(SimulationOutcome.Failed, -1, 5000)]
+    [InlineData(SimulationOutcome.Failed, 0, 0)]
+    [InlineData(SimulationOutcome.Failed, 0, 30001)]
+    public async Task Invalid_settings_are_rejected_before_database_access(SimulationOutcome outcome, int delay, int timeout)
     {
         using var db = new PaymentDbContext(new DbContextOptionsBuilder<PaymentDbContext>().Options);
         var service = new SimulationSettingsService(db, new ConfigurationBuilder().Build());
@@ -31,7 +31,7 @@ public sealed class SimulationSettingsTests
         var configuration = new ConfigurationBuilder().Build();
         using var db = new PaymentDbContext(new DbContextOptionsBuilder<PaymentDbContext>().Options);
         var controller = new SimulationSettingsController(new(db, configuration));
-        var result = await controller.Update(new(PaymentStatus.Pending, 0, 5000), default);
+        var result = await controller.Update(new((SimulationOutcome)0, 0, 5000), default);
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 

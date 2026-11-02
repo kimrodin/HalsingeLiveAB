@@ -64,7 +64,7 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         {
             var defaults = new ConfigurationBuilder().Build();
             var settings = new SimulationSettingsService(db, defaults);
-            Assert.Equal(new(PaymentStatus.Succeeded, 500, 5000), await settings.Get(default));
+            Assert.Equal(new(SimulationOutcome.Succeeded, 500, 5000), await settings.Get(default));
             await Handler(db).Handle(originalRequest, default);
             db.Payments.Add(new Payment
             {
@@ -73,22 +73,22 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
                 PlannedOutcome = PaymentStatus.Succeeded, Status = PaymentStatus.Pending
             });
             await db.SaveChangesAsync();
-            await settings.Update(new(PaymentStatus.Failed, 0, 5000), default);
+            await settings.Update(new(SimulationOutcome.Failed, 0, 5000), default);
         }
 
         await using var fresh = CreateDb();
         var saved = new SimulationSettingsService(fresh, new ConfigurationBuilder().Build());
-        Assert.Equal(new(PaymentStatus.Failed, 0, 5000), await saved.Get(default));
+        Assert.Equal(new(SimulationOutcome.Failed, 0, 5000), await saved.Get(default));
         var handler = Handler(fresh);
         Assert.Equal(PaymentStatus.Succeeded, (await handler.Handle(originalRequest, default)).Status);
         await handler.CompleteDuePayments(default);
         Assert.Equal(2, await fresh.Payments.CountAsync(p => p.Status == PaymentStatus.Succeeded));
         Assert.Equal(PaymentStatus.Failed,
             (await handler.Handle(new(Guid.NewGuid(), 100m, "SEK"), default)).Status);
-        await saved.Update(new(PaymentStatus.TimedOut, 0, 5000), default);
+        await saved.Update(new(SimulationOutcome.TimedOut, 0, 5000), default);
         Assert.Equal(PaymentStatus.TimedOut,
             (await handler.Handle(new(Guid.NewGuid(), 100m, "SEK"), default)).Status);
-        await saved.Update(new(PaymentStatus.Succeeded, 10, 1), default);
+        await saved.Update(new(SimulationOutcome.Succeeded, 10, 1), default);
         Assert.Equal(PaymentStatus.TimedOut,
             (await handler.Handle(new(Guid.NewGuid(), 100m, "SEK"), default)).Status);
     }
@@ -108,6 +108,29 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         Assert.Equal(result, repeat);
         var lookup = await new GetPaymentHandler(db).GetByBooking(request.BookingId, default);
         Assert.Equal(result.PaymentId, lookup!.PaymentId);
+    }
+
+    [Fact]
+    public async Task Random_settings_are_persisted_and_attempts_reuse_their_selected_outcome()
+    {
+        await using (var db = CreateDb())
+        {
+            await new SimulationSettingsService(db, new ConfigurationBuilder().Build())
+                .Update(new(SimulationOutcome.Random, 0, 5000), default);
+        }
+        await using var fresh = CreateDb();
+        var settings = new SimulationSettingsService(fresh, new ConfigurationBuilder().Build());
+        Assert.Equal(SimulationOutcome.Random, (await settings.Get(default)).Outcome);
+        var request = new ProcessPaymentRequest(Guid.NewGuid(), 100m, "SEK");
+        var result = await Handler(fresh).Handle(request, default);
+        Assert.Contains(result.Status, new[] { PaymentStatus.Succeeded, PaymentStatus.Failed, PaymentStatus.TimedOut });
+        var stored = await fresh.Payments.AsNoTracking().SingleAsync();
+        Assert.Equal(result.Status, stored.PlannedOutcome);
+        Assert.Equal(result, await Handler(fresh).Handle(request, default));
+
+        await settings.Update(new(SimulationOutcome.Random, 10, 1), default);
+        Assert.Equal(PaymentStatus.TimedOut,
+            (await Handler(fresh).Handle(new(Guid.NewGuid(), 100m, "SEK"), default)).Status);
     }
 
     [Fact]

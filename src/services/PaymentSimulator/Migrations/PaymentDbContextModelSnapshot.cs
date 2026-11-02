@@ -95,7 +95,7 @@ namespace PaymentSimulator.Migrations
 
                     b.ToTable("SimulationSettings", null, t =>
                         {
-                            t.HasCheckConstraint("CK_SimulationSettings_Valid", "\"Id\" = 1 AND \"Outcome\" IN ('Succeeded', 'Failed', 'TimedOut') AND \"DelayMs\" >= 0 AND \"TimeoutMs\" BETWEEN 1 AND 30000");
+                            t.HasCheckConstraint("CK_SimulationSettings_Valid", "\"Id\" = 1 AND \"Outcome\" IN ('Succeeded', 'Failed', 'TimedOut', 'Random') AND \"DelayMs\" >= 0 AND \"TimeoutMs\" BETWEEN 1 AND 30000");
                         });
                 });
 #pragma warning restore 612, 618

@@ -1,6 +1,6 @@
 # Payment simulation admin API
 
-PaymentSimulator exposes runtime settings for a future admin frontend:
+PaymentSimulator exposes runtime settings for AdminWeb:
 
 | Method | Path | Result |
 | --- | --- | --- |
@@ -10,7 +10,19 @@ PaymentSimulator exposes runtime settings for a future admin frontend:
 Both endpoints use the same Keycloak `AdminOnly` policy as the other admin APIs.
 Send `Authorization: Bearer <access-token>` using the logged-in admin's Keycloak token.
 Missing or invalid tokens return 401; authenticated users without the `admin` role return 403.
-No internal API key is required. Frontend controls and routing are not included yet.
+No internal API key is required.
+
+In development AdminWeb, click **Betalningssimulator** beside the seed buttons in
+the sidebar. The dialog loads current settings and lets an admin save an outcome,
+delay, and timeout. It is hidden in production builds, like the seed controls.
+The dialog explains that only new payment attempts are affected.
+
+The Vite development proxy routes `/payment-api` to PaymentSimulator, retaining
+the backend's `/api` prefix. Its default target is `http://localhost:5111`;
+override with `PAYMENT_API_PROXY_TARGET` when needed. `Compose.dev.yaml` sets
+`http://payment-simulator:8080` for the AdminWeb container. Restart Vite or recreate
+the development container after changing proxy configuration. Production Nginx
+does not expose this proxy.
 
 Authentication uses audience `eventcatalog` and the top-level `roles` claim, matching
 Booking and TicketService. The default authority is
@@ -29,7 +41,9 @@ Example PUT body (all three fields are required):
 }
 ```
 
-`outcome` accepts `Succeeded`, `Failed`, or `TimedOut`. `delayMs` must be nonnegative;
+`outcome` accepts `Succeeded`, `Failed`, `TimedOut`, or `Random`. Random gives each
+new payment an equal chance of Succeeded, Failed, or TimedOut. The selected result
+is saved on creation; retries and recovery reuse it. `delayMs` must be nonnegative;
 `timeoutMs` must be between 1 and 30000. Invalid settings return 400.
 If the delay exceeds the timeout, a new payment times out at the timeout deadline,
 regardless of the selected outcome. Explicit `TimedOut` uses the earlier of delay and timeout.

@@ -2,11 +2,33 @@ using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.ProcessPayment;
+using PaymentSimulator.Features.Payments.Simulation;
 
 namespace PaymentSimulator.UnitTests;
 
 public sealed class PaymentValidationTests
 {
+    [Fact]
+    public void Random_configuration_resolves_to_a_terminal_payment_status()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["PaymentSimulation:Outcome"] = "Random"
+        }).Build();
+        var settings = PaymentValidation.ReadSimulationSettings(configuration);
+        Assert.Equal(SimulationOutcome.Random, settings.Outcome);
+        for (var attempt = 0; attempt < 100; attempt++)
+            Assert.Contains(PaymentValidation.ResolveOutcome(settings.Outcome),
+                new[] { PaymentStatus.Succeeded, PaymentStatus.Failed, PaymentStatus.TimedOut });
+    }
+
+    [Theory]
+    [InlineData(SimulationOutcome.Succeeded, PaymentStatus.Succeeded)]
+    [InlineData(SimulationOutcome.Failed, PaymentStatus.Failed)]
+    [InlineData(SimulationOutcome.TimedOut, PaymentStatus.TimedOut)]
+    public void Explicit_outcomes_remain_deterministic(SimulationOutcome outcome, PaymentStatus expected) =>
+        Assert.Equal(expected, PaymentValidation.ResolveOutcome(outcome));
+
     private static ProcessPaymentRequest Request(decimal amount = 125.50m, string currency = "SEK") =>
         new(Guid.Parse("11111111-1111-1111-1111-111111111111"), amount, currency);
 
@@ -55,7 +77,7 @@ public sealed class PaymentValidationTests
     public void ReadSimulationSettings_UsesDefaultOutcomeDelayAndTimeout()
     {
         var settings = PaymentValidation.ReadSimulationSettings(new ConfigurationBuilder().Build());
-        Assert.Equal(PaymentStatus.Succeeded, settings.Outcome);
+        Assert.Equal(SimulationOutcome.Succeeded, settings.Outcome);
         Assert.Equal(500, settings.DelayMs);
         Assert.Equal(5000, settings.TimeoutMs);
     }

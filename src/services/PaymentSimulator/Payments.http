@@ -5,7 +5,7 @@
 GET {{baseUrl}}/api/admin/payment-simulation
 Authorization: Bearer {{accessToken}}
 
-### Change defaults for NEW bookings only: Succeeded, Failed or TimedOut
+### Change defaults for NEW bookings only: Succeeded, Failed, TimedOut or Random
 PUT {{baseUrl}}/api/admin/payment-simulation
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
