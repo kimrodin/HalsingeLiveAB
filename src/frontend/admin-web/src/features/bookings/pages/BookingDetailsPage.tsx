@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import { getBookingDetails, getTicketPdf, updateBookingCustomer } from '../api/bookings';
+import { getBookingDetails, getBookingTickets, getTicketPdf, updateBookingCustomer } from '../api/bookings';
 
 const formatDate = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' })
@@ -52,6 +52,14 @@ export default function BookingDetailsPage() {
     queryFn: () => {
       if (!id) throw new Error('Bokningsnummer saknas.');
       return getBookingDetails(id);
+    },
+    enabled: Boolean(id),
+  });
+  const { data: tickets = [], isError: ticketsFailed } = useQuery({
+    queryKey: ['booking-tickets', id],
+    queryFn: () => {
+      if (!id) throw new Error('Bokningsnummer saknas.');
+      return getBookingTickets(id);
     },
     enabled: Boolean(id),
   });
@@ -100,7 +108,7 @@ export default function BookingDetailsPage() {
   if (isError) return <Alert severity="error">Kunde inte hämta bokningen. {error.message}</Alert>;
   if (!data) return <Alert severity="error">Bokningen kunde inte hittas.</Alert>;
 
-  const { booking, history, payment, tickets } = data;
+  const { booking, history, payment } = data;
   return (
     <Stack spacing={2}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
@@ -186,6 +194,7 @@ export default function BookingDetailsPage() {
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>Biljetter</Typography>
         {ticketError && <Alert severity="error" sx={{ mb: 1 }}>{ticketError}</Alert>}
+        {ticketsFailed && <Alert severity="error" sx={{ mb: 1 }}>Kunde inte hämta biljetterna.</Alert>}
         {tickets.length === 0 && <Typography>Inga biljetter har utfärdats.</Typography>}
         {tickets.map((ticket) => (
           <Box key={ticket.ticketId} sx={{

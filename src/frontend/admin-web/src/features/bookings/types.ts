@@ -49,5 +49,4 @@ export interface BookingDetails {
   booking: Booking;
   history: BookingHistoryItem[];
   payment: BookingPayment | null;
-  tickets: BookingTicket[];
 }
