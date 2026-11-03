@@ -28,6 +28,7 @@ const navItems = [
   { label: 'Evenemang', to: '/events' },
   { label: 'Scener', to: '/venues' },
   { label: 'Bokningar', to: '/bookings' },
+  { label: 'Entréskanner', to: '/ticket-scanner' },
 ];
 
 export default function AdminLayout() {
