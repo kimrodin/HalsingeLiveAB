@@ -27,6 +27,9 @@ public class ListEventsHandler(EventCatalogDbContext dbContext)
         if (request.StartAfter.HasValue)
             query = query.Where(e => e.StartDate >= request.StartAfter.Value);
 
+        if (request.EndsAfter.HasValue)
+            query = query.Where(e => e.EndDate > request.EndsAfter.Value);
+
         if (request.StartsBefore.HasValue)
             query = query.Where(e => e.StartDate <= request.StartsBefore.Value);
 
@@ -40,6 +43,7 @@ public class ListEventsHandler(EventCatalogDbContext dbContext)
             .Select(eventItem => new EventListItemResponseDTO
             {
                 EventId = eventItem.EventId,
+                ImageUrl = eventItem.Image == null ? null : "/DownloadEventImage/" + eventItem.EventId + "/" + eventItem.Image.EventImageId,
                 EventName = eventItem.Name,
                 EventDescription = eventItem.Description,
                 StartDate = eventItem.StartDate,

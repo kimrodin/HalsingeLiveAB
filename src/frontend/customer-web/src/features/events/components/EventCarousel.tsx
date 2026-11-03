@@ -4,7 +4,7 @@ import { Box, Button, Card, CardContent, Stack, Typography } from '@mui/material
 import { Link as RouterLink } from 'react-router'
 import type { EventListItem } from '../api/events'
 import TicketAction from './TicketAction'
-import EventDatePoster from './EventDatePoster'
+import EventPoster from './EventPoster'
 
 const eventDateFormatter = new Intl.DateTimeFormat('sv-SE', {
   weekday: 'long',
@@ -166,14 +166,14 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
                   overflow: 'hidden',
                   borderRadius: 3,
                   borderColor: 'divider',
-                  boxShadow: 2,
+                  boxShadow: '0 5px 18px rgba(28, 48, 48, 0.075)',
                   position: 'relative',
                   '&::before': {
                     content: '""',
                     position: 'absolute',
                     inset: '0 0 auto',
-                    height: 4,
-                    bgcolor: 'primary.main',
+                    height: 3,
+                    bgcolor: 'primary.light',
                   },
                 }}
               >
@@ -201,7 +201,7 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
                         justifySelf: 'start',
                       }}
                     >
-                      <EventDatePoster startDate={event.startDate} eventName={event.eventName} />
+                      <EventPoster imageUrl={event.imageUrl} eventName={event.eventName} />
                     </Box>
                     <Box sx={{ minWidth: 0, gridColumn: 2, gridRow: 1, py: { sm: 1 } }}>
                       <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700, letterSpacing: 1.2 }}>
@@ -264,7 +264,24 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
       </Box>
 
       {events.length > 1 && (
-        <Stack direction="row" spacing={1} sx={{ mt: 1.5, alignItems: 'center', justifyContent: 'center' }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            mt: 1.5,
+            alignItems: 'center',
+            justifyContent: 'center',
+            '& .MuiButton-root': {
+              color: '#9CBEC1',
+              '&:hover': { bgcolor: 'rgba(156, 190, 193, 0.12)' },
+              '&:focus-visible': {
+                outline: '2px solid',
+                outlineColor: 'currentColor',
+                outlineOffset: 2,
+              },
+            },
+          }}
+        >
           <Button
             aria-label="Föregående evenemang"
             onClick={() => scrollToIndex(currentIndex - 1)}
@@ -278,7 +295,7 @@ function EventCarousel({ events, venuesById, now }: EventCarouselProps) {
               aria-label={`Visa evenemang ${index + 1}: ${event.eventName}`}
               aria-current={index === currentIndex ? 'true' : undefined}
               onClick={() => scrollToIndex(index)}
-              sx={{ minWidth: 32, px: 1, color: index === currentIndex ? 'primary.main' : 'text.disabled' }}
+              sx={{ minWidth: 32, px: 1 }}
             >
               {index === currentIndex ? '●' : '○'}
             </Button>

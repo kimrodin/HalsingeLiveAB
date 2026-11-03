@@ -28,6 +28,9 @@ namespace Booking.data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -80,9 +83,10 @@ namespace Booking.data.Migrations
 
                     b.Property<string>("Currency")
                         .IsRequired()
-                        .HasDefaultValue("SEK")
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
+                        .HasColumnType("character varying(3)")
+                        .HasDefaultValue("SEK");
 
                     b.Property<string>("EventName")
                         .IsRequired()
@@ -118,7 +122,7 @@ namespace Booking.data.Migrations
 
                     b.HasIndex("InventoryId");
 
-                    b.ToTable("BookingItems", (string)null, t =>
+                    b.ToTable("BookingItems", null, t =>
                         {
                             t.HasCheckConstraint("CK_BookingItems_Currency_Valid", "\"Currency\" ~ '^[A-Z]{3}$'");
                         });

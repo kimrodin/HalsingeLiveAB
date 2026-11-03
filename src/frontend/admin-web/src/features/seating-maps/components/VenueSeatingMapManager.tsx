@@ -99,7 +99,7 @@ export default function VenueSeatingMapManager({ venueId }: { venueId: string })
         </Stack>
 
         <Typography variant="body2" color={errors.file ? 'error' : 'text.secondary'}>
-          {errors.file ?? (file ? file.name : 'Ingen fil vald (PNG, JPG eller PDF, max 5 MB)')}
+          {errors.file ?? (file ? file.name : 'Ingen fil vald (PNG, JPG eller PDF, max 10 MB)')}
         </Typography>
 
         {uploadMutation.isError && (

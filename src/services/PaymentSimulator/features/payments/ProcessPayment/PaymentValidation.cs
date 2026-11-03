@@ -1,4 +1,5 @@
 using PaymentSimulator.Features.Payments.Models;
+using PaymentSimulator.Features.Payments.Simulation;
 
 namespace PaymentSimulator.Features.Payments.ProcessPayment;
 
@@ -22,9 +23,10 @@ public static class PaymentValidation
         var outcomeText = configuration["PaymentSimulation:Outcome"] ?? "Succeeded";
         var outcome = outcomeText.ToLowerInvariant() switch
         {
-            "succeeded" => PaymentStatus.Succeeded,
-            "failed" => PaymentStatus.Failed,
-            "timeout" or "timedout" => PaymentStatus.TimedOut,
+            "succeeded" => SimulationOutcome.Succeeded,
+            "failed" => SimulationOutcome.Failed,
+            "timeout" or "timedout" => SimulationOutcome.TimedOut,
+            "random" => SimulationOutcome.Random,
             _ => throw new InvalidOperationException($"Unknown payment outcome: {outcomeText}")
         };
         var delayMs = configuration.GetValue("PaymentSimulation:DelayMs", 500);
@@ -33,6 +35,23 @@ public static class PaymentValidation
             throw new InvalidOperationException("DelayMs must be non-negative; TimeoutMs must be 1..30000.");
         return new(outcome, delayMs, timeoutMs);
     }
+
+    public static PaymentStatus ResolveOutcome(SimulationOutcome outcome) => outcome switch
+    {
+        SimulationOutcome.Succeeded => PaymentStatus.Succeeded,
+        SimulationOutcome.Failed => PaymentStatus.Failed,
+        SimulationOutcome.TimedOut => PaymentStatus.TimedOut,
+        SimulationOutcome.Random => System.Random.Shared.Next(3) switch
+        {
+            0 => PaymentStatus.Succeeded,
+            1 => PaymentStatus.Failed,
+            _ => PaymentStatus.TimedOut
+        },
+        _ => throw new ArgumentException("Unknown simulation outcome.", nameof(outcome))
+    };
 }
 
-public sealed record PaymentSimulationSettings(PaymentStatus Outcome, int DelayMs, int TimeoutMs);
+public sealed record PaymentSimulationSettings(
+    [property: System.Text.Json.Serialization.JsonRequired] SimulationOutcome Outcome,
+    [property: System.Text.Json.Serialization.JsonRequired] int DelayMs,
+    [property: System.Text.Json.Serialization.JsonRequired] int TimeoutMs);

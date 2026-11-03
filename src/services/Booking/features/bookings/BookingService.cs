@@ -108,6 +108,34 @@ public sealed partial class BookingService(
             .FirstOrDefaultAsync(booking => booking.BookingId == bookingId, cancellationToken);
     }
 
+    public Task<List<BookingModel>> GetBookingHistoryAsync(
+        Guid bookingId,
+        string customerEmail,
+        CancellationToken cancellationToken = default) =>
+        dbContext.Bookings.AsNoTracking()
+            .Where(booking => booking.BookingId != bookingId
+                && booking.CustomerEmail.ToLower() == customerEmail.ToLower())
+            .OrderByDescending(booking => booking.CreatedAt)
+            .Take(10)
+            .ToListAsync(cancellationToken);
+
+    public async Task<bool> UpdateBookingCustomerAsync(
+        Guid bookingId,
+        string customerName,
+        string customerEmail,
+        CancellationToken cancellationToken = default)
+    {
+        var booking = await dbContext.Bookings
+            .SingleOrDefaultAsync(item => item.BookingId == bookingId, cancellationToken);
+        if (booking is null)
+            return false;
+
+        booking.CustomerName = customerName.Trim();
+        booking.CustomerEmail = customerEmail.Trim();
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<BookingModel> GetBookingForGuestAsync(
         Guid bookingId,
         string accessToken,
@@ -366,10 +394,12 @@ public sealed partial class BookingService(
                 break;
         }
 
+        var cancelledAt = DateTime.UtcNow;
         await dbContext.Bookings
             .Where(item => item.BookingId == bookingId && item.Status == BookingStatuses.Cancelling)
             .ExecuteUpdateAsync(update => update
-                .SetProperty(item => item.Status, BookingStatuses.Cancelled), cancellationToken);
+                .SetProperty(item => item.Status, BookingStatuses.Cancelled)
+                .SetProperty(item => item.CancelledAt, cancelledAt), cancellationToken);
 
         return new BookingActionResult(BookingActionStatus.Completed, BookingStatuses.Cancelled);
     }

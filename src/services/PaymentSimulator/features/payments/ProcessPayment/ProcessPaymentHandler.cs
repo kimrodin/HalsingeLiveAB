@@ -3,10 +3,11 @@ using Npgsql;
 using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.RefundPayment;
+using PaymentSimulator.Features.Payments.Simulation;
 
 namespace PaymentSimulator.Features.Payments.ProcessPayment;
 
-public class ProcessPaymentHandler(PaymentDbContext dbContext, IConfiguration configuration,
+public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSettingsService settingsService,
     RefundPaymentHandler refundPaymentHandler)
 {
     public async Task<ProcessPaymentResponse> Handle(
@@ -18,14 +19,14 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, IConfiguration co
             .SingleOrDefaultAsync(p => p.BookingId == request.BookingId, cancellationToken);
         if (payment is null)
         {
-            var (outcome, delayMs, timeoutMs) = PaymentValidation.ReadSimulationSettings(configuration);
+            var (outcome, delayMs, timeoutMs) = await settingsService.Get(cancellationToken);
             var now = DateTimeOffset.UtcNow;
             payment = new Payment
             {
                 Id = Guid.NewGuid(), BookingId = request.BookingId, Amount = request.Amount,
                 Currency = currency, Status = PaymentStatus.Pending, CreatedAt = now,
                 CompleteAfter = now.AddMilliseconds(Math.Min(delayMs, timeoutMs)),
-                PlannedOutcome = delayMs > timeoutMs ? PaymentStatus.TimedOut : outcome
+                PlannedOutcome = delayMs > timeoutMs ? PaymentStatus.TimedOut : PaymentValidation.ResolveOutcome(outcome)
             };
             dbContext.Payments.Add(payment);
             try
@@ -71,7 +72,8 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, IConfiguration co
             .Where(p => p.Status == PaymentStatus.Pending && p.CompleteAfter <= now)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(p => p.Status, p => p.PlannedOutcome)
-                .SetProperty(p => p.CompletedAt, now), cancellationToken);
+                .SetProperty(p => p.CompletedAt, now)
+                .SetProperty(p => p.PaidAt, p => p.PlannedOutcome == PaymentStatus.Succeeded ? now : p.PaidAt), cancellationToken);
     }
 
     public async Task<ProcessPaymentResponse> Cancel(ProcessPaymentRequest request, CancellationToken cancellationToken)
@@ -110,7 +112,7 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, IConfiguration co
 
     public static ProcessPaymentResponse ToResponse(Payment payment) => new(
         payment.Id, payment.BookingId, payment.Amount, payment.Currency,
-        payment.Status, payment.CreatedAt, payment.CompletedAt, payment.RefundedAt);
+        payment.Status, payment.CreatedAt, payment.CompletedAt, payment.PaidAt, payment.RefundedAt);
 }
 
 public sealed class PaymentConflictException(string message) : Exception(message);

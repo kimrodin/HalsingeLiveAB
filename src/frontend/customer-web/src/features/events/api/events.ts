@@ -6,6 +6,7 @@ export interface EventListItem {
   eventId: string
   eventName: string
   eventDescription: string
+  imageUrl?: string | null
   sectionPrices: Array<{ sectionId: string; price: number }>
   startDate: string
   endDate: string
@@ -40,9 +41,15 @@ export async function getAllEvents(signal?: AbortSignal): Promise<EventListItem[
     events.push(...nextPage.events)
   }
 
-  return events
+  return events.map((event) => ({ ...event, imageUrl: toImageUrl(event.imageUrl) }))
 }
 
-export function getEventById(eventId: string, signal?: AbortSignal): Promise<EventDetail> {
-  return getJson<EventDetail>(`/GetEvent/${encodeURIComponent(eventId)}`, signal)
+function toImageUrl(url?: string | null): string | null {
+  if (!url) return null
+  return /^https?:\/\//i.test(url) || url.startsWith('/api/') ? url : `/api/${url.replace(/^\//, '')}`
+}
+
+export async function getEventById(eventId: string, signal?: AbortSignal): Promise<EventDetail> {
+  const event = await getJson<EventDetail>(`/GetEvent/${encodeURIComponent(eventId)}`, signal)
+  return { ...event, imageUrl: toImageUrl(event.imageUrl) }
 }

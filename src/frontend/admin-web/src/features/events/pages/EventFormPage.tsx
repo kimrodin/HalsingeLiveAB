@@ -8,6 +8,7 @@ import {
 import { createEvent, getEvent, updateEvent } from '../api/events';
 import { getVenues } from '../../venues/api/venues';
 import type { EventDetails } from '../types';
+import EventImageManager from '../components/EventImageManager';
 import VenueSeatingMapViewer from '../../seating-maps/components/VenueSeatingMapViewer';
 
 // Gränserna kommer från backend.
@@ -297,6 +298,9 @@ function EventForm({ event }: { event?: EventDetails }) {
               overflow: 'auto',
             }}
           >
+            {event ? <EventImageManager event={event} /> : (
+              <Alert severity="info" sx={{ mb: 2 }}>Spara evenemanget först. Därefter kan du lägga till en poster under Redigera.</Alert>
+            )}
             <VenueSeatingMapViewer venueId={values.venueId} />
           </Box>
         )}

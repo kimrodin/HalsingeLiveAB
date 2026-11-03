@@ -56,6 +56,43 @@ namespace EventCatalog.data.Migrations
                     b.ToTable("Events");
                 });
 
+            modelBuilder.Entity("EventCatalog.Features.Events.Models.EventImage", b =>
+                {
+                    b.Property<Guid>("EventImageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("EventImageId");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("EventImages");
+                });
+
             modelBuilder.Entity("EventCatalog.Features.Events.Models.EventSectionPrice", b =>
                 {
                     b.Property<Guid>("EventId")
@@ -209,6 +246,15 @@ namespace EventCatalog.data.Migrations
                     b.Navigation("Venue");
                 });
 
+            modelBuilder.Entity("EventCatalog.Features.Events.Models.EventImage", b =>
+                {
+                    b.HasOne("EventCatalog.Features.Events.Models.Event", null)
+                        .WithOne("Image")
+                        .HasForeignKey("EventCatalog.Features.Events.Models.EventImage", "EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("EventCatalog.Features.Events.Models.EventSectionPrice", b =>
                 {
                     b.HasOne("EventCatalog.Features.Events.Models.Event", "Event")
@@ -257,6 +303,8 @@ namespace EventCatalog.data.Migrations
 
             modelBuilder.Entity("EventCatalog.Features.Events.Models.Event", b =>
                 {
+                    b.Navigation("Image");
+
                     b.Navigation("SectionPrices");
                 });
 

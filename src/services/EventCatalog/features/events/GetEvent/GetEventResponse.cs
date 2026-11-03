@@ -8,7 +8,9 @@ public record GetEventResponse(
     DateTime EndDate,
     DateTime OnSaleFrom,
     Guid VenueId,
-    IReadOnlyList<EventSectionPriceResponse> SectionPrices
+    IReadOnlyList<EventSectionPriceResponse> SectionPrices,
+    string ImageUrl = null,
+    string VenueName = null
 );
 
 public record EventSectionPriceResponse(

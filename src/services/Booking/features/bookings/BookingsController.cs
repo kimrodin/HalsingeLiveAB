@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.ComponentModel.DataAnnotations;
 using Booking.Features.EventCatalog;
+using Booking.Features.Payments;
 using Booking.Features.Tickets;
 
 namespace Booking.Features.Bookings;
@@ -9,6 +11,7 @@ namespace Booking.Features.Bookings;
 [Route("/[action]")]
 public sealed class BookingsController(
     BookingService bookingService,
+    IPaymentGateway paymentGateway,
     ITicketServiceClient ticketServiceClient,
     ILogger<BookingsController> logger) : ControllerBase
 {
@@ -26,6 +29,66 @@ public sealed class BookingsController(
             result.Page,
             result.PageSize,
             result.Statuses));
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpGet("{bookingId:guid}")]
+    [ProducesResponseType(typeof(AdminBookingDetailsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAdminBookingDetails(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        var booking = await bookingService.GetBookingAsync(bookingId, cancellationToken);
+        if (booking is null)
+            return NotFound();
+
+        PaymentResult payment;
+        try
+        {
+            payment = await paymentGateway.GetByBookingAsync(bookingId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or PaymentContractException)
+        {
+            logger.LogError(exception, "Payment lookup failed for admin booking {BookingId}.", bookingId);
+            return StatusCode(StatusCodes.Status502BadGateway, new ProblemDetails
+            {
+                Title = "Payment details are temporarily unavailable.",
+                Status = StatusCodes.Status502BadGateway
+            });
+        }
+
+        var history = await bookingService.GetBookingHistoryAsync(
+            booking.BookingId, booking.CustomerEmail, cancellationToken);
+        return Ok(new AdminBookingDetailsResponse(
+            ToAdminListResponse(booking),
+            history.Select(item => new BookingHistoryItem(
+                item.BookingId,
+                item.Status,
+                item.TotalPrice,
+                item.CreatedAt)).ToArray(),
+            payment));
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpPut("{bookingId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateBookingCustomer(
+        Guid bookingId,
+        [FromBody] UpdateBookingCustomerRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.CustomerName))
+            ModelState.AddModelError(nameof(request.CustomerName), "Kundnamn får inte vara tomt.");
+
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var updated = await bookingService.UpdateBookingCustomerAsync(
+            bookingId, request.CustomerName, request.CustomerEmail, cancellationToken);
+        return updated ? NoContent() : NotFound();
     }
 
     [HttpGet("{bookingId:guid}")]
@@ -52,7 +115,24 @@ public sealed class BookingsController(
         if (booking is null)
             return NotFound();
 
-        return Ok(ToDetailsResponse(booking));
+        string paymentStatus = null;
+        if (booking.PaymentRequested)
+        {
+            paymentStatus = booking.PaymentSettled ? null : "Unknown";
+            try
+            {
+                var payment = await paymentGateway.GetByBookingAsync(bookingId, cancellationToken);
+                if (payment is not null && payment.PaymentId != Guid.Empty && payment.BookingId == bookingId
+                    && payment.Amount == booking.TotalPrice && payment.Currency == "SEK")
+                    paymentStatus = payment.RefundedAt is not null ? "Refunded" : payment.Status;
+            }
+            catch (Exception exception) when (exception is HttpRequestException or PaymentContractException
+                || exception is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(exception, "Payment status unavailable for guest booking {BookingId}.", bookingId);
+            }
+        }
+        return Ok(ToDetailsResponse(booking) with { PaymentStatus = paymentStatus });
     }
 
     [HttpGet("{bookingId:guid}/tickets")]
@@ -287,6 +367,7 @@ public sealed class BookingsController(
             booking.TotalPrice,
             booking.CreatedAt,
             booking.ExpiresAt,
+            booking.CancelledAt,
             booking.PaymentRequested,
             booking.PaymentSettled,
             booking.Items.Select(item => new AdminBookingListItem(
@@ -314,7 +395,8 @@ public sealed record BookingDetailsResponse(
     decimal TotalPrice,
     DateTime CreatedAt,
     DateTime? ExpiresAt,
-    IReadOnlyList<BookingItemResponse> Items);
+    IReadOnlyList<BookingItemResponse> Items,
+    string PaymentStatus = null);
 
 public sealed record BookingItemResponse(Guid InventoryId, int Quantity, decimal UnitPrice);
 
@@ -326,9 +408,21 @@ public sealed record AdminBookingListItemResponse(
     decimal TotalPrice,
     DateTime CreatedAt,
     DateTime? ExpiresAt,
+    DateTime? CancelledAt,
     bool PaymentRequested,
     bool PaymentSettled,
     IReadOnlyList<AdminBookingListItem> Items);
+
+public sealed record AdminBookingDetailsResponse(
+    AdminBookingListItemResponse Booking,
+    IReadOnlyList<BookingHistoryItem> History,
+    PaymentResult Payment);
+
+public sealed record BookingHistoryItem(Guid BookingId, string Status, decimal TotalPrice, DateTime CreatedAt);
+
+public sealed record UpdateBookingCustomerRequest(
+    [property: Required, StringLength(200)] string CustomerName,
+    [property: Required, EmailAddress, StringLength(254)] string CustomerEmail);
 
 public sealed record AdminBookingListItem(
     Guid InventoryId,

@@ -1,8 +1,15 @@
 # EventCatalog tests
 
-The focused suite contains 40 test cases: 16 unit tests and 24 PostgreSQL
+The focused suite contains 55 test cases: 24 unit tests and 31 PostgreSQL
 integration tests. It covers validation boundaries, the default-date regression,
-capacity limits, persisted create/update flows and deletion of referenced data.
+capacity limits, persisted create/update flows, deletion of referenced data, and
+event image validation, shared file storage and bounded reads,
+upload/replacement/download and deletion, concurrent poster replacement conflicts,
+and seating map PDF lifecycle. Period filtering includes events that overlap the
+selected range (`EndsAfter` and `StartsBefore`), including events that started
+before it. Events ending exactly at the lower boundary are excluded; events
+starting exactly at the upper boundary are included. Pagination counts all
+matching events. `StartAfter` remains a start-time filter for upcoming events.
 Repetitive input variants and simple missing-object cases are intentionally omitted.
 
 Run the unit tests without a database:

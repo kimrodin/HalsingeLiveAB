@@ -1,3 +1,4 @@
+using EventCatalog.Shared.Files;
 using EventCatalog.Features.Venues.Models;
 
 namespace EventCatalog.Features.Venues;
@@ -36,14 +37,7 @@ public static class VenueValidation
         else if (fileSize > maxFileSize)
             errors["File"] = [$"The file must be no larger than {maxFileSize / (1024 * 1024)} MB."];
 
-        var expectedType = extension.ToLowerInvariant() switch
-        {
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".pdf" => "application/pdf",
-            _ => null
-        };
-        if (expectedType is null || expectedType != detectedContentType)
+        if (!FileContentType.MatchesExtension(extension, detectedContentType, "image/png", "image/jpeg", "application/pdf"))
             errors["File"] = ["Upload a valid PNG, JPEG, or PDF file whose extension matches its contents."];
         if (string.IsNullOrWhiteSpace(fileName))
             errors["File"] = ["The uploaded file must have a filename."];

@@ -46,6 +46,7 @@ jobs:
       PAYMENT_TEST_DB: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
       BOOKING_TEST_POSTGRES: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
       BOOKING_TEST_REDIS: localhost:6379
+      TICKET_TEST_POSTGRES: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
     steps:
       - name: Check out repository
         uses: actions/checkout@v7

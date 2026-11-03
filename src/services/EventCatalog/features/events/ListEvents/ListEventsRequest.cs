@@ -6,4 +6,5 @@ public record ListEventsRequest(
     DateTime? StartAfter = null,
     DateTime? StartsBefore = null,
     int Page = 1,
-    int PageSize = 10);
+    int PageSize = 10,
+    DateTime? EndsAfter = null);

@@ -106,6 +106,18 @@ public class EventsController(
         }
     }
 
+    [HttpPost]
+    [ProducesResponseType(typeof(GetEventsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetEvents([FromBody] GetEventsRequest request, CancellationToken cancellationToken)
+    {
+        if (request is null || request.EventIds is null || request.EventIds.Length == 0 || request.EventIds.Length > 500
+            || request.EventIds.Any(id => id == Guid.Empty)
+            || request.From > request.To)
+            return BadRequest("Provide between 1 and 500 valid event IDs.");
+        return Ok(await getEventHandler.HandleMany(request.EventIds.Distinct().ToArray(),
+            request.From, request.To, cancellationToken));
+    }
+
     [HttpGet()]
     [ProducesResponseType(typeof(ListEventsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
@@ -214,3 +226,5 @@ public class EventsController(
         return ValidationProblem(ModelState);
     }
 }
+
+public sealed record GetEventsRequest(Guid[] EventIds, DateTime? From = null, DateTime? To = null);

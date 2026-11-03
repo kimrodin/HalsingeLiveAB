@@ -387,7 +387,8 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
                 throw new HttpRequestException("The request could not reach the payment service.");
             if (BeforeResult is not null) await BeforeResult();
             var result = new PaymentResult(Guid.NewGuid(), bookingId, amount, currency, Status,
-                DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
+                DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+                Status == "Succeeded" ? DateTimeOffset.UtcNow : null, null);
             result = AlterResult?.Invoke(result) ?? result;
             Payments[bookingId] = result;
             if (LoseFirstResponse && call == 1)
@@ -408,7 +409,7 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
         {
             Interlocked.Increment(ref cancelCalls);
             var result = new PaymentResult(Guid.NewGuid(), bookingId, amount, currency, "Failed",
-                DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+                DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow);
             Payments[bookingId] = result;
             return Task.FromResult(result);
         }

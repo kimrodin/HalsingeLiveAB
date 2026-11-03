@@ -10,6 +10,7 @@ public class ListEventsResponse
 
 public class EventListItemResponseDTO
 {
+    public string ImageUrl { get; init; }
     public Guid EventId { get; init; }
     public required string EventName { get; init; }
     public required string EventDescription { get; init; }

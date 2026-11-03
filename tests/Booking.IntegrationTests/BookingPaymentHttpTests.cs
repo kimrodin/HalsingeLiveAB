@@ -148,6 +148,12 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
             var result = (await response.Content.ReadFromJsonAsync<StartPaymentResult>())!;
             Assert.Equal(outcome, result.PaymentStatus);
             Assert.Equal(BookingStatuses.Cancelled, result.BookingStatus);
+            // A fresh guest lookup retains the reason after polling or a page reload.
+            using var detailsResponse = await GetGuestAsync(host.Client, $"/GetBooking/{id}", id);
+            Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+            var details = await detailsResponse.Content.ReadFromJsonAsync<BookingDetailsResponse>();
+            Assert.Equal(outcome, details!.PaymentStatus);
+            Assert.Equal(BookingStatuses.Cancelled, details.Status);
             Assert.Equal(10, await fixture.Reservations.GetAvailableQuantityAsync(inventory.EventId, inventory.SectionId, 10));
             await using var db = fixture.CreateContext();
             var booking = await db.Bookings.SingleAsync(row => row.BookingId == id);
@@ -184,6 +190,9 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         Assert.Equal("Unknown", (await response.Content.ReadFromJsonAsync<StartPaymentResult>())!.PaymentStatus);
         await AssertUnresolvedAsync(id);
+        using var detailsResponse = await GetGuestAsync(host.Client, $"/GetBooking/{id}", id);
+        Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+        Assert.Equal("Unknown", (await detailsResponse.Content.ReadFromJsonAsync<BookingDetailsResponse>())!.PaymentStatus);
 
         // A subsequent status lookup can recover a committed payment without another POST.
         simulator.StoredPayment = simulator.Payment;
@@ -348,6 +357,16 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
             bool download,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Array.Empty<byte>());
+
+        public Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
+            Guid ticketId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new TicketServiceStatusChangeResponse(ticketId, "CheckedIn", DateTimeOffset.UtcNow));
+
+        public Task<TicketServiceStatusChangeResponse> CancelTicketAsync(
+            Guid ticketId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new TicketServiceStatusChangeResponse(ticketId, "Cancelled", DateTimeOffset.UtcNow));
     }
 
     private sealed class SimulatorHandler(Guid bookingId, decimal amount) : HttpMessageHandler
@@ -361,7 +380,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         public int ProcessCalls { get; private set; }
         public PaymentResult? StoredPayment { get; set; }
         public PaymentResult Payment { get; } = new(Guid.NewGuid(), bookingId, amount, "SEK", "Succeeded",
-            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {

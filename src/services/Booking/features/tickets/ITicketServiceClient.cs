@@ -17,6 +17,14 @@ public interface ITicketServiceClient
         Guid ticketId,
         bool download,
         CancellationToken cancellationToken = default);
+
+    Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
+        Guid ticketId,
+        CancellationToken cancellationToken = default);
+
+    Task<TicketServiceStatusChangeResponse> CancelTicketAsync(
+        Guid ticketId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record TicketServiceTicketResponse(
@@ -33,3 +41,8 @@ public sealed record TicketServiceTicketResponse(
     string Currency,
     string Status,
     DateTimeOffset IssuedAt);
+
+public sealed record TicketServiceStatusChangeResponse(
+    Guid TicketId,
+    string Status,
+    DateTimeOffset ChangedAt);
