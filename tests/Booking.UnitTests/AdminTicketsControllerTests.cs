@@ -17,7 +17,7 @@ public sealed class AdminTicketsControllerTests
             CheckInResult = expected
         });
 
-        var result = await controller.CheckInTicket(ticketId, default);
+        var result = await controller.CheckInTicket(ticketId, default, Guid.NewGuid());
 
         var response = Assert.IsType<OkObjectResult>(result);
         Assert.Same(expected, response.Value);
@@ -37,7 +37,7 @@ public sealed class AdminTicketsControllerTests
         });
 
         var result = checkIn
-            ? await controller.CheckInTicket(Guid.NewGuid(), default)
+            ? await controller.CheckInTicket(Guid.NewGuid(), default, Guid.NewGuid())
             : await controller.CancelTicket(Guid.NewGuid(), default);
 
         Assert.IsType<ConflictObjectResult>(result);

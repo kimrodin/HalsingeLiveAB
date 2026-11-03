@@ -21,7 +21,7 @@ public sealed class TicketStatusEndpointTests
         await db.SaveChangesAsync();
         var before = DateTimeOffset.UtcNow;
 
-        var result = await CreateController(db).CheckInTicket(ticket.TicketId, "test-key", default);
+        var result = await CreateController(db).CheckInTicket(ticket.TicketId, "test-key", default, ticket.EventId);
         db.ChangeTracker.Clear();
         ticket = await db.Tickets.SingleAsync();
 
@@ -68,7 +68,7 @@ public sealed class TicketStatusEndpointTests
         db.Tickets.Add(ticket);
         await db.SaveChangesAsync();
 
-        var result = await CreateController(db).CheckInTicket(ticket.TicketId, "test-key", default);
+        var result = await CreateController(db).CheckInTicket(ticket.TicketId, "test-key", default, ticket.EventId);
 
         Assert.IsType<ConflictObjectResult>(result);
         Assert.Equal(TicketStatus.Cancelled, ticket.Status);
@@ -122,11 +122,13 @@ public sealed class TicketStatusEndpointTests
         db.Tickets.Add(ticket);
         await db.SaveChangesAsync();
         var controller = CreateController(db);
-        var first = Assert.IsType<OkObjectResult>(await ChangeStatus(controller, ticket.TicketId, checkIn));
+        var first = Assert.IsType<OkObjectResult>(
+            await ChangeStatus(controller, ticket.TicketId, checkIn, ticket.EventId));
         var body = Assert.IsType<TicketStatusChangeResponse>(first.Value);
         db.ChangeTracker.Clear();
 
-        var retry = Assert.IsType<ConflictObjectResult>(await ChangeStatus(controller, ticket.TicketId, checkIn));
+        var retry = Assert.IsType<ConflictObjectResult>(
+            await ChangeStatus(controller, ticket.TicketId, checkIn, ticket.EventId));
 
         var problem = Assert.IsType<ProblemDetails>(retry.Value);
         Assert.Equal(409, problem.Status);
@@ -138,8 +140,9 @@ public sealed class TicketStatusEndpointTests
         Assert.Null(checkIn ? saved.CancelledAt : saved.CheckedInAt);
     }
 
-    private static Task<IActionResult> ChangeStatus(TicketsController controller, Guid ticketId, bool checkIn) =>
-        checkIn ? controller.CheckInTicket(ticketId, "test-key", default)
+    private static Task<IActionResult> ChangeStatus(
+        TicketsController controller, Guid ticketId, bool checkIn, Guid? eventId = null) =>
+        checkIn ? controller.CheckInTicket(ticketId, "test-key", default, eventId ?? Guid.NewGuid())
             : controller.CancelTicket(ticketId, "test-key", default);
 
     private static TicketsController CreateController(TicketDbContext db) => new(
