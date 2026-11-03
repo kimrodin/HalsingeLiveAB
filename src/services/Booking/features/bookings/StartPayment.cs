@@ -10,6 +10,12 @@ public sealed partial class BookingService
     public async Task<StartPaymentResult> StartPaymentAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
         BookingValidation.ValidateId(bookingId, nameof(bookingId));
+        return await WithPaymentLockAsync(bookingId, () => ProcessBookingPaymentAsync(bookingId, cancellationToken), cancellationToken);
+    }
+
+    private async Task<StartPaymentResult> WithPaymentLockAsync(
+        Guid bookingId, Func<Task<StartPaymentResult>> action, CancellationToken cancellationToken)
+    {
         // Session advisory lock serializes payment reconciliation across processes without
         // keeping a database transaction open over HTTP. Connection loss releases the lock.
         await dbContext.Database.OpenConnectionAsync(cancellationToken);
@@ -27,7 +33,7 @@ public sealed partial class BookingService
             if (!acquired)
                 return new(bookingId, "Processing", "Pending", "Payment reconciliation is already in progress.");
 
-            return await ProcessBookingPaymentAsync(bookingId, cancellationToken);
+            return await action();
         }
         finally
         {
@@ -89,54 +95,7 @@ public sealed partial class BookingService
                     : await payments.CancelAsync(bookingId, booking.TotalPrice, "SEK", cancellationToken);
             }
 
-            if (!Matches(payment, booking))
-                return new(bookingId, booking.Status, "Invalid", "Payment identity, amount or currency does not match the booking. Reconciliation remains open.");
-
-            if (payment.Status == "Succeeded" && payment.RefundedAt is null)
-            {
-                BookingActionResult confirmed;
-                try
-                {
-                    confirmed = await ConfirmAsync(bookingId, payment, cancellationToken);
-                }
-                catch (ReservationConfirmationException)
-                {
-                    confirmed = new(BookingActionStatus.InvalidState, booking.Status);
-                }
-                if (confirmed.Status == BookingActionStatus.Completed)
-                    return new(bookingId, BookingStatuses.Confirmed, "Succeeded", "Payment verified and booking confirmed.");
-
-                // A late success or unavailable stock is explicitly refunded, never ignored.
-                var refund = await payments.RefundAsync(payment.PaymentId, cancellationToken);
-                if (!Matches(refund, booking) || refund.RefundedAt is null)
-                    return new(bookingId, booking.Status, "Unknown", "Refund could not be verified; reconciliation will retry.");
-                await CancelAsync(bookingId, cancellationToken);
-                await SetPaymentSettledAsync(bookingId, cancellationToken);
-                return await PaymentResponseAsync(bookingId, "Refunded", "Payment refunded because the booking could not be confirmed.", cancellationToken);
-            }
-
-            if (payment.Status is "Failed" or "TimedOut" || payment.RefundedAt != null)
-            {
-                await CancelAsync(bookingId, cancellationToken);
-                await SetPaymentSettledAsync(bookingId, cancellationToken);
-                return await PaymentResponseAsync(bookingId, payment.RefundedAt != null ? "Refunded" : payment.Status,
-                    "Payment did not complete; the reservation has been released.", cancellationToken);
-            }
-
-            if (payment.Status != "Pending")
-                return new(bookingId, booking.Status, "Invalid", "Unrecognized payment status; reconciliation remains open.");
-
-            if (!IsPayable(booking))
-            {
-                // Cancelling Pending establishes a durable fence against later success.
-                var cancelled = await payments.RefundAsync(payment.PaymentId, cancellationToken);
-                if (!Matches(cancelled, booking) || cancelled.RefundedAt is null)
-                    return new(bookingId, booking.Status, "Unknown", "Cancellation is not yet verified.");
-                await CancelAsync(bookingId, cancellationToken);
-                await SetPaymentSettledAsync(bookingId, cancellationToken);
-                return await PaymentResponseAsync(bookingId, "Refunded", "Expired payment attempt cancelled.", cancellationToken);
-            }
-            return new(bookingId, booking.Status, "Pending", "Payment is pending. Status will be checked automatically; the reservation deadline is unchanged.");
+            return await ApplyVerifiedPaymentAsync(booking, payment, cancellationToken);
         }
         catch (PaymentContractException exception)
         {
@@ -150,6 +109,59 @@ public sealed partial class BookingService
                 throw;
             return await PaymentResponseAsync(bookingId, "Unknown", "Payment outcome is unknown. Status will be checked automatically.", cancellationToken);
         }
+    }
+
+    private async Task<StartPaymentResult> ApplyVerifiedPaymentAsync(BookingModel booking, PaymentResult payment, CancellationToken cancellationToken)
+    {
+        var bookingId = booking.BookingId;
+        if (!Matches(payment, booking))
+            return new(bookingId, booking.Status, "Invalid", "Payment identity, amount or currency does not match the booking. Reconciliation remains open.");
+
+        if (payment.Status == "Succeeded" && payment.RefundedAt is null)
+        {
+            BookingActionResult confirmed;
+            try
+            {
+                confirmed = await ConfirmAsync(bookingId, payment, cancellationToken);
+            }
+            catch (ReservationConfirmationException)
+            {
+                confirmed = new(BookingActionStatus.InvalidState, booking.Status);
+            }
+            if (confirmed.Status == BookingActionStatus.Completed)
+                return new(bookingId, BookingStatuses.Confirmed, "Succeeded", "Payment verified and booking confirmed.");
+
+            // A late success or unavailable stock is explicitly refunded, never ignored.
+            var refund = await payments.RefundAsync(payment.PaymentId, cancellationToken);
+            if (!Matches(refund, booking) || refund.RefundedAt is null)
+                return new(bookingId, booking.Status, "Unknown", "Refund could not be verified; reconciliation will retry.");
+            await CancelAsync(bookingId, cancellationToken);
+            await SetPaymentSettledAsync(bookingId, cancellationToken);
+            return await PaymentResponseAsync(bookingId, "Refunded", "Payment refunded because the booking could not be confirmed.", cancellationToken);
+        }
+
+        if (payment.Status is "Failed" or "TimedOut" || payment.RefundedAt != null)
+        {
+            await CancelAsync(bookingId, cancellationToken);
+            await SetPaymentSettledAsync(bookingId, cancellationToken);
+            return await PaymentResponseAsync(bookingId, payment.RefundedAt != null ? "Refunded" : payment.Status,
+                "Payment did not complete; the reservation has been released.", cancellationToken);
+        }
+
+        if (payment.Status != "Pending")
+            return new(bookingId, booking.Status, "Invalid", "Unrecognized payment status; reconciliation remains open.");
+
+        if (!IsPayable(booking))
+        {
+            // Cancelling Pending establishes a durable fence against later success.
+            var cancelled = await payments.RefundAsync(payment.PaymentId, cancellationToken);
+            if (!Matches(cancelled, booking) || cancelled.RefundedAt is null)
+                return new(bookingId, booking.Status, "Unknown", "Cancellation is not yet verified.");
+            await CancelAsync(bookingId, cancellationToken);
+            await SetPaymentSettledAsync(bookingId, cancellationToken);
+            return await PaymentResponseAsync(bookingId, "Refunded", "Expired payment attempt cancelled.", cancellationToken);
+        }
+        return new(bookingId, booking.Status, "Pending", "Payment is pending. Status will be checked automatically; the reservation deadline is unchanged.");
     }
 
     private static bool IsPayable(BookingModel booking) =>

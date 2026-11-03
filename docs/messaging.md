@@ -1,81 +1,312 @@
-# Service messaging
+# RabbitMQ och meddelandeflöden
 
-Booking publishes `BookingConfirmedV1` messages for confirmed booking items to RabbitMQ. TicketService consumes those messages and issues tickets. The message contract lives in `src/Contracts/Messaging` and is shared by both services.
+## Översikt
 
-Every `BookingConfirmedV1` field must be explicitly supplied, including `UnitPrice` and `Currency`. An explicit zero price is valid; omitted prices and currencies are rejected rather than defaulted. `MessageId` and `CorrelationId` must be non-empty GUIDs, and `OccurredAtUtc` must be non-default. Booking uses the outbox message ID, the booking ID as the correlation ID, and the outbox creation time as the occurrence time, preserving those values across delivery retries. TicketService validates these metadata fields for both RabbitMQ and HTTP issuance.
+RabbitMQ används för att skicka meddelanden mellan projektets tjänster när arbetet kan fortsätta i bakgrunden. En tjänst publicerar ett meddelande om något som har hänt eller behöver göras. RabbitMQ placerar meddelandet i rätt kö, där den mottagande tjänsten hämtar och behandlar det. Avsändaren behöver alltså inte vänta på att mottagaren slutför hela arbetet.
 
-Booking writes the message to its database outbox as part of booking confirmation. Its background dispatcher publishes with persistent delivery and publisher confirms, then marks the outbox row delivered. If RabbitMQ is unavailable, the row stays pending and the dispatcher retries it. A broker confirmation means RabbitMQ accepted the message; ticket issuance can still be pending afterward.
+De tre berörda tjänsterna har olika ansvar:
 
-TicketService acknowledges a message only after ticket issuance has committed. It retries processing a few times, then rejects the message to the durable dead-letter queue. Ticket issuance is idempotent by booking item, so a message redelivered after a crash does not create duplicate tickets.
+- **Booking** hanterar bokningar, reservationer och lagersaldo. När betalningen är klar bekräftar tjänsten bokningen och begär att biljetter utfärdas.
+- **PaymentSimulator** behandlar simulerade betalningar och publicerar resultatet: betalningen lyckades, misslyckades eller nådde sin tidsgräns.
+- **TicketService** tar emot bekräftade bokningsrader och skapar en biljett per bokad plats.
 
-Messages with missing fields or invalid contract values are rejected directly to the dead-letter queue without processing retries.
+RabbitMQ används redan för betalningsresultat och biljettutfärdande. För betalningsbegäran finns både en publicerare i Booking och en konsument i PaymentSimulator, men den vanliga betalningsstarten anropar fortfarande PaymentSimulator via HTTP.
 
-The topology is declared by both services:
+```mermaid
+sequenceDiagram
+    participant B as Booking
+    participant P as PaymentSimulator
+    participant R as RabbitMQ
+    participant T as TicketService
 
-| Purpose | Name |
-| --- | --- |
-| Topic exchange | `halsingelive.events` |
-| Routing key | `booking.confirmed.v1` |
-| Ticket issuance queue | `tickets.booking-confirmed.v1` |
-| Dead-letter exchange | `halsingelive.dead` |
-| Dead-letter queue | `tickets.booking-confirmed.v1.dead` |
+    B->>P: Starta betalning via HTTP
+    P->>P: Spara betalningsresultat och outbox
+    P->>R: PaymentSucceededV1 eller PaymentFailedV1
+    R->>B: Leverera betalningsresultat
+    B->>B: Spara inbox, verifiera och tillämpa resultat
+    Note over B,P: Verifiering och eventuell återbetalning använder HTTP
+    opt Betalningen godkänns och bokningen kan bekräftas
+        B->>B: Bekräfta bokning och spara biljett-outbox
+        B->>R: BookingConfirmedV1 per bokningsrad
+        R->>T: Leverera bekräftad bokningsrad
+        T->>T: Spara biljetter
+    end
+```
 
-## Payment contracts
+HTTP används även för bland annat uppslag av betalningsstatus, återbetalningar, biljettfrågor och PDF-hämtning. Se även [betalningsflödet](payments.md) och [administration av betalningssimuleringen](payment-simulation-admin.md).
 
-The shared messaging project also defines these contracts for payment messaging:
+### Vilka flöden är inkopplade?
 
-| Contract | Purpose | Outcome-specific fields |
+| Meddelande | Avsändare → mottagare | Nuvarande användning |
 | --- | --- | --- |
-| `PaymentRequestedV1` | Booking requests payment processing; `BookingId` is the idempotency key. | PaymentSimulator assigns the payment ID when creating the attempt. |
-| `PaymentSucceededV1` | PaymentSimulator reports a successful payment. | `PaymentId`, `PaidAtUtc` |
-| `PaymentFailedV1` | PaymentSimulator reports a terminal failure. | `PaymentId`, `FailureCode` (`Failed` or `TimedOut`) |
+| `PaymentRequestedV1` | Booking → PaymentSimulator | Publicerare och konsument finns. Den vanliga betalningsstarten använder ännu HTTP. |
+| `PaymentSucceededV1` | PaymentSimulator → Booking | Levererar lyckade betalningar via outbox, RabbitMQ och inbox. |
+| `PaymentFailedV1` | PaymentSimulator → Booking | Levererar slutliga utfall `Failed` och `TimedOut` via samma resultatflöde. |
+| `BookingConfirmedV1` | Booking → TicketService | Begär biljettutfärdande för varje bekräftad bokningsrad. |
 
-All three contracts require `MessageId`, `CorrelationId`, `BookingId`, `Amount`, `Currency`, and `OccurredAtUtc`, plus their outcome-specific fields. No fields have generated or monetary defaults. `Amount` is the booking's total payment amount, and `Currency` is an explicit uppercase three-letter code. The booking ID is used as the correlation ID throughout the payment workflow. Message IDs and occurrence timestamps must be preserved when retrying delivery.
+## Begrepp i implementationen
 
-`OccurredAtUtc` records when the request or terminal outcome occurred; `PaidAtUtc` records when payment succeeded. A later refund does not change the historical success event. A network timeout or unavailable broker leaves the outcome unknown and must not produce `PaymentFailedV1`. Consumers still need to validate field values; `required` enforces that fields are supplied, but does not reject empty IDs or invalid amounts.
-
-## Payment request publishing
-
-Booking registers `IPaymentRequestedPublisher` with the `RabbitMqPaymentRequestedPublisher` implementation. It reuses the existing RabbitMQ connection and configuration, publishes `PaymentRequestedV1` as persistent JSON with publisher confirms and mandatory routing, and preserves the supplied message ID, correlation ID, and occurrence time. Broker or routing failures are returned to the caller so it can retry the same message.
-
-The publisher declares the following durable topology so requests can queue before PaymentSimulator starts consuming:
-
-| Purpose | Name |
+| Begrepp | Betydelse i projektet |
 | --- | --- |
-| Topic exchange | `halsingelive.events` |
-| Routing key and message type | `payment.requested.v1` |
-| Payment processing queue | `payments.payment-requested.v1` |
-| Dead-letter exchange | `halsingelive.dead` |
-| Dead-letter routing key | `payment-request.dead` |
-| Dead-letter queue | `payments.payment-requested.v1.dead` |
+| Publicerare / konsument | Kod som skickar respektive tar emot meddelanden. |
+| Exchange och routing key | En exchange tar emot publiceringar. Meddelandets routing key avgör vilka bundna köer som får det. |
+| Kö | Lagrar meddelanden tills konsumenten kan behandla dem. |
+| Publisher confirm | RabbitMQ bekräftar för publiceraren att meddelandet har tagits emot. Det betyder inte att mottagaren har slutfört arbetet. |
+| Acknowledgement, `ack` | Konsumenten kvitterar leveransen. Kvittensen lämnas när konsumenten har fullgjort sitt ansvar för meddelandet. |
+| Outbox | En databastabell med meddelanden som ska skickas. Affärsändringen och meddelandet sparas tillsammans så att publicering kan återupptas efter avbrott. |
+| Inbox | En databastabell med mottagna meddelanden som ska behandlas lokalt. Booking använder den för betalningsresultat. |
+| Dead-letter-kö, DLQ | En separat kö för leveranser som konsumenten avvisar, exempelvis på grund av ogiltigt innehåll. |
+| Idempotens | Samma begäran eller händelse kan behandlas igen utan att betalning, lagerändring eller biljetter skapas en gång till. |
 
-PaymentSimulator runs `PaymentRequestedConsumer` against `payments.payment-requested.v1` and declares the same topology as Booking. It validates required fields, message metadata, amount, and uppercase currency, then delegates to the existing payment handler. Processing is idempotent by booking ID; an existing attempt with a different amount or currency is rejected. The consumer acknowledges after the handler returns a durably saved payment. `Failed` and `TimedOut` are valid processed outcomes and are acknowledged normally. Invalid or conflicting requests go directly to the dead-letter queue; processing exceptions are retried up to three attempts before dead-lettering. The consumer reconnects after broker interruptions, and shutdown leaves unfinished deliveries unacknowledged for redelivery. Persisted pending attempts can also finish through the existing payment recovery worker.
+## Kontrakt och metadata
 
-Booking's payment initiation and result handling currently use HTTP. Connecting its publisher to a durable payment request outbox and adding payment result publishers and consumers remain to be implemented. The publisher itself does not store requests or retry failed deliveries.
+Kontrakten delas av tjänsterna och finns i [Contracts/Messaging](../src/Contracts/Messaging). De är versionsmärkta med `V1` och serialiseras som JSON.
 
-### Payment consumer tests
+| Kontrakt | Innehåll |
+| --- | --- |
+| [PaymentRequestedV1](../src/Contracts/Messaging/PaymentRequestedV1.cs) | `BookingId`, bokningens totala `Amount`, `Currency` och meddelandemetadata. PaymentSimulator tilldelar betalnings-ID när försöket skapas. |
+| [PaymentSucceededV1](../src/Contracts/Messaging/PaymentSucceededV1.cs) | Betalningens `PaymentId`, `BookingId`, `Amount`, `Currency` och `PaidAtUtc`, samt meddelandemetadata. |
+| [PaymentFailedV1](../src/Contracts/Messaging/PaymentFailedV1.cs) | Samma betalningsidentifierare och belopp, samt `FailureCode`: `Failed` eller `TimedOut`. |
+| [BookingConfirmedV1](../src/Contracts/Messaging/BookingConfirmedV1.cs) | En bokningsrad med `BookingItemId`, evenemangs- och platsinformation, `Quantity`, `UnitPrice` och `Currency`, samt meddelandemetadata. |
 
-Unit tests run without external services. Payment messaging integration tests require PostgreSQL and a dedicated RabbitMQ instance, since they use the payment processing and dead-letter queue names above. They create and remove their own randomly named PostgreSQL databases. Set the test connections and run:
+Följande metadata följer varje meddelande:
+
+- `MessageId` identifierar meddelandet och ska behållas vid nya leveransförsök.
+- `CorrelationId` kopplar samman meddelanden i samma flöde. Projektets publicerare använder bokningens ID.
+- `OccurredAtUtc` anger när begäran eller utfallet inträffade. Tiden ändras inte när publiceringen görs om.
+
+Alla kontraktsfält är `required` och saknar genererade ID:n eller standardvärden för pengar. Mottagaren måste ändå kontrollera innehållet: ett angivet men tomt GUID eller ett ogiltigt belopp är fortfarande felaktigt. Valuta ska vara en uttrycklig kod med tre stora bokstäver. Betalningsbelopp måste vara positiva; ett uttryckligen angivet biljettpris på noll är tillåtet.
+
+`PaidAtUtc` anger när betalningen lyckades, medan `OccurredAtUtc` beskriver händelsens tidpunkt. En senare återbetalning ändrar inte det historiska framgångsmeddelandet. Ett nätverksavbrott eller en otillgänglig broker är inte ett slutligt betalningsfel och ska inte omvandlas till `PaymentFailedV1`.
+
+## Betalningsbegäran: förberett RabbitMQ-flöde
+
+Booking registrerar [IPaymentRequestedPublisher](../src/services/Booking/features/payments/IPaymentRequestedPublisher.cs) med implementationen [RabbitMqPaymentRequestedPublisher](../src/services/Booking/features/payments/RabbitMqPaymentRequestedPublisher.cs). Publiceraren använder tjänstens gemensamma RabbitMQ-anslutning och skickar beständig JSON med publisher confirms och obligatorisk routning (`mandatory`). Om meddelandet inte kan publiceras eller routas får anroparen ett fel.
+
+Den vanliga betalningsstarten i [StartPayment.cs](../src/services/Booking/features/bookings/StartPayment.cs) använder dock fortfarande [HttpPaymentGateway](../src/services/Booking/features/payments/HttpPaymentGateway.cs). Det finns ingen outbox för betalningsbegäran. För att aktivera RabbitMQ i detta steg behöver betalningsstarten kopplas till en beständig begäran och publicering med återförsök. Publiceraren ensam lagrar inte meddelanden åt anroparen.
+
+Mottagarsidan är implementerad:
+
+1. [PaymentRequestedConsumer](../src/services/PaymentSimulator/messaging/PaymentRequestedConsumer.cs) läser från begäranskön och deserialiserar `PaymentRequestedV1`.
+2. [PaymentRequestedHandler](../src/services/PaymentSimulator/messaging/PaymentRequestedHandler.cs) kontrollerar metadata, boknings-ID, belopp och valuta och anropar sedan [ProcessPaymentHandler](../src/services/PaymentSimulator/features/payments/ProcessPayment/ProcessPaymentHandler.cs).
+3. Betalningen sparas med `BookingId` som idempotensnyckel. Samma bokning med samma belopp och valuta återanvänder det befintliga försöket. Ändrat belopp eller ändrad valuta betraktas som en konflikt.
+4. Konsumenten kvitterar när hanteraren har returnerat en beständigt sparad betalning. `Failed` och `TimedOut` är giltiga affärsutfall och kvitteras normalt.
+
+En sparad betalning som fortfarande är `Pending` kan slutföras av [PaymentRecoveryWorker](../src/services/PaymentSimulator/features/payments/ProcessPayment/PaymentRecoveryWorker.cs), även om den ursprungliga anslutningen har avbrutits.
+
+## Betalningsresultat: från PaymentSimulator till Booking
+
+### 1. Spara utfallet och meddelandet tillsammans
+
+`CompleteDuePayments` i [ProcessPaymentHandler](../src/services/PaymentSimulator/features/payments/ProcessPayment/ProcessPaymentHandler.cs) uppdaterar förfallna `Pending`-betalningar till sitt planerade slutliga utfall och skapar en rad i `PaymentResultOutboxMessages` i samma PostgreSQL-sats. Om outbox-insert misslyckas rullas även statusändringen tillbaka. Detta gäller oavsett om betalningen startades via HTTP eller RabbitMQ, och även när återställningsarbetaren slutför den.
+
+[PaymentResultOutboxMessage](../src/services/PaymentSimulator/messaging/PaymentResultOutboxMessage.cs) sparar en ögonblicksbild av betalnings-ID, boknings-ID, belopp, valuta, utfall och tidpunkter. Ett unikt index på `PaymentId` förhindrar flera resultatrader för samma betalning.
+
+Avbokning och återbetalning hanteras också:
+
+- Avbokning av ett väntande försök ger `TimedOut` och sparar felresultatet atomärt i [RefundPaymentHandler](../src/services/PaymentSimulator/features/payments/RefundPayment/RefundPaymentHandler.cs).
+- Avbokning innan ett betalningsförsök finns sparar både en spärr mot senare betalningsstart och ett `TimedOut`-meddelande tillsammans i `ProcessPaymentHandler.Cancel`.
+- Återbetalning av en redan lyckad betalning bevarar dess ursprungliga framgångsmeddelande. Återbetalning är inte ett nytt `PaymentFailedV1`.
+
+### 2. Publicera från outbox
+
+[PaymentResultOutboxWorker](../src/services/PaymentSimulator/messaging/PaymentResultOutboxWorker.cs) kör regelbundet [PaymentResultOutboxDispatcher](../src/services/PaymentSimulator/messaging/PaymentResultOutboxDispatcher.cs). Dispatchern hämtar väntande rader i omgångar om högst 25 och bygger antingen `PaymentSucceededV1` eller `PaymentFailedV1` från den sparade ögonblicksbilden.
+
+[RabbitMqPaymentResultPublisher](../src/services/PaymentSimulator/messaging/RabbitMqPaymentResultPublisher.cs) publicerar meddelandet. Först efter RabbitMQ:s bekräftelse sätts `DeliveredAtUtc`. Vid fel sparas `AttemptCount`, `LastError` och nästa försökstid, `NextAttemptAtUtc`, med exponentiellt ökande väntetid. Samma meddelande-ID och innehåll används vid nästa försök.
+
+### 3. Ta emot och spara i Bookings inbox
+
+[PaymentResultConsumer](../src/services/Booking/features/payments/PaymentResultConsumer.cs) lyssnar på båda resultattyperna i samma kö. Routing key avgör vilket kontrakt som ska deserialiseras.
+
+[PaymentResultInbox](../src/services/Booking/features/payments/PaymentResultInbox.cs) validerar meddelandet och kontrollerar att bokningen finns, att betalning har begärts och att belopp och valuta stämmer. Booking förväntar sig för närvarande `SEK`. Ett framgångsmeddelande måste också ha en giltig betalningstid.
+
+Resultatet sparas i [PaymentResultInboxMessage](../src/services/Booking/features/payments/PaymentResultInboxMessage.cs) innan konsumenten kvitterar till RabbitMQ. Samma `MessageId` med identiskt innehåll accepteras som en dubblett. Samma ID med ändrat innehåll avvisas.
+
+Kvittensen betyder här att Booking har tagit över ansvaret för fortsatt behandling. Bokningen behöver ännu inte vara bekräftad eller avbokad.
+
+### 4. Tillämpa resultatet på bokningen
+
+[PaymentResultInboxWorker](../src/services/Booking/features/payments/PaymentResultInboxWorker.cs) hämtar väntande resultat genom [PaymentResultInboxDispatcher](../src/services/Booking/features/payments/PaymentResultInboxDispatcher.cs). Själva tillämpningen finns i [ApplyPaymentResult.cs](../src/services/Booking/features/bookings/ApplyPaymentResult.cs).
+
+Booking använder samma databaslås per bokning och samma utfallshantering som HTTP-flödet. Innan resultatet tillämpas hämtas betalningens aktuella status via HTTP. Då verifieras bland annat betalnings-ID, belopp, valuta och utfall, och en återbetalning som skett efter den ursprungliga händelsen upptäcks.
+
+- **Lyckad betalning och giltig reservation:** bokningen bekräftas, lagret uppdateras och biljettmeddelanden sparas i samma transaktion.
+- **Misslyckad eller tidsutgången betalning:** bokningen avbokas och reservationen frigörs.
+- **Lyckad betalning som inte längre kan ge en bekräftad bokning:** betalningen återbetalas innan flödet markeras som avslutat.
+
+Tillfälliga fel vid uppslag, återbetalning eller databasåtkomst lämnar inbox-raden väntande för nya försök. När arbetet är klart sätts `ProcessedAtUtc`. En osäker konflikt, exempelvis ett utfall som inte stämmer med den aktuella betalningen, sätter i stället `RejectedAtUtc` och `LastError` för utredning.
+
+Affärsändringen och markeringen `ProcessedAtUtc` sker inte i en gemensam transaktion. Ett avbrott mellan dessa steg kan därför ge ombehandling; befintliga boknings- och biljettkontroller gör den säker. Den sparade inbox-raden gör att arbetet finns kvar även efter omstart.
+
+[PaymentReconciliationService](../src/services/Booking/features/bookings/PaymentReconciliationService.cs) fortsätter också att kontrollera betalningar via HTTP. Resultatmeddelanden och avstämning använder samma bokningslås för att undvika samtidiga motstridiga ändringar.
+
+## Biljettutfärdande: från Booking till TicketService
+
+### 1. Bekräfta bokning och spara outbox
+
+`ConfirmAsync` i [BookingService](../src/services/Booking/features/bookings/BookingService.cs) låser bokningen och kontrollerar betalning, reservation och lager. Bekräftelsen och raderna i [TicketIssueOutboxMessage](../src/services/Booking/features/tickets/TicketIssueOutboxMessage.cs) sparas i samma transaktion.
+
+Det skapas ett `BookingConfirmedV1` per bokningsrad, inte ett per hel bokning. Meddelandet innehåller den information som behövs för att utfärda biljetter, så TicketService behöver inte fråga Booking eller EventCatalog när meddelandet behandlas.
+
+### 2. Publicera bekräftade bokningsrader
+
+[TicketIssueOutboxBackgroundService](../src/services/Booking/features/tickets/TicketIssueOutboxBackgroundService.cs) kör [TicketIssueOutboxDispatcher](../src/services/Booking/features/tickets/TicketIssueOutboxDispatcher.cs) ungefär varannan sekund. Dispatchern hämtar högst 25 förfallna rader och skickar dem med [RabbitMqBookingConfirmedPublisher](../src/services/Booking/features/tickets/RabbitMqBookingConfirmedPublisher.cs).
+
+Outbox-radens ID blir `MessageId`, bokningens ID blir `CorrelationId` och radens skapandetid blir `OccurredAtUtc`. Värdena bevaras vid nya försök. `DeliveredAtUtc` sätts efter publisher confirm; annars sparas felet och ett nytt försök planeras.
+
+### 3. Skapa och spara biljetter
+
+[BookingConfirmedConsumer](../src/services/TicketService/Features/Tickets/IssueTickets/BookingConfirmedConsumer.cs) anropar [IssueTicketsHandler](../src/services/TicketService/Features/Tickets/IssueTickets/IssueTicketsHandler.cs), som validerar meddelandet och sparar biljetterna. Först när detta är klart kvitteras leveransen.
+
+Biljettutfärdandet är idempotent per `BookingItemId`. En omleverans med samma bokningsinformation återanvänder befintliga biljetter. Ändrad information för samma bokningsrad behandlas som en konflikt. Ett unikt databasindex på bokningsrad och biljettnummer inom raden skyddar även mot samtidiga försök.
+
+## Exchange, köer och routning
+
+Alla vanliga meddelanden publiceras till den beständiga topic-exchangen `halsingelive.events`. Felaktiga leveranser skickas till den beständiga direct-exchangen `halsingelive.dead`.
+
+| Meddelande | Routing key | Konsumentkö | Dead-letter routing key | Dead-letter-kö |
+| --- | --- | --- | --- | --- |
+| `PaymentRequestedV1` | `payment.requested.v1` | `payments.payment-requested.v1` | `payment-request.dead` | `payments.payment-requested.v1.dead` |
+| `PaymentSucceededV1` | `payment.succeeded.v1` | `booking.payment-results.v1` | `payment-result.dead` | `booking.payment-results.v1.dead` |
+| `PaymentFailedV1` | `payment.failed.v1` | `booking.payment-results.v1` | `payment-result.dead` | `booking.payment-results.v1.dead` |
+| `BookingConfirmedV1` | `booking.confirmed.v1` | `tickets.booking-confirmed.v1` | `ticket-issue.dead` | `tickets.booking-confirmed.v1.dead` |
+
+Publicerare och konsumenter deklarerar samma topologi. Köerna är beständiga, inte exklusiva och tas inte bort automatiskt när en konsument kopplas ned. Därmed kan meddelanden köas även innan mottagartjänsten har startat.
+
+Topologin finns bland annat i [PaymentRequestMessagingTopology](../src/services/PaymentSimulator/messaging/PaymentRequestMessagingTopology.cs), [PaymentResultMessagingTopology i PaymentSimulator](../src/services/PaymentSimulator/messaging/PaymentResultMessagingTopology.cs), [motsvarande topologi i Booking](../src/services/Booking/features/payments/PaymentResultMessagingTopology.cs) och biljettpublicerarens fil.
+
+## Leveranssäkerhet och felhantering
+
+Publicerarna skickar beständiga JSON-meddelanden med `ContentType=application/json`, `MessageId`, `CorrelationId` och meddelandetyp i AMQP-metadata. De använder publisher confirms och `mandatory`, så att ett meddelande som inte kan routas inte tyst betraktas som levererat.
+
+Leveransen kan ske mer än en gång. Exempelvis kan RabbitMQ ha accepterat ett meddelande precis innan publiceraren kraschar, utan att outbox-raden hinner markeras som levererad. Vid nästa försök skickas samma meddelande igen. Idempotens i mottagarna är därför en del av lösningen.
+
+### När kvitteras ett meddelande?
+
+| Konsument | Villkor för `ack` |
+| --- | --- |
+| PaymentSimulator: betalningsbegäran | Betalningshanteraren har returnerat en beständigt sparad betalning. Slutförande kan vid behov fortsätta genom återställningsarbetaren. |
+| Booking: betalningsresultat | Resultatet är validerat och beständigt sparat i inbox. Fortsatt arbete ägs därefter av inbox-arbetaren. |
+| TicketService: bekräftad bokningsrad | Biljetterna har sparats. |
+
+Konsumenterna använder manuell kvittens och hämtar ett meddelande åt gången (`prefetch=1`). Om tjänsten stängs av under arbetet lämnas ofärdiga leveranser okvitterade för omleverans.
+
+### Vad händer vid fel?
+
+- Ogiltig JSON, saknade obligatoriska fält och valideringsfel som identifieras som permanenta avvisas direkt till dead-letter-kön.
+- Övriga behandlingsfel får upp till tre försök per leverans innan meddelandet avvisas till dead-letter-kön.
+- Publiceringsfel i resultat- och biljett-outbox ger nya bakgrundsförsök med samma sparade meddelande.
+- Fel efter att Booking har sparat och kvitterat ett resultat hanteras i inbox, inte av RabbitMQ. Tillfälliga fel ger nya försök; konflikter kan sättas i karantän med `RejectedAtUtc`.
+
+Det finns ingen automatisk återpublicering från dead-letter-köerna. Orsaken behöver utredas innan meddelandet skickas om. Vid ompublicering av samma händelse ska ursprungligt innehåll och `MessageId` bevaras och den ursprungliga routing key användas.
+
+## Databaser och registrering
+
+Outbox och inbox ligger i respektive tjänsts PostgreSQL-databas, inte i RabbitMQ. Modeller och index konfigureras i [BookingDbContext](../src/services/Booking/data/BookingDbContext.cs) och [PaymentDbContext](../src/services/PaymentSimulator/data/PaymentDbContext.cs).
+
+| Migration | Ansvar |
+| --- | --- |
+| [TicketIssueOutbox](../src/services/Booking/data/Migrations/20261027133047_TicketIssueOutbox.cs) | Sparar Bookings väntande biljettmeddelanden. |
+| [PaymentResultOutbox](../src/services/PaymentSimulator/Migrations/20261103125856_PaymentResultOutbox.cs) | Sparar PaymentSimulators väntande betalningsresultat. |
+| [PaymentResultInbox](../src/services/Booking/data/Migrations/20261103125909_PaymentResultInbox.cs) | Sparar Bookings mottagna betalningsresultat och behandlingsstatus. |
+
+Resultatmigrationerna lägger till tabeller utan att ändra befintliga bokningar eller betalningar. Historiska slutliga betalningar får inte automatiskt några outbox-meddelanden. Migrationerna behöver tillämpas genom tjänsternas vanliga migreringsflöde innan de nya arbetarna körs.
+
+Registrering av anslutningar, publicerare och bakgrundstjänster finns i [Bookings program.cs](../src/services/Booking/program.cs), [PaymentSimulators Program.cs](../src/services/PaymentSimulator/Program.cs) och [TicketServices Program.cs](../src/services/TicketService/Program.cs). Compose aktiverar databasinitiering för Booking och TicketService; PaymentSimulator har sitt migreringsflöde vid uppstart.
+
+## Lokal körning och konfiguration
+
+[Compose.yaml](../src/Compose.yaml) startar `rabbitmq:4-management-alpine` med en beständig datavolym och hälsokontroll. De tre tjänsterna väntar på att RabbitMQ är redo innan de startas genom Compose.
+
+| Anslutning | Lokal adress |
+| --- | --- |
+| RabbitMQ:s administrationsgränssnitt | <http://localhost:15672> |
+| AMQP från värddatorn | `localhost:5672` |
+| AMQP mellan Compose-tjänster | `rabbitmq:5672` |
+
+Standardvärdena för lokal utveckling är användare `guest`, lösenord `guest` och virtual host `/`. Compose tillåter utvecklingskontot från sitt interna nätverk. Använd separata konton och vanliga åtkomstregler utanför lokal utveckling.
+
+Ange en gemensam intern nyckel för Booking och TicketService och kör från repots rot:
+
+```powershell
+$env:TICKET_SERVICE_INTERNAL_API_KEY = '<gemensam intern nyckel>'
+docker compose -f src/Compose.yaml up -d --build rabbitmq booking ticketservice payment-simulator
+```
+
+När tjänsterna körs från IDE:n används normalt `localhost:5672`. Följande inställningar kan anges som miljövariabler:
+
+| Miljövariabel | Betydelse |
+| --- | --- |
+| `RabbitMq__HostName` | Brokeradress, exempelvis `localhost` eller `rabbitmq`. |
+| `RabbitMq__Port` | AMQP-port, normalt `5672`. |
+| `RabbitMq__VirtualHost` | Virtual host, normalt `/`. |
+| `RabbitMq__UserName` | Användarnamn för tjänstens anslutning. |
+| `RabbitMq__Password` | Lösenord för tjänstens anslutning. |
+
+Compose läser dessutom `RABBITMQ_USER` och `RABBITMQ_PASSWORD` för klienternas inloggning. Dessa variabler skapar inte ett motsvarande konto i brokern; kontot behöver konfigureras separat om standardkontot byts ut.
+
+Anslutningshantering finns i [Bookings RabbitMqConnectionProvider](../src/services/Booking/features/tickets/RabbitMqConnectionProvider.cs), som delas av dess meddelandeflöden, och i motsvarande anslutningskod i de andra tjänsterna. Konsumenterna försöker återansluta efter avbrott. Brokerbekräftelser, outbox och inbox hanterar andra delar av återhämtningen.
+
+## Tester
+
+Enhetstester kan köras utan externa tjänster:
+
+```powershell
+dotnet test tests/Booking.UnitTests/Booking.UnitTests.csproj
+dotnet test tests/PaymentSimulator.UnitTests/PaymentSimulator.UnitTests.csproj
+dotnet test tests/TicketService.UnitTests/TicketService.UnitTests.csproj
+```
+
+Exempel på tester nära meddelandeflödena är [TicketIssueOutboxDispatcherTests](../tests/Booking.UnitTests/TicketIssueOutboxDispatcherTests.cs), [PaymentRequestedHandlerTests](../tests/PaymentSimulator.UnitTests/PaymentRequestedHandlerTests.cs), [BookingConfirmedContractTests](../tests/TicketService.UnitTests/BookingConfirmedContractTests.cs) och [IssueTicketsHandlerTests](../tests/TicketService.UnitTests/IssueTicketsHandlerTests.cs).
+
+### Integrationstester med RabbitMQ
+
+Meddelandetesterna använder fasta könamn och ska därför köras mot en separat testbroker eller en isolerad virtual host. Använd inte samma köer som utvecklingstjänster som redan körs.
+
+En separat lokal testbroker kan startas så här:
+
+```powershell
+docker run --detach --rm --name halsingelive-rabbitmq-test -p 127.0.0.1:5673:5672 -e RABBITMQ_DEFAULT_USER=payment-tests -e RABBITMQ_DEFAULT_PASS=payment-tests rabbitmq:4-management-alpine
+docker exec halsingelive-rabbitmq-test rabbitmq-diagnostics -q ping
+```
+
+Vänta tills hälsokontrollen lyckas. Med PostgreSQL och Redis igång på Compose-portarna anges testanslutningarna så här:
 
 ```powershell
 $env:PAYMENT_TEST_DB = 'Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres'
 $env:PAYMENT_TEST_RABBITMQ = 'amqp://payment-tests:payment-tests@localhost:5673/'
-dotnet test tests/PaymentSimulator.UnitTests/PaymentSimulator.UnitTests.csproj
+$env:BOOKING_TEST_POSTGRES = 'Host=localhost;Port=5433;Database=postgres;Username=postgres;Password=postgres'
+$env:BOOKING_TEST_REDIS = 'localhost:6379'
 dotnet test tests/PaymentSimulator.IntegrationTests/PaymentSimulator.IntegrationTests.csproj
+dotnet test tests/Booking.IntegrationTests/Booking.IntegrationTests.csproj
 ```
 
-The RabbitMQ URI must point to an isolated test broker or virtual host, rather than the broker used by running development services. Messaging tests are skipped when `PAYMENT_TEST_RABBITMQ` is unset. CI supplies PostgreSQL and a dedicated RabbitMQ service and runs these tests automatically.
+Testerna skapar och tar bort egna slumpmässigt namngivna PostgreSQL-databaser. RabbitMQ-testerna hoppas över om `PAYMENT_TEST_RABBITMQ` saknas. Övriga integrationstester kan ha andra anslutningskrav. [CI-konfigurationen](../.github/workflows/ci.yml) tillhandahåller PostgreSQL, Redis och en separat RabbitMQ-tjänst för testkörningen.
 
-## Local development
+Viktiga testfall finns i:
 
-The Compose file starts RabbitMQ with its management UI at `http://localhost:15672` and AMQP on `localhost:5672`. The local Compose setup uses the RabbitMQ development `guest` credentials. The broker permits that account from the Compose network for local development; use dedicated credentials and normal RabbitMQ access controls outside local development.
+- [PaymentRequestedConsumerTests](../tests/PaymentSimulator.IntegrationTests/PaymentRequestedConsumerTests.cs): betalningsbegäran, dubbletter, ogiltiga meddelanden och omleverans efter avbrott.
+- [PaymentProcessingTests](../tests/PaymentSimulator.IntegrationTests/PaymentProcessingTests.cs): atomär lagring av resultat och outbox, återställning, publiceringsfel och återbetalningar.
+- [PaymentResultMessagingTests](../tests/Booking.IntegrationTests/PaymentResultMessagingTests.cs): hela vägen från PaymentSimulators outbox genom RabbitMQ till Bookings inbox och bokningsändring.
+- [PaymentResultTests](../tests/Booking.IntegrationTests/PaymentResultTests.cs): samtidighet med HTTP-avstämning, misslyckade återbetalningar, konflikter och ombehandling efter redan genomförd bokningsbekräftelse.
 
-Set `TICKET_SERVICE_INTERNAL_API_KEY` as described in the payment/Compose setup, then start the broker and services with:
+Stoppa testbrokern efter körningen med `docker stop halsingelive-rabbitmq-test`.
+
+## Felsökning
+
+Börja med att följa samma `BookingId` genom tjänsterna. `CorrelationId` har normalt detta värde. Använd sedan `MessageId` för en viss händelse och `PaymentId` för betalningsförsöket.
+
+| Symtom eller status | Kontrollera |
+| --- | --- |
+| En outbox-rad saknar `DeliveredAtUtc` | `LastError`, `AttemptCount`, `NextAttemptAtUtc`, brokeranslutning och routning. Meddelandet är ännu inte markerat som bekräftat av RabbitMQ. |
+| Outbox är levererad men inget har hänt hos mottagaren | Köns väntande och okvitterade meddelanden, konsumentens loggar och eventuell dead-letter-kö. Publisher confirm betyder inte avslutad affärsbehandling. |
+| Inbox saknar både `ProcessedAtUtc` och `RejectedAtUtc` | Arbetet väntar eller försöks igen. Kontrollera `LastError`, nästa försökstid och tillgängligheten för betalningsuppslag och återbetalning via HTTP. |
+| Inbox har `RejectedAtUtc` | En konflikt behöver utredas utifrån `LastError` och den aktuella betalningen. Resultatet är redan kvitterat och ligger därför inte i RabbitMQ:s dead-letter-kö. |
+| Meddelanden ligger i en dead-letter-kö | Kontrollera kontrakt, metadata, belopp, valuta och konsumentens fel innan ompublicering. |
+| Bekräftad bokning saknar biljetter | Följ bokningsraden från biljett-outbox till `tickets.booking-confirmed.v1`, dess dead-letter-kö och TicketService. Sök på `BookingItemId`. |
+
+Tjänsternas loggar kan följas med:
 
 ```powershell
-docker compose -f src/Compose.yaml up -d rabbitmq booking ticketservice payment-simulator
+docker compose -f src/Compose.yaml logs -f booking payment-simulator ticketservice rabbitmq
 ```
-
-Booking, TicketService, and PaymentSimulator connect to the Compose DNS name `rabbitmq`. When running from an IDE on the host, their defaults connect to `localhost:5672`. Set `RabbitMq__HostName`, `RabbitMq__Port`, `RabbitMq__VirtualHost`, `RabbitMq__UserName`, and `RabbitMq__Password` to override those settings.
-
-Ticket lookup and PDF retrieval remain HTTP calls from Booking to TicketService. RabbitMQ is used for asynchronous ticket issuance.

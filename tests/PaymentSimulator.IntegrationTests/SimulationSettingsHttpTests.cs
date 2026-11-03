@@ -146,9 +146,10 @@ public sealed class SimulationSettingsHttpTests : IAsyncLifetime
             builder.ConfigureServices(services =>
             {
                 // HTTP tests must not consume requests from a developer's or CI's broker.
-                var consumer = services.Single(descriptor => descriptor.ServiceType == typeof(IHostedService)
-                    && descriptor.ImplementationType == typeof(PaymentRequestedConsumer));
-                services.Remove(consumer);
+                var messaging = services.Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
+                    && (descriptor.ImplementationType == typeof(PaymentRequestedConsumer)
+                        || descriptor.ImplementationType == typeof(PaymentResultOutboxWorker))).ToArray();
+                foreach (var service in messaging) services.Remove(service);
             });
             builder.ConfigureServices(services => services.PostConfigure<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme, options =>

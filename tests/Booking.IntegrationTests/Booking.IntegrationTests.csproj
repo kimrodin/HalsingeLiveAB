@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\services\Booking\Booking.csproj" />
+    <ProjectReference Include="..\..\src\services\PaymentSimulator\PaymentSimulator.csproj" />
   </ItemGroup>
 
 </Project>

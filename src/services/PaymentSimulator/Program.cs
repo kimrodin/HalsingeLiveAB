@@ -24,6 +24,10 @@ builder.Services.AddHostedService<PaymentRecoveryWorker>();
 builder.Services.AddSingleton<RabbitMqConnectionProvider>();
 builder.Services.AddScoped<PaymentRequestedHandler>();
 builder.Services.AddHostedService<PaymentRequestedConsumer>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IPaymentResultPublisher, RabbitMqPaymentResultPublisher>();
+builder.Services.AddScoped<PaymentResultOutboxDispatcher>();
+builder.Services.AddHostedService<PaymentResultOutboxWorker>();
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>

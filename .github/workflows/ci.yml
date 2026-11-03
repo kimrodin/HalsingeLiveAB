@@ -124,7 +124,7 @@ jobs:
         run: docker compose -f src/Compose.yaml -f src/Compose.dev.yaml config --quiet
 
       - name: Build Booking image
-        run: docker build -f src/services/Booking/Dockerfile src/services/Booking
+        run: docker build -f src/services/Booking/Dockerfile src
 
       - name: Build EventCatalog image
         run: docker build -f src/services/EventCatalog/Dockerfile src/services/EventCatalog
@@ -133,4 +133,4 @@ jobs:
         run: docker build -f src/services/PaymentSimulator/Dockerfile src
 
       - name: Build TicketService image
-        run: docker build -f src/services/TicketService/Dockerfile src/services/TicketService
+        run: docker build -f src/services/TicketService/Dockerfile src
