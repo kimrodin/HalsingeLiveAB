@@ -18,6 +18,7 @@ public interface ITicketServiceClient
 
     Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
         Guid ticketId,
+        Guid eventId,
         CancellationToken cancellationToken = default);
 
     Task<TicketServiceStatusChangeResponse> CancelTicketAsync(

@@ -90,8 +90,11 @@ export default function BookingDetailsPage() {
   });
 
   const changeTicketStatus = useMutation({
-    mutationFn: ({ ticketId, action }: { ticketId: string; action: 'check-in' | 'cancel' }) =>
-      action === 'check-in' ? checkInTicket(ticketId) : cancelTicket(ticketId),
+    mutationFn: (change: { ticketId: string; action: 'check-in'; eventId: string }
+      | { ticketId: string; action: 'cancel' }) =>
+      change.action === 'check-in'
+        ? checkInTicket(change.ticketId, change.eventId)
+        : cancelTicket(change.ticketId),
     onSuccess: async () => {
       setTicketActionError('');
       await queryClient.invalidateQueries({ queryKey: ['booking-tickets', id] });
@@ -246,6 +249,7 @@ export default function BookingDetailsPage() {
                     disabled={changeTicketStatus.isPending}
                     onClick={() => changeTicketStatus.mutate({
                       ticketId: ticket.ticketId,
+                      eventId: ticket.eventId,
                       action: 'check-in',
                     })}
                   >

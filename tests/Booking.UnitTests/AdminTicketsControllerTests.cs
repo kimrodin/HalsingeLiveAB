@@ -17,7 +17,7 @@ public sealed class AdminTicketsControllerTests
             CheckInResult = expected
         });
 
-        var result = await controller.CheckInTicket(ticketId, default);
+        var result = await controller.CheckInTicket(ticketId, default, Guid.NewGuid());
 
         var response = Assert.IsType<OkObjectResult>(result);
         Assert.Same(expected, response.Value);
@@ -37,10 +37,13 @@ public sealed class AdminTicketsControllerTests
         });
 
         var result = checkIn
-            ? await controller.CheckInTicket(Guid.NewGuid(), default)
+            ? await controller.CheckInTicket(Guid.NewGuid(), default, Guid.NewGuid())
             : await controller.CancelTicket(Guid.NewGuid(), default);
 
-        Assert.IsType<ConflictObjectResult>(result);
+        var conflict = Assert.IsType<ConflictObjectResult>(result);
+        if (checkIn)
+            Assert.Equal("Ticket is not valid for this operation.",
+                Assert.IsType<ProblemDetails>(conflict.Value).Detail);
     }
 
     [Fact]
@@ -81,6 +84,7 @@ public sealed class AdminTicketsControllerTests
 
         public Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
             Guid ticketId,
+            Guid eventId,
             CancellationToken cancellationToken = default) =>
             ChangeStatusAsync(CheckInResult);
 
