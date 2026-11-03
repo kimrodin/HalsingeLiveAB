@@ -81,6 +81,7 @@ public sealed class AdminTicketsControllerTests
 
         public Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
             Guid ticketId,
+            Guid eventId,
             CancellationToken cancellationToken = default) =>
             ChangeStatusAsync(CheckInResult);
 
