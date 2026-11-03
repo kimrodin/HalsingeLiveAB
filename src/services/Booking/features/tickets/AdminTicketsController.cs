@@ -12,18 +12,29 @@ public sealed class AdminTicketsController(
 {
     [HttpPost("{ticketId:guid}/check-in")]
     [ProducesResponseType(typeof(TicketServiceStatusChangeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status502BadGateway)]
     [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
-    public Task<IActionResult> CheckInTicket(
+    public async Task<IActionResult> CheckInTicket(
         Guid ticketId,
-        CancellationToken cancellationToken) =>
-        ChangeTicketStatusAsync(
+        CancellationToken cancellationToken,
+        [FromQuery] Guid eventId = default)
+    {
+        if (eventId == Guid.Empty)
+            return BadRequest(new ProblemDetails
+            {
+                Title = "A valid event ID is required for check-in.",
+                Status = StatusCodes.Status400BadRequest
+            });
+
+        return await ChangeTicketStatusAsync(
             ticketId,
-            ticketServiceClient.CheckInTicketAsync,
+            (id, token) => ticketServiceClient.CheckInTicketAsync(id, eventId, token),
             "check-in",
             cancellationToken);
+    }
 
     [HttpPost("{ticketId:guid}/cancel")]
     [ProducesResponseType(typeof(TicketServiceStatusChangeResponse), StatusCodes.Status200OK)]

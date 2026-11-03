@@ -52,8 +52,9 @@ public sealed class HttpTicketServiceClient(
 
     public Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
         Guid ticketId,
+        Guid eventId,
         CancellationToken cancellationToken = default) =>
-        ChangeTicketStatusAsync(ticketId, "check-in", "ticket check-in", cancellationToken);
+        ChangeTicketStatusAsync(ticketId, $"check-in?eventId={eventId:D}", "ticket check-in", cancellationToken);
 
     public Task<TicketServiceStatusChangeResponse> CancelTicketAsync(
         Guid ticketId,
