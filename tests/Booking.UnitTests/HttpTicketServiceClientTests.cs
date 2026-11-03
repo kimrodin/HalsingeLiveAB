@@ -70,6 +70,7 @@ public sealed class HttpTicketServiceClientTests
         string status)
     {
         var ticketId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
         var changedAt = DateTimeOffset.UtcNow;
         var httpClient = CreateClient(request =>
         {
@@ -85,7 +86,7 @@ public sealed class HttpTicketServiceClientTests
         var client = CreateTicketClient(httpClient);
 
         var result = action == "check-in"
-            ? await client.CheckInTicketAsync(ticketId)
+            ? await client.CheckInTicketAsync(ticketId, eventId)
             : await client.CancelTicketAsync(ticketId);
 
         Assert.Equal(ticketId, result.TicketId);
@@ -100,7 +101,7 @@ public sealed class HttpTicketServiceClientTests
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict))));
 
         var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
-            client.CheckInTicketAsync(Guid.NewGuid()));
+            client.CheckInTicketAsync(Guid.NewGuid(), Guid.NewGuid()));
 
         Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
     }
