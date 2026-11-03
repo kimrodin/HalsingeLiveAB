@@ -55,8 +55,6 @@ public sealed class BookingConfirmedConsumer(
         {
             message = JsonSerializer.Deserialize<BookingConfirmedV1>(delivery.Body.Span)
                 ?? throw new InvalidDataException("The booking confirmation message was empty.");
-            if (message.MessageId == Guid.Empty)
-                throw new InvalidDataException("The booking confirmation message ID was missing.");
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException)
         {
@@ -83,6 +81,12 @@ public sealed class BookingConfirmedConsumer(
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
+                return;
+            }
+            catch (TicketIssueValidationException exception)
+            {
+                logger.LogError(exception, "Rejecting an invalid booking confirmation {MessageId}.", message.MessageId);
+                await channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, stoppingToken);
                 return;
             }
             catch (Exception exception)

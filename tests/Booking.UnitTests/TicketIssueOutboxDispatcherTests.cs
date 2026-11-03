@@ -29,9 +29,15 @@ public sealed class TicketIssueOutboxDispatcherTests
         Assert.Equal(outboxMessage.BookingId, client.Message.CorrelationId);
         Assert.Equal(outboxMessage.BookingId, client.Message.BookingId);
         Assert.Equal(outboxMessage.BookingItemId, client.Message.BookingItemId);
+        Assert.Equal(outboxMessage.EventId, client.Message.EventId);
         Assert.Equal(outboxMessage.EventName, client.Message.EventName);
         Assert.Equal(outboxMessage.EventStartsAtUtc, client.Message.EventStartsAtUtc);
+        Assert.Equal(outboxMessage.VenueName, client.Message.VenueName);
+        Assert.Equal(outboxMessage.SectionName, client.Message.SectionName);
         Assert.Equal(outboxMessage.Quantity, client.Message.Quantity);
+        Assert.Equal(outboxMessage.UnitPrice, client.Message.UnitPrice);
+        Assert.Equal(outboxMessage.Currency, client.Message.Currency);
+        Assert.Equal(outboxMessage.CreatedAtUtc, client.Message.OccurredAtUtc);
     }
 
     [Fact]

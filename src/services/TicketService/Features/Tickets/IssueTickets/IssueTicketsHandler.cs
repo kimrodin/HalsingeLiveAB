@@ -74,6 +74,12 @@ public sealed class IssueTicketsHandler(
     private static void Validate(BookingConfirmedV1 message)
     {
         var errors = new List<string>();
+        if (message.MessageId == Guid.Empty)
+            errors.Add("MessageId is required.");
+        if (message.CorrelationId == Guid.Empty)
+            errors.Add("CorrelationId is required.");
+        if (message.OccurredAtUtc == default)
+            errors.Add("OccurredAtUtc is required.");
         if (message.BookingId == Guid.Empty)
             errors.Add("BookingId is required.");
         if (message.BookingItemId == Guid.Empty)

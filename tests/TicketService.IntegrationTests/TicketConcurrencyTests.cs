@@ -26,6 +26,7 @@ public sealed class TicketConcurrencyTests(TicketDatabaseFixture database) : ICl
         await using var secondDb = database.CreateContext(gate);
         var message = new BookingConfirmedV1
         {
+            MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
             BookingId = Guid.NewGuid(), BookingItemId = Guid.NewGuid(), EventId = Guid.NewGuid(),
             EventName = "Concurrent event", EventStartsAtUtc = DateTimeOffset.Parse("2026-11-01T19:00:00Z"),
             VenueName = "Hall", SectionName = "Standing", Quantity = quantity, UnitPrice = 100m, Currency = "SEK"

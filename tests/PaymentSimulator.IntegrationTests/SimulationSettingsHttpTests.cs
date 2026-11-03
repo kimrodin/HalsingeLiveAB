@@ -19,6 +19,8 @@ using Npgsql;
 using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.Simulation;
+using PaymentSimulator.Messaging;
+using Microsoft.Extensions.Hosting;
 
 namespace PaymentSimulator.IntegrationTests;
 
@@ -141,6 +143,13 @@ public sealed class SimulationSettingsHttpTests : IAsyncLifetime
             builder.UseSetting("PaymentSimulation:TimeoutMs", "5000");
             builder.UseSetting("Logging:LogLevel:Default", "Warning");
             builder.ConfigureLogging(logging => logging.ClearProviders().AddConsole());
+            builder.ConfigureServices(services =>
+            {
+                // HTTP tests must not consume requests from a developer's or CI's broker.
+                var consumer = services.Single(descriptor => descriptor.ServiceType == typeof(IHostedService)
+                    && descriptor.ImplementationType == typeof(PaymentRequestedConsumer));
+                services.Remove(consumer);
+            });
             builder.ConfigureServices(services => services.PostConfigure<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme, options =>
                 {

@@ -41,9 +41,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      rabbitmq:
+        image: rabbitmq:4-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: payment-tests
+          RABBITMQ_DEFAULT_PASS: payment-tests
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     env:
       EVENTCATALOG_TEST_POSTGRES: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
       PAYMENT_TEST_DB: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
+      PAYMENT_TEST_RABBITMQ: amqp://payment-tests:payment-tests@localhost:5672/
       BOOKING_TEST_POSTGRES: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
       BOOKING_TEST_REDIS: localhost:6379
       TICKET_TEST_POSTGRES: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
@@ -117,7 +130,7 @@ jobs:
         run: docker build -f src/services/EventCatalog/Dockerfile src/services/EventCatalog
 
       - name: Build PaymentSimulator image
-        run: docker build -f src/services/PaymentSimulator/Dockerfile src/services/PaymentSimulator
+        run: docker build -f src/services/PaymentSimulator/Dockerfile src
 
       - name: Build TicketService image
         run: docker build -f src/services/TicketService/Dockerfile src/services/TicketService

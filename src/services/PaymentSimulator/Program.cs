@@ -6,6 +6,7 @@ using PaymentSimulator.Features.Payments.GetPayment;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
+using PaymentSimulator.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,9 @@ builder.Services.AddScoped<ProcessPaymentHandler>();
 builder.Services.AddScoped<RefundPaymentHandler>();
 builder.Services.AddScoped<SimulationSettingsService>();
 builder.Services.AddHostedService<PaymentRecoveryWorker>();
+builder.Services.AddSingleton<RabbitMqConnectionProvider>();
+builder.Services.AddScoped<PaymentRequestedHandler>();
+builder.Services.AddHostedService<PaymentRequestedConsumer>();
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>

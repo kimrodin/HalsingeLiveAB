@@ -12,21 +12,7 @@ public sealed class HttpTicketServiceClientTests
     [Fact]
     public async Task IssueTicketsAsync_PostsConfirmationWithInternalApiKey()
     {
-        var message = new BookingConfirmedV1
-        {
-            CorrelationId = Guid.NewGuid(),
-            BookingId = Guid.NewGuid(),
-            BookingItemId = Guid.NewGuid(),
-            EventId = Guid.NewGuid(),
-            EventName = "Snapshot concert",
-            EventStartsAtUtc = DateTimeOffset.UtcNow,
-            VenueName = "Snapshot hall",
-            SectionName = "Standing",
-            Quantity = 2,
-            UnitPrice = 199.50m,
-            Currency = "SEK",
-            OccurredAtUtc = DateTime.UtcNow
-        };
+        var message = CreateMessage();
         var httpClient = CreateClient(request =>
         {
             Assert.Equal(HttpMethod.Post, request.Method);
@@ -58,7 +44,7 @@ public sealed class HttpTicketServiceClientTests
 
         var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
             new HttpTicketServiceClient(client, configuration)
-                .IssueTicketsAsync(new BookingConfirmedV1()));
+                .IssueTicketsAsync(CreateMessage()));
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
     }
@@ -105,6 +91,23 @@ public sealed class HttpTicketServiceClientTests
 
         Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
     }
+
+    private static BookingConfirmedV1 CreateMessage() => new()
+    {
+        MessageId = Guid.NewGuid(),
+        CorrelationId = Guid.NewGuid(),
+        BookingId = Guid.NewGuid(),
+        BookingItemId = Guid.NewGuid(),
+        EventId = Guid.NewGuid(),
+        EventName = "Snapshot concert",
+        EventStartsAtUtc = DateTimeOffset.UtcNow,
+        VenueName = "Snapshot hall",
+        SectionName = "Standing",
+        Quantity = 2,
+        UnitPrice = 199.50m,
+        Currency = "SEK",
+        OccurredAtUtc = DateTimeOffset.UtcNow
+    };
 
     private static HttpClient CreateClient(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync) =>

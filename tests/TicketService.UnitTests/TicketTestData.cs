@@ -28,6 +28,7 @@ internal static class TicketTestData
 
     public static BookingConfirmedV1 CreateMessage(int quantity = 2) => new()
     {
+        MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), OccurredAtUtc = Now,
         BookingId = Guid.NewGuid(), BookingItemId = Guid.NewGuid(), EventId = Guid.NewGuid(),
         EventName = "Live event", EventStartsAtUtc = DateTimeOffset.Parse("2026-11-01T19:00:00Z"),
         VenueName = "Main Hall", SectionName = "Standing", Quantity = quantity,

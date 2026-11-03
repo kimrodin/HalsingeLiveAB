@@ -120,6 +120,9 @@ public sealed class IssueTicketsHandlerTests
     public static IEnumerable<object[]> InvalidMessages()
     {
         var message = CreateMessage(1);
+        yield return [message with { MessageId = Guid.Empty }, "MessageId"];
+        yield return [message with { CorrelationId = Guid.Empty }, "CorrelationId"];
+        yield return [message with { OccurredAtUtc = default }, "OccurredAtUtc"];
         yield return [message with { BookingId = Guid.Empty }, "BookingId"];
         yield return [message with { BookingItemId = Guid.Empty }, "BookingItemId"];
         yield return [message with { EventId = Guid.Empty }, "EventId"];
