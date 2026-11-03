@@ -53,9 +53,9 @@ export function getTicketPdf(bookingId: string, ticketId: string): Promise<Blob>
   );
 }
 
-export function checkInTicket(ticketId: string): Promise<TicketStatusChange> {
+export function checkInTicket(ticketId: string, eventId: string): Promise<TicketStatusChange> {
   return request<TicketStatusChange>(
-    `/admin/tickets/${ticketId}/check-in`,
+    `/admin/tickets/${ticketId}/check-in?eventId=${encodeURIComponent(eventId)}`,
     { method: 'POST' },
     '/booking-api',
   );

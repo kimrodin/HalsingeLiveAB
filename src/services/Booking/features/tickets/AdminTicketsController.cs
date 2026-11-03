@@ -72,6 +72,7 @@ public sealed class AdminTicketsController(
             return Conflict(new ProblemDetails
             {
                 Title = "The ticket is not valid for this operation.",
+                Detail = exception.Message,
                 Status = StatusCodes.Status409Conflict
             });
         }

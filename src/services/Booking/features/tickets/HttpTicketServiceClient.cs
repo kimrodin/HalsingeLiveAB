@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 
 namespace Booking.Features.Tickets;
@@ -90,12 +92,33 @@ public sealed class HttpTicketServiceClient(
         if (response.IsSuccessStatusCode)
             return;
 
-        var reason = response.StatusCode == HttpStatusCode.NotFound
-            ? "resource not found"
-            : $"status code {(int)response.StatusCode}";
+        var reason = await GetProblemMessageAsync(response);
+        if (reason is null)
+            reason = response.StatusCode == HttpStatusCode.NotFound
+                ? "resource not found"
+                : $"status code {(int)response.StatusCode}";
+
         throw new HttpRequestException(
             $"TicketService rejected {operation} with {reason}.",
             inner: null,
             response.StatusCode);
+    }
+
+    private static async Task<string> GetProblemMessageAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+            if (problem is null)
+                return null;
+
+            var message = string.Join(" ", new[] { problem.Title, problem.Detail }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+            return string.IsNullOrWhiteSpace(message) ? null : message;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

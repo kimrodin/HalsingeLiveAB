@@ -40,7 +40,10 @@ public sealed class AdminTicketsControllerTests
             ? await controller.CheckInTicket(Guid.NewGuid(), default, Guid.NewGuid())
             : await controller.CancelTicket(Guid.NewGuid(), default);
 
-        Assert.IsType<ConflictObjectResult>(result);
+        var conflict = Assert.IsType<ConflictObjectResult>(result);
+        if (checkIn)
+            Assert.Equal("Ticket is not valid for this operation.",
+                Assert.IsType<ProblemDetails>(conflict.Value).Detail);
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Booking.Features.Tickets;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 
 namespace Booking.UnitTests;
@@ -76,6 +77,8 @@ public sealed class HttpTicketServiceClientTests
         {
             Assert.Equal(HttpMethod.Post, request.Method);
             Assert.Equal($"/tickets/{ticketId:D}/{action}", request.RequestUri!.AbsolutePath);
+            if (action == "check-in")
+                Assert.Equal($"?eventId={eventId:D}", request.RequestUri.Query);
             Assert.Equal("configured-key", request.Headers.GetValues("X-Internal-Api-Key").Single());
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
@@ -98,12 +101,20 @@ public sealed class HttpTicketServiceClientTests
     public async Task CheckInTicketAsync_PreservesConflictStatus()
     {
         var client = CreateTicketClient(CreateClient(_ =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict))));
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict)
+            {
+                Content = JsonContent.Create(new ProblemDetails
+                {
+                    Title = "The ticket is for a different event.",
+                    Status = 409
+                })
+            })));
 
         var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
             client.CheckInTicketAsync(Guid.NewGuid(), Guid.NewGuid()));
 
         Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+        Assert.Contains("The ticket is for a different event.", exception.Message);
     }
 
     private static HttpClient CreateClient(
