@@ -168,8 +168,6 @@ services:
       PaymentSimulation__Outcome: "${PAYMENT_SIMULATION_OUTCOME:-Succeeded}"
       PaymentSimulation__DelayMs: "${PAYMENT_SIMULATION_DELAY_MS:-500}"
       PaymentSimulation__TimeoutMs: "${PAYMENT_SIMULATION_TIMEOUT_MS:-5000}"
-      Authentication__Authority: http://localhost:8180/realms/halsingelive
-      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
     ports:
       - "127.0.0.1:5111:8080"
     depends_on:
