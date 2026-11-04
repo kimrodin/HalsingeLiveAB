@@ -14,9 +14,20 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
     public DbSet<InventoryModel> EventInventory => Set<InventoryModel>();
     public DbSet<TicketIssueOutboxMessage> TicketIssueOutboxMessages => Set<TicketIssueOutboxMessage>();
     public DbSet<PaymentResultInboxMessage> PaymentResultInboxMessages => Set<PaymentResultInboxMessage>();
+    public DbSet<PaymentRequestOutboxMessage> PaymentRequestOutboxMessages => Set<PaymentRequestOutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<PaymentRequestOutboxMessage>(entity =>
+        {
+            entity.ToTable("PaymentRequestOutboxMessages");
+            entity.HasKey(message => message.MessageId);
+            entity.HasIndex(message => message.BookingId).IsUnique();
+            entity.HasIndex(message => new { message.DeliveredAtUtc, message.SuppressedAtUtc, message.NextAttemptAtUtc });
+            entity.Property(message => message.Amount).HasPrecision(18, 2);
+            entity.Property(message => message.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(message => message.LastError).HasMaxLength(2000).IsRequired(false);
+        });
         modelBuilder.Entity<PaymentResultInboxMessage>(entity =>
         {
             entity.ToTable("PaymentResultInboxMessages");

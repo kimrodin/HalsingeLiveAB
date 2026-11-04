@@ -10,28 +10,38 @@ De tre berörda tjänsterna har olika ansvar:
 - **PaymentSimulator** behandlar simulerade betalningar och publicerar resultatet: betalningen lyckades, misslyckades eller nådde sin tidsgräns.
 - **TicketService** tar emot bekräftade bokningsrader och skapar en biljett per bokad plats.
 
-RabbitMQ används redan för betalningsresultat och biljettutfärdande. För betalningsbegäran finns både en publicerare i Booking och en konsument i PaymentSimulator, men den vanliga betalningsstarten anropar fortfarande PaymentSimulator via HTTP.
+RabbitMQ används för betalningsbegäran, betalningsresultat och biljettutfärdande. Kundwebben startar flödet genom Bookings HTTP-API. Booking sparar då betalningsbegäran i sin databas och svarar `202 Accepted` med status `Pending`. En bakgrundsarbetare skickar begäran till PaymentSimulator via RabbitMQ. Kunden följer sedan bokningens status genom polling; reservationens ursprungliga sluttid gäller hela tiden.
 
 ```mermaid
 sequenceDiagram
+    participant C as Kundwebb
     participant B as Booking
-    participant P as PaymentSimulator
     participant R as RabbitMQ
+    participant P as PaymentSimulator
     participant T as TicketService
 
-    B->>P: Starta betalning via HTTP
+    C->>B: HTTP POST /StartPayment/{bookingId}
+    B->>B: Spara betalningsavsikt och request-outbox atomärt
+    B-->>C: HTTP 202 Accepted, Pending
+    B->>R: AMQP: PaymentRequestedV1 från outbox
+    R->>P: AMQP: leverera betalningsbegäran
     P->>P: Spara betalningsresultat och outbox
-    P->>R: PaymentSucceededV1 eller PaymentFailedV1
-    R->>B: Leverera betalningsresultat
-    B->>B: Spara inbox, verifiera och tillämpa resultat
-    Note over B,P: Verifiering och eventuell återbetalning använder HTTP
+    P->>R: AMQP: PaymentSucceededV1 eller PaymentFailedV1
+    R->>B: AMQP: leverera betalningsresultat
+    B->>B: Spara resultat i inbox
+    B->>P: HTTP: hämta aktuell betalningsstatus för verifiering
+    P-->>B: Aktuell betalningsstatus
+    B->>B: Tillämpa verifierat resultat
     opt Betalningen godkänns och bokningen kan bekräftas
         B->>B: Bekräfta bokning och spara biljett-outbox
-        B->>R: BookingConfirmedV1 per bokningsrad
-        R->>T: Leverera bekräftad bokningsrad
+        B->>R: AMQP: BookingConfirmedV1 per bokningsrad
+        R->>T: AMQP: leverera bekräftad bokningsrad
         T->>T: Spara biljetter
     end
+    Note over B,P: HTTP används även vid kompensation: spärrning eller återbetalning
 ```
+
+Betalningsbegäran mellan tjänsterna följer alltså vägen **Booking → RabbitMQ → PaymentSimulator**. Diagrammets första HTTP-anrop kommer från kundwebben till Booking. Det senare HTTP-anropet till PaymentSimulator verifierar en betalning som redan har behandlats.
 
 HTTP används även för bland annat uppslag av betalningsstatus, återbetalningar, biljettfrågor och PDF-hämtning. Se även [betalningsflödet](payments.md) och [administration av betalningssimuleringen](payment-simulation-admin.md).
 
@@ -39,7 +49,7 @@ HTTP används även för bland annat uppslag av betalningsstatus, återbetalning
 
 | Meddelande | Avsändare → mottagare | Nuvarande användning |
 | --- | --- | --- |
-| `PaymentRequestedV1` | Booking → PaymentSimulator | Publicerare och konsument finns. Den vanliga betalningsstarten använder ännu HTTP. |
+| `PaymentRequestedV1` | Booking → PaymentSimulator | Startar betalningen via Bookings request-outbox och PaymentSimulators konsument. |
 | `PaymentSucceededV1` | PaymentSimulator → Booking | Levererar lyckade betalningar via outbox, RabbitMQ och inbox. |
 | `PaymentFailedV1` | PaymentSimulator → Booking | Levererar slutliga utfall `Failed` och `TimedOut` via samma resultatflöde. |
 | `BookingConfirmedV1` | Booking → TicketService | Begär biljettutfärdande för varje bekräftad bokningsrad. |
@@ -79,13 +89,23 @@ Alla kontraktsfält är `required` och saknar genererade ID:n eller standardvär
 
 `PaidAtUtc` anger när betalningen lyckades, medan `OccurredAtUtc` beskriver händelsens tidpunkt. En senare återbetalning ändrar inte det historiska framgångsmeddelandet. Ett nätverksavbrott eller en otillgänglig broker är inte ett slutligt betalningsfel och ska inte omvandlas till `PaymentFailedV1`.
 
-## Betalningsbegäran: förberett RabbitMQ-flöde
+## Betalningsbegäran: från Booking till PaymentSimulator
 
-Booking registrerar [IPaymentRequestedPublisher](../src/services/Booking/features/payments/IPaymentRequestedPublisher.cs) med implementationen [RabbitMqPaymentRequestedPublisher](../src/services/Booking/features/payments/RabbitMqPaymentRequestedPublisher.cs). Publiceraren använder tjänstens gemensamma RabbitMQ-anslutning och skickar beständig JSON med publisher confirms och obligatorisk routning (`mandatory`). Om meddelandet inte kan publiceras eller routas får anroparen ett fel.
+### 1. Spara begäran och svara kunden
 
-Den vanliga betalningsstarten i [StartPayment.cs](../src/services/Booking/features/bookings/StartPayment.cs) använder dock fortfarande [HttpPaymentGateway](../src/services/Booking/features/payments/HttpPaymentGateway.cs). Det finns ingen outbox för betalningsbegäran. För att aktivera RabbitMQ i detta steg behöver betalningsstarten kopplas till en beständig begäran och publicering med återförsök. Publiceraren ensam lagrar inte meddelanden åt anroparen.
+`StartPaymentAsync` i [StartPayment.cs](../src/services/Booking/features/bookings/StartPayment.cs) kontrollerar att bokningen kan betalas och läser beloppet från bokningsdatabasen. Därefter sparas `PaymentRequested = true` och en [PaymentRequestOutboxMessage](../src/services/Booking/features/payments/PaymentRequestOutboxMessage.cs) i samma transaktion. Om lagringen av meddelandet misslyckas rullas även betalningsavsikten tillbaka.
 
-Mottagarsidan är implementerad:
+Ett unikt index på `BookingId` och det gemensamma betalningslåset förhindrar flera begäranden för samma bokning. Den första accepterade starten svarar `202 Accepted` med `Pending` utan att kontakta PaymentSimulator eller RabbitMQ. Ett upprepat anrop återanvänder det befintliga flödet och kan även läsa och tillämpa ett redan tillgängligt resultat.
+
+### 2. Publicera från request-outbox
+
+[PaymentRequestOutboxWorker](../src/services/Booking/features/payments/PaymentRequestOutboxWorker.cs) kör [PaymentRequestOutboxDispatcher](../src/services/Booking/features/payments/PaymentRequestOutboxDispatcher.cs) ungefär varje sekund. Dispatchern hämtar högst 25 förfallna rader och använder den sparade ögonblicksbilden för att skapa `PaymentRequestedV1`. Radens ID blir `MessageId`, bokningens ID blir `CorrelationId` och skapandetiden blir `OccurredAtUtc`.
+
+Booking registrerar [IPaymentRequestedPublisher](../src/services/Booking/features/payments/IPaymentRequestedPublisher.cs) med implementationen [RabbitMqPaymentRequestedPublisher](../src/services/Booking/features/payments/RabbitMqPaymentRequestedPublisher.cs). Publiceraren använder tjänstens gemensamma RabbitMQ-anslutning och skickar beständig JSON med publisher confirms och obligatorisk routning (`mandatory`).
+
+`DeliveredAtUtc` sätts först efter brokerbekräftelsen. Vid publiceringsfel ligger raden kvar med `AttemptCount`, `LastError` och `NextAttemptAtUtc`. Nya försök använder samma meddelande-ID, belopp, valuta och tidpunkt. Ett avbrott efter publicering men före leveransmarkeringen kan därför ge en dubblett, vilket mottagarens idempotens hanterar.
+
+### 3. Behandla betalningsbegäran
 
 1. [PaymentRequestedConsumer](../src/services/PaymentSimulator/messaging/PaymentRequestedConsumer.cs) läser från begäranskön och deserialiserar `PaymentRequestedV1`.
 2. [PaymentRequestedHandler](../src/services/PaymentSimulator/messaging/PaymentRequestedHandler.cs) kontrollerar metadata, boknings-ID, belopp och valuta och anropar sedan [ProcessPaymentHandler](../src/services/PaymentSimulator/features/payments/ProcessPayment/ProcessPaymentHandler.cs).
@@ -93,6 +113,14 @@ Mottagarsidan är implementerad:
 4. Konsumenten kvitterar när hanteraren har returnerat en beständigt sparad betalning. `Failed` och `TimedOut` är giltiga affärsutfall och kvitteras normalt.
 
 En sparad betalning som fortfarande är `Pending` kan slutföras av [PaymentRecoveryWorker](../src/services/PaymentSimulator/features/payments/ProcessPayment/PaymentRecoveryWorker.cs), även om den ursprungliga anslutningen har avbrutits.
+
+### 4. Hantera köfördröjning och utgångna reservationer
+
+Före publicering kontrollerar dispatchern bokningens aktuella status och reservationstid. Om reservationen redan är ogiltig markeras raden med `SuppressedAtUtc` och skickas inte. Det betyder inte att betalningsflödet är färdighanterat: ett tidigare osäkert publiceringsförsök kan redan ha nått RabbitMQ.
+
+[PaymentReconciliationService](../src/services/Booking/features/bookings/PaymentReconciliationService.cs) anropar därför `ReconcilePaymentAsync` för oavslutade betalningar. Avstämningen startar aldrig en betalning via HTTP. Om reservationen är giltig men ingen betalning ännu finns väntar den på meddelandeflödet. Om bokningen har avbokats eller reservationen har gått ut används HTTP för att spärra ett ännu inte skapat försök eller avbryta/återbetala ett befintligt försök. Flödet markeras som avslutat först när kompensationen har verifierats.
+
+Ett meddelande som redan köats kan levereras efter reservationens sluttid. En etablerad spärr gör att PaymentSimulator återanvänder det terminala försöket utan en ny debitering. Om betalningen hinner lyckas före spärren återbetalas den när Booking behandlar resultatet eller stämmer av betalningen. Meddelandekontraktet innehåller ingen reservationsdeadline, så mottagaren kan inte själv garantera att en försenad begäran aldrig debiteras före kompensationen.
 
 ## Betalningsresultat: från PaymentSimulator till Booking
 
@@ -195,7 +223,7 @@ Konsumenterna använder manuell kvittens och hämtar ett meddelande åt gången 
 
 - Ogiltig JSON, saknade obligatoriska fält och valideringsfel som identifieras som permanenta avvisas direkt till dead-letter-kön.
 - Övriga behandlingsfel får upp till tre försök per leverans innan meddelandet avvisas till dead-letter-kön.
-- Publiceringsfel i resultat- och biljett-outbox ger nya bakgrundsförsök med samma sparade meddelande.
+- Publiceringsfel i begärans-, resultat- och biljett-outbox ger nya bakgrundsförsök med samma sparade meddelande.
 - Fel efter att Booking har sparat och kvitterat ett resultat hanteras i inbox, inte av RabbitMQ. Tillfälliga fel ger nya försök; konflikter kan sättas i karantän med `RejectedAtUtc`.
 
 Det finns ingen automatisk återpublicering från dead-letter-köerna. Orsaken behöver utredas innan meddelandet skickas om. Vid ompublicering av samma händelse ska ursprungligt innehåll och `MessageId` bevaras och den ursprungliga routing key användas.
@@ -206,11 +234,14 @@ Outbox och inbox ligger i respektive tjänsts PostgreSQL-databas, inte i RabbitM
 
 | Migration | Ansvar |
 | --- | --- |
+| [PaymentRequestOutbox](../src/services/Booking/data/Migrations/20261104064904_PaymentRequestOutbox.cs) | Sparar Bookings betalningsbegäranden och för över äldre oavslutade betalningsavsikter till request-outbox. |
 | [TicketIssueOutbox](../src/services/Booking/data/Migrations/20261027133047_TicketIssueOutbox.cs) | Sparar Bookings väntande biljettmeddelanden. |
 | [PaymentResultOutbox](../src/services/PaymentSimulator/Migrations/20261103125856_PaymentResultOutbox.cs) | Sparar PaymentSimulators väntande betalningsresultat. |
 | [PaymentResultInbox](../src/services/Booking/data/Migrations/20261103125909_PaymentResultInbox.cs) | Sparar Bookings mottagna betalningsresultat och behandlingsstatus. |
 
 Resultatmigrationerna lägger till tabeller utan att ändra befintliga bokningar eller betalningar. Historiska slutliga betalningar får inte automatiskt några outbox-meddelanden. Migrationerna behöver tillämpas genom tjänsternas vanliga migreringsflöde innan de nya arbetarna körs.
+
+Request-outbox-migrationen skapar däremot begäransrader för äldre bokningar med `PaymentRequested = true` och `PaymentSettled = false`, utom redan bekräftade bokningar. Befintliga betalningsförsök återanvänds genom `BookingId`; ogiltiga reservationer undertrycks och kompenseras av avstämningen.
 
 Registrering av anslutningar, publicerare och bakgrundstjänster finns i [Bookings program.cs](../src/services/Booking/program.cs), [PaymentSimulators Program.cs](../src/services/PaymentSimulator/Program.cs) och [TicketServices Program.cs](../src/services/TicketService/Program.cs). Compose aktiverar databasinitiering för Booking och TicketService; PaymentSimulator har sitt migreringsflöde vid uppstart.
 
@@ -257,7 +288,7 @@ dotnet test tests/PaymentSimulator.UnitTests/PaymentSimulator.UnitTests.csproj
 dotnet test tests/TicketService.UnitTests/TicketService.UnitTests.csproj
 ```
 
-Exempel på tester nära meddelandeflödena är [TicketIssueOutboxDispatcherTests](../tests/Booking.UnitTests/TicketIssueOutboxDispatcherTests.cs), [PaymentRequestedHandlerTests](../tests/PaymentSimulator.UnitTests/PaymentRequestedHandlerTests.cs), [BookingConfirmedContractTests](../tests/TicketService.UnitTests/BookingConfirmedContractTests.cs) och [IssueTicketsHandlerTests](../tests/TicketService.UnitTests/IssueTicketsHandlerTests.cs).
+Exempel på tester nära meddelandeflödena är [PaymentRequestOutboxDispatcherTests](../tests/Booking.UnitTests/PaymentRequestOutboxDispatcherTests.cs), [TicketIssueOutboxDispatcherTests](../tests/Booking.UnitTests/TicketIssueOutboxDispatcherTests.cs), [PaymentRequestedHandlerTests](../tests/PaymentSimulator.UnitTests/PaymentRequestedHandlerTests.cs), [BookingConfirmedContractTests](../tests/TicketService.UnitTests/BookingConfirmedContractTests.cs) och [IssueTicketsHandlerTests](../tests/TicketService.UnitTests/IssueTicketsHandlerTests.cs).
 
 ### Integrationstester med RabbitMQ
 
@@ -287,7 +318,8 @@ Viktiga testfall finns i:
 
 - [PaymentRequestedConsumerTests](../tests/PaymentSimulator.IntegrationTests/PaymentRequestedConsumerTests.cs): betalningsbegäran, dubbletter, ogiltiga meddelanden och omleverans efter avbrott.
 - [PaymentProcessingTests](../tests/PaymentSimulator.IntegrationTests/PaymentProcessingTests.cs): atomär lagring av resultat och outbox, återställning, publiceringsfel och återbetalningar.
-- [PaymentResultMessagingTests](../tests/Booking.IntegrationTests/PaymentResultMessagingTests.cs): hela vägen från PaymentSimulators outbox genom RabbitMQ till Bookings inbox och bokningsändring.
+- [PaymentRequestTests](../tests/Booking.IntegrationTests/PaymentRequestTests.cs): start utan kontakt med betaltjänsten, atomär lagring av avsikt och begäran samt avstämning utan HTTP-start.
+- [PaymentResultMessagingTests](../tests/Booking.IntegrationTests/PaymentResultMessagingTests.cs): hela vägen från Bookings request-outbox genom betalningskonsumenten och resultat-outbox till Bookings inbox och bokningsändring, inklusive dubbletter.
 - [PaymentResultTests](../tests/Booking.IntegrationTests/PaymentResultTests.cs): samtidighet med HTTP-avstämning, misslyckade återbetalningar, konflikter och ombehandling efter redan genomförd bokningsbekräftelse.
 
 Stoppa testbrokern efter körningen med `docker stop halsingelive-rabbitmq-test`.
@@ -298,6 +330,7 @@ Börja med att följa samma `BookingId` genom tjänsterna. `CorrelationId` har n
 
 | Symtom eller status | Kontrollera |
 | --- | --- |
+| En request-outbox-rad har `SuppressedAtUtc` | Bokningen kan inte längre betalas och begäran skickas inte. Kontrollera även `PaymentSettled` och avstämningen; en tidigare osäker leverans kan fortfarande behöva spärras eller återbetalas. |
 | En outbox-rad saknar `DeliveredAtUtc` | `LastError`, `AttemptCount`, `NextAttemptAtUtc`, brokeranslutning och routning. Meddelandet är ännu inte markerat som bekräftat av RabbitMQ. |
 | Outbox är levererad men inget har hänt hos mottagaren | Köns väntande och okvitterade meddelanden, konsumentens loggar och eventuell dead-letter-kö. Publisher confirm betyder inte avslutad affärsbehandling. |
 | Inbox saknar både `ProcessedAtUtc` och `RejectedAtUtc` | Arbetet väntar eller försöks igen. Kontrollera `LastError`, nästa försökstid och tillgängligheten för betalningsuppslag och återbetalning via HTTP. |

@@ -10,7 +10,55 @@ public sealed partial class BookingService
     public async Task<StartPaymentResult> StartPaymentAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
         BookingValidation.ValidateId(bookingId, nameof(bookingId));
-        return await WithPaymentLockAsync(bookingId, () => ProcessBookingPaymentAsync(bookingId, cancellationToken), cancellationToken);
+        return await WithPaymentLockAsync(bookingId, () => QueueBookingPaymentAsync(bookingId, cancellationToken), cancellationToken);
+    }
+
+    public Task<StartPaymentResult> ReconcilePaymentAsync(Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        BookingValidation.ValidateId(bookingId, nameof(bookingId));
+        return WithPaymentLockAsync(bookingId, () => ProcessBookingPaymentAsync(bookingId, cancellationToken), cancellationToken);
+    }
+
+    private async Task<StartPaymentResult> QueueBookingPaymentAsync(Guid bookingId, CancellationToken token)
+    {
+        var booking = await GetBookingAsync(bookingId, token);
+        if (booking is null)
+            return new(bookingId, "NotFound", "NotStarted", "Booking not found.");
+        if (booking.PaymentRequested || booking.Status == BookingStatuses.Confirmed)
+            return await ProcessBookingPaymentAsync(bookingId, token);
+        if (!IsPayable(booking))
+        {
+            await CancelAsync(bookingId, token);
+            return await PaymentResponseAsync(bookingId, "NotStarted", "The reservation is not valid for payment.", token);
+        }
+
+        var claimed = 0;
+        await using (var transaction = await dbContext.Database.BeginTransactionAsync(token))
+        {
+            // The conditional write also serializes with cancellation/expiration, which
+            // use booking row updates rather than the payment advisory lock.
+            claimed = await dbContext.Bookings.Where(row => row.BookingId == bookingId && !row.PaymentRequested
+                    && row.Status == BookingStatuses.Reserved && row.ExpiresAt > DateTime.UtcNow)
+                .ExecuteUpdateAsync(update => update.SetProperty(row => row.PaymentRequested, true), token);
+            if (claimed == 0)
+            {
+                await transaction.RollbackAsync(token);
+            }
+            else
+            {
+                var now = DateTimeOffset.UtcNow;
+                dbContext.PaymentRequestOutboxMessages.Add(new PaymentRequestOutboxMessage
+                {
+                    MessageId = Guid.NewGuid(), BookingId = bookingId, Amount = booking.TotalPrice,
+                    Currency = "SEK", CreatedAtUtc = now, NextAttemptAtUtc = now
+                });
+                await dbContext.SaveChangesAsync(token);
+                await transaction.CommitAsync(token);
+            }
+        }
+        if (claimed == 0)
+            return await PaymentResponseAsync(bookingId, "NotStarted", "The reservation is not valid for payment.", token);
+        return new(bookingId, booking.Status, "Pending", "Payment request accepted. The reservation deadline is unchanged.");
     }
 
     private async Task<StartPaymentResult> WithPaymentLockAsync(
@@ -70,29 +118,21 @@ public sealed partial class BookingService
             return new(bookingId, booking.Status, "Succeeded", "The paid booking is already confirmed.");
         }
         if (!booking.PaymentRequested)
-        {
-            if (!IsPayable(booking))
-            {
-                await CancelAsync(bookingId, cancellationToken);
-                return await PaymentResponseAsync(bookingId, "NotStarted", "The reservation is not valid for payment.", cancellationToken);
-            }
-            // Persist intent before HTTP: even a lost first response will be reconciled.
-            await dbContext.Bookings.Where(row => row.BookingId == bookingId)
-                .ExecuteUpdateAsync(update => update.SetProperty(row => row.PaymentRequested, true), cancellationToken);
-        }
+            return new(bookingId, booking.Status, "NotStarted", "Payment has not been requested.");
 
         try
         {
-            // Always query an existing attempt before considering POST. POST uses the same
-            // idempotency key if a previously sent request is still in flight.
+            // Payment initiation belongs exclusively to the RabbitMQ request outbox.
+            // A missing attempt while the reservation is valid means delivery is pending.
             var payment = await payments.GetByBookingAsync(bookingId, cancellationToken);
             booking = await GetBookingAsync(bookingId, cancellationToken);
             if (payment is null)
             {
-                payment = IsPayable(booking)
-                    ? await payments.ProcessAsync(bookingId, booking.TotalPrice, "SEK", cancellationToken)
-                    // Fence a delayed original POST without charging an expired reservation.
-                    : await payments.CancelAsync(bookingId, booking.TotalPrice, "SEK", cancellationToken);
+                if (IsPayable(booking))
+                    return new(bookingId, booking.Status, "Pending", "Payment request is awaiting processing.");
+                // Fence delayed/uncertain broker deliveries before settling an expired
+                // or cancelled booking. A concurrent successful charge is refunded.
+                payment = await payments.CancelAsync(bookingId, booking.TotalPrice, "SEK", cancellationToken);
             }
 
             return await ApplyVerifiedPaymentAsync(booking, payment, cancellationToken);

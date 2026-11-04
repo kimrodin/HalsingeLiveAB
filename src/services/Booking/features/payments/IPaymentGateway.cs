@@ -1,6 +1,6 @@
 namespace Booking.Features.Payments;
 
-// Transport boundary: a future message adapter can replace the HTTP implementation.
+// HTTP lookups and compensation remain available alongside RabbitMQ initiation.
 public interface IPaymentGateway
 {
     Task<PaymentResult> GetByBookingAsync(Guid bookingId, CancellationToken cancellationToken);

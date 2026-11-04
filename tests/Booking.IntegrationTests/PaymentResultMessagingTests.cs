@@ -30,7 +30,7 @@ public sealed class PaymentResultMessagingFactAttribute : FactAttribute
 public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) : IClassFixture<BookingDatabaseFixture>
 {
     [PaymentResultMessagingFact]
-    public async Task Outbox_to_RabbitMq_to_inbox_survives_replay_and_applies_all_terminal_outcomes()
+    public async Task Request_outbox_to_payment_consumer_and_result_inbox_survives_replay_and_applies_all_outcomes()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         var token = timeout.Token;
@@ -58,28 +58,54 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
             await using var paymentConnection = new PaymentConnection(configuration);
             await using var bookingConnection = new BookingConnection(configuration);
             var publisher = new RabbitMqPaymentResultPublisher(paymentConnection, NullLogger<RabbitMqPaymentResultPublisher>.Instance);
+            var requestPublisher = new RabbitMqPaymentRequestedPublisher(bookingConnection, NullLogger<RabbitMqPaymentRequestedPublisher>.Instance);
+            var simulation = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PaymentSimulation:Outcome"] = "Succeeded", ["PaymentSimulation:DelayMs"] = "0"
+            }).Build();
             await using var services = new ServiceCollection().AddSingleton(TimeProvider.System)
-                .AddScoped(_ => fixture.CreateContext()).AddScoped<PaymentResultInbox>().BuildServiceProvider();
+                .AddScoped(_ => fixture.CreateContext()).AddScoped<PaymentResultInbox>()
+                .AddScoped(_ => CreatePaymentDb()).AddScoped(db => new SimulationSettingsService(db.GetRequiredService<PaymentDbContext>(), simulation))
+                .AddScoped<RefundPaymentHandler>().AddScoped<ProcessPaymentHandler>().AddScoped<PaymentRequestedHandler>()
+                .BuildServiceProvider();
             using var consumer = new PaymentResultConsumer(bookingConnection, services.GetRequiredService<IServiceScopeFactory>(),
                 NullLogger<PaymentResultConsumer>.Instance);
+            using var requestConsumer = new PaymentRequestedConsumer(paymentConnection, services.GetRequiredService<IServiceScopeFactory>(),
+                NullLogger<PaymentRequestedConsumer>.Instance);
             await consumer.StartAsync(token);
+            await requestConsumer.StartAsync(token);
             try
             {
                 var gateway = new DatabasePaymentGateway(CreatePaymentDb);
                 foreach (var outcome in new[] { "Succeeded", "Failed", "TimedOut" })
                 {
+                    simulation["PaymentSimulation:Outcome"] = outcome;
                     var inventory = await fixture.CreateInventoryAsync();
                     var bookingId = await fixture.ReserveAsync(inventory, gateway);
                     await using (var db = fixture.CreateContext())
-                        await db.Bookings.Where(row => row.BookingId == bookingId)
-                            .ExecuteUpdateAsync(update => update.SetProperty(row => row.PaymentRequested, true), token);
+                    {
+                        var started = await fixture.CreateService(db, gateway).StartPaymentAsync(bookingId, token);
+                        Assert.Equal("Pending", started.PaymentStatus);
+                        await new PaymentRequestOutboxDispatcher(db, requestPublisher, TimeProvider.System,
+                            NullLogger<PaymentRequestOutboxDispatcher>.Instance).DispatchPendingAsync(token);
+                        var request = await db.PaymentRequestOutboxMessages.SingleAsync(row => row.BookingId == bookingId, token);
+                        Assert.NotNull(request.DeliveredAtUtc);
+                        // Repeat delivery after losing the source delivery marker.
+                        request.DeliveredAtUtc = null;
+                        await db.SaveChangesAsync(token);
+                        await new PaymentRequestOutboxDispatcher(db, requestPublisher, TimeProvider.System,
+                            NullLogger<PaymentRequestOutboxDispatcher>.Instance).DispatchPendingAsync(token);
+                    }
+                    while (true)
+                    {
+                        await using var db = CreatePaymentDb();
+                        if (await db.PaymentResultOutboxMessages.AnyAsync(row => row.BookingId == bookingId, token)) break;
+                        await Task.Delay(25, token);
+                    }
                     PaymentResultOutboxMessage result;
                     await using (var db = CreatePaymentDb())
                     {
-                        var settings = new SimulationSettingsService(db, new ConfigurationBuilder().AddInMemoryCollection(
-                            new Dictionary<string, string?> { ["PaymentSimulation:Outcome"] = outcome, ["PaymentSimulation:DelayMs"] = "0" }).Build());
-                        await new ProcessPaymentHandler(db, settings, new RefundPaymentHandler(db))
-                            .Handle(new(bookingId, inventory.Price, "SEK"), token);
+                        Assert.Equal(1, await db.Payments.CountAsync(row => row.BookingId == bookingId, token));
                         await new PaymentResultOutboxDispatcher(db, publisher, TimeProvider.System,
                             NullLogger<PaymentResultOutboxDispatcher>.Instance).DispatchPendingAsync(token);
                         result = await db.PaymentResultOutboxMessages.AsNoTracking().SingleAsync(row => row.BookingId == bookingId, token);
@@ -135,8 +161,63 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
                     Assert.Equal(outcome == "Succeeded" ? 1 : 0,
                         await verify.TicketIssueOutboxMessages.CountAsync(row => row.BookingId == bookingId, token));
                 }
+
+                // Hold a real request in RabbitMQ until the reservation has expired and
+                // HTTP reconciliation has established a cancellation fence.
+                await requestConsumer.StopAsync(token);
+                var lateInventory = await fixture.CreateInventoryAsync();
+                var lateBookingId = await fixture.ReserveAsync(lateInventory, gateway);
+                PaymentRequestOutboxMessage lateRequest;
+                await using (var db = fixture.CreateContext())
+                {
+                    await fixture.CreateService(db, gateway).StartPaymentAsync(lateBookingId, token);
+                    await new PaymentRequestOutboxDispatcher(db, requestPublisher, TimeProvider.System,
+                        NullLogger<PaymentRequestOutboxDispatcher>.Instance).DispatchPendingAsync(token);
+                    lateRequest = await db.PaymentRequestOutboxMessages.SingleAsync(row => row.BookingId == lateBookingId, token);
+                    Assert.NotNull(lateRequest.DeliveredAtUtc);
+                    await db.Bookings.Where(row => row.BookingId == lateBookingId).ExecuteUpdateAsync(update =>
+                        update.SetProperty(row => row.ExpiresAt, DateTime.UtcNow.AddSeconds(-1)), token);
+                    Assert.Equal("Refunded", (await fixture.CreateService(db, gateway).ReconcilePaymentAsync(lateBookingId, token)).PaymentStatus);
+                }
+                using var lateConsumer = new PaymentRequestedConsumer(paymentConnection, services.GetRequiredService<IServiceScopeFactory>(),
+                    NullLogger<PaymentRequestedConsumer>.Instance);
+                await lateConsumer.StartAsync(token);
+                try
+                {
+                    // A conflicting following request reaching DLQ proves the original
+                    // queued request was consumed after cancellation, not merely left queued.
+                    var barrierId = Guid.NewGuid();
+                    await requestPublisher.PublishAsync(new PaymentRequestedV1
+                    {
+                        MessageId = barrierId, CorrelationId = lateBookingId, BookingId = lateBookingId,
+                        Amount = lateRequest.Amount + 1, Currency = "SEK", OccurredAtUtc = lateRequest.CreatedAtUtc
+                    }, token);
+                    var connection = await paymentConnection.GetConnectionAsync(token);
+                    await using var channel = await connection.CreateChannelAsync(cancellationToken: token);
+                    while (true)
+                    {
+                        var dead = await channel.BasicGetAsync("payments.payment-requested.v1.dead", true, token);
+                        if (dead is not null)
+                        {
+                            Assert.Equal(barrierId.ToString("D"), dead.BasicProperties.MessageId);
+                            break;
+                        }
+                        await Task.Delay(25, token);
+                    }
+                    await using var verify = CreatePaymentDb();
+                    var fenced = await verify.Payments.SingleAsync(row => row.BookingId == lateBookingId, token);
+                    Assert.Equal("TimedOut", fenced.Status.ToString());
+                    Assert.Null(fenced.PaidAt);
+                    Assert.NotNull(fenced.RefundedAt);
+                    Assert.Equal(1, await verify.PaymentResultOutboxMessages.CountAsync(row => row.BookingId == lateBookingId, token));
+                }
+                finally { await lateConsumer.StopAsync(CancellationToken.None); }
             }
-            finally { await consumer.StopAsync(CancellationToken.None); }
+            finally
+            {
+                await requestConsumer.StopAsync(CancellationToken.None);
+                await consumer.StopAsync(CancellationToken.None);
+            }
         }
         finally
         {
@@ -163,7 +244,14 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
         }
         public Task<PaymentResult> ProcessAsync(Guid bookingId, decimal amount, string currency, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Result handling must not start another payment.");
-        public Task<PaymentResult> CancelAsync(Guid bookingId, decimal amount, string currency, CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("Payment already exists.");
+        public async Task<PaymentResult> CancelAsync(Guid bookingId, decimal amount, string currency, CancellationToken cancellationToken)
+        {
+            await using var db = createDb();
+            var handler = new ProcessPaymentHandler(db, new SimulationSettingsService(db, new ConfigurationBuilder().Build()),
+                new RefundPaymentHandler(db));
+            var response = await handler.Cancel(new(bookingId, amount, currency), cancellationToken);
+            return new(response.PaymentId, response.BookingId, response.Amount, response.Currency, response.Status.ToString(),
+                response.CreatedAt, response.CompletedAt, response.PaidAt, response.RefundedAt);
+        }
     }
 }

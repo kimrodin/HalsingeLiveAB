@@ -53,6 +53,8 @@ builder.Services.AddHttpClient<ITicketServiceClient, HttpTicketServiceClient>(cl
 builder.Services.AddSingleton<RabbitMqConnectionProvider>();
 builder.Services.AddSingleton<IBookingConfirmedPublisher, RabbitMqBookingConfirmedPublisher>();
 builder.Services.AddSingleton<IPaymentRequestedPublisher, RabbitMqPaymentRequestedPublisher>();
+builder.Services.AddScoped<PaymentRequestOutboxDispatcher>();
+builder.Services.AddHostedService<PaymentRequestOutboxWorker>();
 builder.Services.AddScoped<PaymentResultInbox>();
 builder.Services.AddScoped<PaymentResultInboxDispatcher>();
 builder.Services.AddHostedService<PaymentResultConsumer>();
