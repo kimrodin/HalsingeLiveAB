@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import {
   Alert,
   Button,
@@ -8,7 +8,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { getAllEvents } from '../api/events'
+import { eventPageSize, getEventPage } from '../api/events'
 import { getVenues } from '../../venues/api/venues'
 import { useNow } from '../../../shared/hooks/useNow'
 import EventCarousel from '../components/EventCarousel'
@@ -18,9 +18,22 @@ import bannerImage from '../../../assets/banner.png'
 export default function HomePage() {
   const now = useNow()
   const [searchTerm, setSearchTerm] = useState('')
-  const eventsQuery = useQuery({
-    queryKey: ['events', 'all'],
-    queryFn: ({ signal }) => getAllEvents(signal),
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearchTerm(searchTerm.trim()), 300)
+    return () => window.clearTimeout(timeout)
+  }, [searchTerm])
+
+  const eventsQuery = useInfiniteQuery({
+    queryKey: ['events', 'catalog', debouncedSearchTerm],
+    queryFn: ({ pageParam, signal }) => getEventPage(
+      pageParam,
+      { eventName: debouncedSearchTerm || undefined, endsAfter: new Date(now).toISOString() },
+      signal,
+    ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.pageSize < lastPage.totalCount ? lastPage.page + 1 : undefined,
   })
   const venuesQuery = useQuery({
     queryKey: ['venues'],
@@ -61,14 +74,11 @@ export default function HomePage() {
     )
   }
 
-  const events = eventsQuery.data
+  const events = eventsQuery.data.pages.flatMap((page) => page.events)
   const featuredEvents = events
     .filter((event) => new Date(event.endDate).getTime() >= now)
     .slice(0, 3)
-  const normalizedSearchTerm = searchTerm.trim().toLocaleLowerCase('sv-SE')
-  const filteredEvents = events.filter((event) =>
-    event.eventName.toLocaleLowerCase('sv-SE').includes(normalizedSearchTerm),
-  )
+  const totalCount = eventsQuery.data.pages[0]?.totalCount ?? 0
 
   return (
     <Stack spacing={3} useFlexGap>
@@ -108,22 +118,27 @@ export default function HomePage() {
         />
       </Stack>
 
-      {filteredEvents.length === 0 ? (
-        <Alert severity="info">
-          {events.length === 0
-            ? 'Det finns inga evenemang att visa just nu.'
-            : 'Inga evenemang matchar din sökning.'}
-        </Alert>
+      {events.length === 0 ? (
+        <Alert severity="info">Inga evenemang hittades.</Alert>
       ) : (
         <>
           <Typography variant="body2" color="text.secondary" role="status">
-            {filteredEvents.length} evenemang
+            Visar {events.length} av {totalCount} evenemang
           </Typography>
           <Stack spacing={2}>
-            {filteredEvents.map((event) => (
+            {events.map((event) => (
               <EventCard key={event.eventId} event={event} venueName={venuesById.get(event.venueId)} now={now} />
             ))}
           </Stack>
+          {eventsQuery.hasNextPage && (
+            <Button
+              variant="outlined"
+              onClick={() => void eventsQuery.fetchNextPage()}
+              disabled={eventsQuery.isFetchingNextPage}
+            >
+              {eventsQuery.isFetchingNextPage ? 'Hämtar fler evenemang…' : `Visa fler (${eventPageSize})`}
+            </Button>
+          )}
         </>
       )}
     </Stack>
