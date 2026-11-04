@@ -58,7 +58,7 @@ export default function HomePage() {
     )
   }
 
-  if (eventsQuery.isError) {
+  if (eventsQuery.isError && !eventsQuery.data) {
     return (
       <Stack spacing={2}>
         <Typography variant="h3" component="h1" sx={{ fontWeight: 700 }}>
@@ -130,7 +130,23 @@ export default function HomePage() {
               <EventCard key={event.eventId} event={event} venueName={venuesById.get(event.venueId)} now={now} />
             ))}
           </Stack>
-          {eventsQuery.hasNextPage && (
+          {eventsQuery.isFetchNextPageError ? (
+            <Alert
+              severity="error"
+              action={(
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => void eventsQuery.fetchNextPage()}
+                  disabled={eventsQuery.isFetchingNextPage}
+                >
+                  Försök igen
+                </Button>
+              )}
+            >
+              Fler evenemang kunde inte hämtas.
+            </Alert>
+          ) : eventsQuery.hasNextPage ? (
             <Button
               variant="outlined"
               onClick={() => void eventsQuery.fetchNextPage()}
@@ -138,7 +154,7 @@ export default function HomePage() {
             >
               {eventsQuery.isFetchingNextPage ? 'Hämtar fler evenemang…' : `Visa fler (${eventPageSize})`}
             </Button>
-          )}
+          ) : null}
         </>
       )}
     </Stack>
