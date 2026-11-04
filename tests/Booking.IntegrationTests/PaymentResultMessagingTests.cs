@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Booking.Features.Payments;
 using HalsingeLive.Contracts.Messaging;
+using Messaging.IntegrationTests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,8 +29,110 @@ public sealed class PaymentResultMessagingFactAttribute : FactAttribute
     }
 }
 
+public sealed class PaymentResultMessagingTheoryAttribute : TheoryAttribute
+{
+    public PaymentResultMessagingTheoryAttribute()
+    {
+        Skip = new PaymentResultMessagingFactAttribute().Skip;
+    }
+}
+
 public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) : IClassFixture<BookingDatabaseFixture>
 {
+    [PaymentResultMessagingTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Consume_RetainsResultThroughDatabaseOutageAndReplay(bool restartDuringOutage)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var token = timeout.Token;
+        var bookingId = Guid.NewGuid();
+        await using (var db = fixture.CreateContext())
+        {
+            db.Bookings.Add(new Booking.Features.Bookings.Models.Booking
+            {
+                BookingId = bookingId, CustomerName = "Recovery test", CustomerEmail = "recovery@example.test",
+                Status = "Reserved", CreatedAt = DateTime.UtcNow, TotalPrice = 125m, PaymentRequested = true
+            });
+            await db.SaveChangesAsync(token);
+        }
+        var outage = new DatabaseOutage();
+        var rabbit = new ConnectionFactory { Uri = new Uri(Environment.GetEnvironmentVariable("PAYMENT_TEST_RABBITMQ")!) };
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["RabbitMq:HostName"] = rabbit.HostName, ["RabbitMq:Port"] = rabbit.Port.ToString(),
+            ["RabbitMq:UserName"] = rabbit.UserName, ["RabbitMq:Password"] = rabbit.Password,
+            ["RabbitMq:VirtualHost"] = rabbit.VirtualHost
+        }).Build();
+        await using var services = new ServiceCollection().AddSingleton(TimeProvider.System)
+            .AddScoped(_ => fixture.CreateContext(outage)).AddScoped<PaymentResultInbox>().BuildServiceProvider();
+        await using var bookingConnection = new BookingConnection(configuration);
+        await using var paymentConnection = new PaymentConnection(configuration);
+        var publisher = new RabbitMqPaymentResultPublisher(paymentConnection, NullLogger<RabbitMqPaymentResultPublisher>.Instance);
+        var connection = await paymentConnection.GetConnectionAsync(token);
+        await using var channel = await connection.CreateChannelAsync(cancellationToken: token);
+        using var consumer = new PaymentResultConsumer(bookingConnection, services.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<PaymentResultConsumer>.Instance);
+        using var restarted = new PaymentResultConsumer(bookingConnection, services.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<PaymentResultConsumer>.Instance);
+        await consumer.StartAsync(token);
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var message = new PaymentSucceededV1
+            {
+                MessageId = Guid.NewGuid(), CorrelationId = bookingId, BookingId = bookingId, PaymentId = Guid.NewGuid(),
+                Amount = 125m, Currency = "SEK", PaidAtUtc = now, OccurredAtUtc = now
+            };
+            await publisher.PublishAsync(message, token);
+            await outage.RepeatedFailures.WaitAsync(TimeSpan.FromSeconds(20), token);
+            const string queue = "booking.payment-results.v1";
+            const string deadQueue = "booking.payment-results.v1.dead";
+            Assert.Null(await channel.BasicGetAsync(deadQueue, autoAck: true, token));
+            await using (var db = fixture.CreateContext())
+                Assert.False(await db.PaymentResultInboxMessages.AnyAsync(row => row.MessageId == message.MessageId, token));
+
+            if (restartDuringOutage)
+            {
+                await consumer.StopAsync(token).WaitAsync(TimeSpan.FromSeconds(5), token);
+                Assert.Equal(1u, (await channel.QueueDeclarePassiveAsync(queue, token)).MessageCount);
+            }
+            outage.Recover();
+            if (restartDuringOutage)
+                await restarted.StartAsync(token);
+            // Recovery must save the original delivery without another publication.
+            while (true)
+            {
+                await using var db = fixture.CreateContext();
+                if (await db.PaymentResultInboxMessages.AnyAsync(row => row.MessageId == message.MessageId, token)) break;
+                await Task.Delay(25, token);
+            }
+            await publisher.PublishAsync(message, token);
+            var conflict = message with { Amount = message.Amount + 1 };
+            await publisher.PublishAsync(conflict, token);
+            while (true)
+            {
+                var dead = await channel.BasicGetAsync(deadQueue, autoAck: true, token);
+                if (dead is not null)
+                {
+                    Assert.Equal(JsonSerializer.SerializeToUtf8Bytes(conflict), dead.Body.ToArray());
+                    break;
+                }
+                await Task.Delay(25, token);
+            }
+            await using var verify = fixture.CreateContext();
+            var saved = Assert.Single(await verify.PaymentResultInboxMessages.Where(row => row.BookingId == bookingId).ToArrayAsync(token));
+            Assert.Equal(message.MessageId, saved.MessageId);
+            Assert.Null(saved.ProcessedAtUtc);
+            Assert.Null(await channel.BasicGetAsync(deadQueue, autoAck: true, token));
+        }
+        finally
+        {
+            await consumer.StopAsync(CancellationToken.None);
+            await restarted.StopAsync(CancellationToken.None);
+        }
+    }
+
     [PaymentResultMessagingFact]
     public async Task Request_outbox_to_payment_consumer_and_result_inbox_survives_replay_and_applies_all_outcomes()
     {

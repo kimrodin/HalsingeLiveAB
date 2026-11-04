@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Json;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Messaging.IntegrationTests;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,6 +24,14 @@ public sealed class PaymentMessagingFactAttribute : FactAttribute
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PAYMENT_TEST_RABBITMQ")))
             Skip = "Set PAYMENT_TEST_RABBITMQ to a dedicated test broker and PAYMENT_TEST_DB to PostgreSQL.";
+    }
+}
+
+public sealed class PaymentMessagingTheoryAttribute : TheoryAttribute
+{
+    public PaymentMessagingTheoryAttribute()
+    {
+        Skip = new PaymentMessagingFactAttribute().Skip;
     }
 }
 
@@ -250,7 +260,64 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
 
     private PaymentDbContext CreateDb() => new(new DbContextOptionsBuilder<PaymentDbContext>().UseNpgsql(connectionString).Options);
 
-    private ServiceProvider CreateServices()
+    [PaymentMessagingTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Consume_RetainsPaymentThroughDatabaseOutageAndReplay(bool restartDuringOutage)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var token = timeout.Token;
+        var outage = new DatabaseOutage();
+        await using var services = CreateServices(outage);
+        var connection = await services.GetRequiredService<RabbitMqConnectionProvider>().GetConnectionAsync(token);
+        await using var channel = await connection.CreateChannelAsync(new CreateChannelOptions(
+            publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), token);
+        using var consumer = CreateConsumer(services);
+        using var restarted = CreateConsumer(services);
+        await consumer.StartAsync(token);
+        try
+        {
+            await WaitForConsumerAsync(channel, token);
+            var message = CreateMessage();
+            var payload = JsonSerializer.SerializeToUtf8Bytes(message);
+            await PublishAsync(channel, payload, token);
+            await outage.RepeatedFailures.WaitAsync(TimeSpan.FromSeconds(20), token);
+            Assert.Null(await channel.BasicGetAsync(DeadQueue, autoAck: true, token));
+            await using (var db = CreateDb())
+                Assert.Empty(await db.Payments.ToArrayAsync(token));
+
+            if (restartDuringOutage)
+            {
+                await consumer.StopAsync(token).WaitAsync(TimeSpan.FromSeconds(5), token);
+                Assert.Equal(1u, (await channel.QueueDeclarePassiveAsync(Queue, token)).MessageCount);
+            }
+            outage.Recover();
+            if (restartDuringOutage)
+                await restarted.StartAsync(token);
+
+            await WaitForPaymentAsync(message.BookingId, PaymentStatus.Pending, token);
+            await PublishAsync(channel, payload, token);
+            var conflict = JsonSerializer.SerializeToUtf8Bytes(message with { Amount = message.Amount + 1 });
+            await PublishAsync(channel, conflict, token);
+            // The conflict proves the original and its duplicate were acknowledged.
+            Assert.Equal(conflict, await ReadDeadLetterAsync(channel, token));
+            await using var verify = CreateDb();
+            Assert.Single(await verify.Payments.ToArrayAsync(token));
+            await verify.Payments.ExecuteUpdateAsync(update => update.SetProperty(payment => payment.CompleteAfter,
+                DateTimeOffset.UtcNow.AddSeconds(-1)), token);
+            await using var scope = services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<ProcessPaymentHandler>().CompleteDuePayments(token);
+            Assert.Single(await verify.PaymentResultOutboxMessages.ToArrayAsync(token));
+            Assert.Null(await channel.BasicGetAsync(DeadQueue, autoAck: true, token));
+        }
+        finally
+        {
+            await consumer.StopAsync(CancellationToken.None);
+            await restarted.StopAsync(CancellationToken.None);
+        }
+    }
+
+    private ServiceProvider CreateServices(params IInterceptor[] interceptors)
     {
         var rabbit = new ConnectionFactory { Uri = new Uri(Environment.GetEnvironmentVariable("PAYMENT_TEST_RABBITMQ")!) };
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -260,7 +327,7 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
             ["RabbitMq:VirtualHost"] = rabbit.VirtualHost
         }).Build();
         return new ServiceCollection().AddSingleton(configuration)
-            .AddDbContext<PaymentDbContext>(options => options.UseNpgsql(connectionString))
+            .AddDbContext<PaymentDbContext>(options => options.UseNpgsql(connectionString).AddInterceptors(interceptors))
             .AddScoped<SimulationSettingsService>().AddScoped<RefundPaymentHandler>()
             .AddScoped<ProcessPaymentHandler>().AddScoped<PaymentRequestedHandler>()
             .AddSingleton<RabbitMqConnectionProvider>().BuildServiceProvider();

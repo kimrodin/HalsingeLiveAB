@@ -190,6 +190,8 @@ Utvecklingsverktygets seedbokningar med ID-prefix `51000000-` är ett undantag. 
 
 Biljettutfärdandet är idempotent per `BookingItemId`. En omleverans med samma bokningsinformation återanvänder befintliga biljetter. Ändrad information för samma bokningsrad behandlas som en konflikt. Ett unikt databasindex på bokningsrad och biljettnummer inom raden skyddar även mot samtidiga försök.
 
+Evenemangets starttid jämförs med PostgreSQLs mikrosekundprecision, så att ett oförändrat meddelande med finare tidsprecision kan levereras igen utan en falsk konflikt.
+
 ## Exchange, köer och routning
 
 Alla vanliga meddelanden publiceras till den beständiga topic-exchangen `halsingelive.events`. Felaktiga leveranser skickas till den beständiga direct-exchangen `halsingelive.dead`.
@@ -224,7 +226,8 @@ Konsumenterna använder manuell kvittens och hämtar ett meddelande åt gången 
 ### Vad händer vid fel?
 
 - Ogiltig JSON, saknade obligatoriska fält och valideringsfel som identifieras som permanenta avvisas direkt till dead-letter-kön.
-- Övriga behandlingsfel får upp till tre försök per leverans innan meddelandet avvisas till dead-letter-kön.
+- Övriga behandlingsfel, exempelvis databasavbrott, lämnar leveransen okvitterad och försöks igen med väntetiderna 1, 2, 4, 8, 16 och därefter högst 30 sekunder. Varje försök använder ett nytt scope och en ny databaskontext. Meddelandet skickas inte till dead-letter-kön enbart för att flera försök misslyckas.
+- Om kanalen bryts eller tjänsten stängs av avbryts väntande försök. RabbitMQ kan då leverera det okvitterade meddelandet igen. Idempotensen hanterar även ett avbrott efter databaslagring men före kvittens. Kända kontrakts- och biljettkonflikter går direkt till dead-letter-kön.
 - Publiceringsfel i begärans-, resultat- och biljett-outbox ger nya bakgrundsförsök med samma sparade meddelande.
 - Fel efter att Booking har sparat och kvitterat ett resultat hanteras i inbox, inte av RabbitMQ. Tillfälliga fel ger nya försök; konflikter kan sättas i karantän med `RejectedAtUtc`.
 
@@ -320,6 +323,8 @@ dotnet test tests/TicketService.IntegrationTests/TicketService.IntegrationTests.
 ```
 
 Testerna skapar och tar bort egna slumpmässigt namngivna PostgreSQL-databaser. Betalningsflödets RabbitMQ-tester hoppas över om `PAYMENT_TEST_RABBITMQ` saknas. Biljettflödets meddelandetester kräver både `TICKET_TEST_POSTGRES` och `TICKET_TEST_RABBITMQ`. Övriga integrationstester kan ha andra anslutningskrav. [CI-konfigurationen](../.github/workflows/ci.yml) tillhandahåller PostgreSQL, Redis och en separat RabbitMQ-tjänst för testkörningen.
+
+De tre konsumenternas meddelandetester simulerar databasavbrott genom att neka nya konsumentanslutningar. De verifierar återhämtning efter fler än tre misslyckade försök, både med och utan omstart under väntan, samt att dubbletter inte skapar extra betalningar, inboxrader eller biljetter. Permanenta konflikter ska fortfarande nå dead-letter-kön.
 
 Viktiga testfall finns i:
 

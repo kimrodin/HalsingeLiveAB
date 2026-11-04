@@ -4,6 +4,7 @@ using Booking.Features.Bookings;
 using Booking.Features.EventCatalog;
 using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using StackExchange.Redis;
 using Inventory = Booking.Features.EventInventory.Models.EventInventory;
@@ -57,8 +58,9 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
         Assert.False(db.Database.HasPendingModelChanges());
     }
 
-    public BookingDbContext CreateContext() => new(new DbContextOptionsBuilder<BookingDbContext>()
+    public BookingDbContext CreateContext(params IInterceptor[] interceptors) => new(new DbContextOptionsBuilder<BookingDbContext>()
         .UseNpgsql(dataSource ?? throw new InvalidOperationException("Integration test environment is not configured."))
+        .AddInterceptors(interceptors)
         .Options);
 
     public BookingService CreateService(BookingDbContext db, IPaymentGateway gateway) =>

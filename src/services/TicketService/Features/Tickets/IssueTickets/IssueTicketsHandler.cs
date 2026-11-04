@@ -119,7 +119,9 @@ public sealed class IssueTicketsHandler(
                 ticket.BookingId == message.BookingId &&
                 ticket.EventId == message.EventId &&
                 ticket.EventName == message.EventName.Trim() &&
-                ticket.EventStartsAt == expectedStart &&
+                // PostgreSQL stores microseconds; redelivery retains the original
+                // message's finer timestamp precision.
+                ticket.EventStartsAt.UtcTicks / 10 == expectedStart.UtcTicks / 10 &&
                 ticket.VenueName == message.VenueName.Trim() &&
                 ticket.SectionName == message.SectionName.Trim() &&
                 ticket.UnitPrice == message.UnitPrice &&

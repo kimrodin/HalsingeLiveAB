@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HalsingeLive.Contracts.Messaging;
+using Messaging.IntegrationTests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,94 @@ public sealed class BookingConfirmedConsumerTests(TicketDatabaseFixture database
     private const string Exchange = "halsingelive.events";
     private const string Queue = "tickets.booking-confirmed.v1";
     private const string RoutingKey = "booking.confirmed.v1";
+
+    [TicketMessagingTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Consume_RetainsTicketsThroughDatabaseOutageAndReplay(bool restartDuringOutage)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var token = timeout.Token;
+        var outage = new DatabaseOutage();
+        var rabbit = new ConnectionFactory { Uri = new Uri(Environment.GetEnvironmentVariable("TICKET_TEST_RABBITMQ")!) };
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["RabbitMq:HostName"] = rabbit.HostName, ["RabbitMq:Port"] = rabbit.Port.ToString(),
+            ["RabbitMq:UserName"] = rabbit.UserName, ["RabbitMq:Password"] = rabbit.Password,
+            ["RabbitMq:VirtualHost"] = rabbit.VirtualHost
+        }).Build();
+        await using var services = new ServiceCollection().AddSingleton(TimeProvider.System)
+            .AddScoped(_ => database.CreateContext(outage)).AddScoped<IssueTicketsHandler>().BuildServiceProvider();
+        await using var provider = new RabbitMqConnectionProvider(configuration);
+        await using var connection = await rabbit.CreateConnectionAsync(token);
+        await using var channel = await connection.CreateChannelAsync(new CreateChannelOptions(
+            publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), token);
+        await DeclareQueueAsync(channel, token);
+        using var consumer = new BookingConfirmedConsumer(provider, services.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<BookingConfirmedConsumer>.Instance);
+        using var restarted = new BookingConfirmedConsumer(provider, services.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<BookingConfirmedConsumer>.Instance);
+        await consumer.StartAsync(token);
+        try
+        {
+            await WaitForConsumerAsync(channel, token);
+            var message = new BookingConfirmedV1
+            {
+                MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), BookingId = Guid.NewGuid(),
+                BookingItemId = Guid.NewGuid(), EventId = Guid.NewGuid(), EventName = "Recovered after database outage",
+                EventStartsAtUtc = DateTimeOffset.Parse("2026-12-01T19:00:00.1234567Z"), VenueName = "Venue", SectionName = "Standing",
+                Quantity = 2, UnitPrice = 100m, Currency = "SEK", OccurredAtUtc = DateTimeOffset.UtcNow
+            };
+            Task Publish(BookingConfirmedV1 value) => channel.BasicPublishAsync(Exchange, RoutingKey, mandatory: true,
+                new BasicProperties { Persistent = true, ContentType = "application/json" },
+                JsonSerializer.SerializeToUtf8Bytes(value), token).AsTask();
+            const string deadQueue = "tickets.booking-confirmed.v1.dead";
+            await Publish(message);
+            await outage.RepeatedFailures.WaitAsync(TimeSpan.FromSeconds(20), token);
+            Assert.Null(await channel.BasicGetAsync(deadQueue, autoAck: true, token));
+            await using (var db = database.CreateContext())
+                Assert.False(await db.Tickets.AnyAsync(ticket => ticket.BookingId == message.BookingId, token));
+
+            if (restartDuringOutage)
+            {
+                await consumer.StopAsync(token).WaitAsync(TimeSpan.FromSeconds(5), token);
+                Assert.Equal(1u, (await channel.QueueDeclarePassiveAsync(Queue, token)).MessageCount);
+            }
+            outage.Recover();
+            if (restartDuringOutage)
+                await restarted.StartAsync(token);
+            // Recovery must issue the original delivery without another publication.
+            while (true)
+            {
+                await using var db = database.CreateContext();
+                if (await db.Tickets.AnyAsync(ticket => ticket.BookingItemId == message.BookingItemId, token)) break;
+                await Task.Delay(25, token);
+            }
+            await Publish(message);
+            var conflict = message with { UnitPrice = message.UnitPrice + 1 };
+            await Publish(conflict);
+            while (true)
+            {
+                var dead = await channel.BasicGetAsync(deadQueue, autoAck: true, token);
+                if (dead is not null)
+                {
+                    Assert.Equal(JsonSerializer.SerializeToUtf8Bytes(conflict), dead.Body.ToArray());
+                    break;
+                }
+                await Task.Delay(25, token);
+            }
+            await using var verify = database.CreateContext();
+            var tickets = await verify.Tickets.Where(ticket => ticket.BookingItemId == message.BookingItemId).ToArrayAsync(token);
+            Assert.Equal(message.Quantity, tickets.Length);
+            Assert.All(tickets, ticket => Assert.Equal(message.UnitPrice, ticket.UnitPrice));
+            Assert.Null(await channel.BasicGetAsync(deadQueue, autoAck: true, token));
+        }
+        finally
+        {
+            await consumer.StopAsync(CancellationToken.None);
+            await restarted.StopAsync(CancellationToken.None);
+        }
+    }
 
     [TicketMessagingTheory]
     [InlineData(true)]

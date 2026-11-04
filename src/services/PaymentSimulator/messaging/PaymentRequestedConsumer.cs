@@ -11,8 +11,6 @@ public sealed class PaymentRequestedConsumer(
     IServiceScopeFactory scopeFactory,
     ILogger<PaymentRequestedConsumer> logger) : BackgroundService
 {
-    private const int MaximumProcessingAttempts = 3;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -50,6 +48,7 @@ public sealed class PaymentRequestedConsumer(
 
         var consumer = new AsyncEventingBasicConsumer(channel);
         var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var deliveries = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         consumer.ShutdownAsync += (_, _) =>
         {
             disconnected.TrySetResult();
@@ -60,9 +59,22 @@ public sealed class PaymentRequestedConsumer(
             disconnected.TrySetResult();
             return Task.CompletedTask;
         };
-        consumer.ReceivedAsync += async (_, delivery) => await HandleDeliveryAsync(channel, delivery, stoppingToken);
-        await channel.BasicConsumeAsync(PaymentRequestMessagingTopology.Queue, autoAck: false, consumer, stoppingToken);
-        await disconnected.Task.WaitAsync(stoppingToken);
+        consumer.ReceivedAsync += async (_, delivery) =>
+        {
+            try { await HandleDeliveryAsync(channel, delivery, deliveries.Token); }
+            catch (OperationCanceledException) when (deliveries.IsCancellationRequested) { }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "Payment request delivery interrupted; reconnecting for redelivery.");
+                disconnected.TrySetResult();
+            }
+        };
+        try
+        {
+            await channel.BasicConsumeAsync(PaymentRequestMessagingTopology.Queue, autoAck: false, consumer, stoppingToken);
+            await disconnected.Task.WaitAsync(stoppingToken);
+        }
+        finally { await deliveries.CancelAsync(); }
     }
 
     private async Task HandleDeliveryAsync(IChannel channel, BasicDeliverEventArgs delivery, CancellationToken stoppingToken)
@@ -80,7 +92,7 @@ public sealed class PaymentRequestedConsumer(
             return;
         }
 
-        for (var attempt = 1; attempt <= MaximumProcessingAttempts; attempt++)
+        for (var attempt = 1; !stoppingToken.IsCancellationRequested; attempt++)
         {
             try
             {
@@ -108,18 +120,12 @@ public sealed class PaymentRequestedConsumer(
             }
             catch (Exception exception)
             {
-                if (attempt == MaximumProcessingAttempts)
-                {
-                    logger.LogError(exception,
-                        "Payment request {MessageId} failed after {Attempts} attempts; sending it to the dead-letter queue.",
-                        message.MessageId, attempt);
-                    await channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, stoppingToken);
-                    return;
-                }
-
-                logger.LogWarning(exception, "Payment request {MessageId} failed on attempt {Attempt}; retrying.",
-                    message.MessageId, attempt);
-                await Task.Delay(TimeSpan.FromSeconds(attempt), stoppingToken);
+                if (!channel.IsOpen) return;
+                var delay = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, Math.Min(attempt - 1, 5))));
+                logger.LogWarning(exception,
+                    "Payment request {MessageId} failed on attempt {Attempt}; retaining the unacknowledged delivery and retrying in {RetryDelay}.",
+                    message.MessageId, attempt, delay);
+                await Task.Delay(delay, stoppingToken);
             }
         }
     }

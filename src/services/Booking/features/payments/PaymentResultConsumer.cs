@@ -20,12 +20,26 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
                 await PaymentResultMessagingTopology.DeclareAsync(channel, stoppingToken);
                 await channel.BasicQosAsync(0, 1, false, stoppingToken);
                 var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                using var deliveries = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 var consumer = new AsyncEventingBasicConsumer(channel);
                 consumer.ShutdownAsync += (_, _) => { disconnected.TrySetResult(); return Task.CompletedTask; };
                 consumer.UnregisteredAsync += (_, _) => { disconnected.TrySetResult(); return Task.CompletedTask; };
-                consumer.ReceivedAsync += (_, delivery) => ReceiveAsync(channel, delivery, stoppingToken);
-                await channel.BasicConsumeAsync(PaymentResultMessagingTopology.Queue, false, consumer, stoppingToken);
-                await disconnected.Task.WaitAsync(stoppingToken);
+                consumer.ReceivedAsync += async (_, delivery) =>
+                {
+                    try { await ReceiveAsync(channel, delivery, deliveries.Token); }
+                    catch (OperationCanceledException) when (deliveries.IsCancellationRequested) { }
+                    catch (Exception exception)
+                    {
+                        logger.LogError(exception, "Payment result delivery interrupted; reconnecting for redelivery.");
+                        disconnected.TrySetResult();
+                    }
+                };
+                try
+                {
+                    await channel.BasicConsumeAsync(PaymentResultMessagingTopology.Queue, false, consumer, stoppingToken);
+                    await disconnected.Task.WaitAsync(stoppingToken);
+                }
+                finally { await deliveries.CancelAsync(); }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
@@ -57,7 +71,7 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
             return;
         }
 
-        for (var attempt = 1; attempt <= 3; attempt++)
+        for (var attempt = 1; !token.IsCancellationRequested; attempt++)
         {
             try
             {
@@ -78,13 +92,12 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
             }
             catch (Exception exception)
             {
-                logger.LogError(exception, "Could not store payment result on attempt {Attempt}.", attempt);
-                if (attempt == 3)
-                {
-                    await channel.BasicNackAsync(delivery.DeliveryTag, false, false, token);
-                    return;
-                }
-                await Task.Delay(TimeSpan.FromSeconds(attempt), token);
+                if (!channel.IsOpen) return;
+                var delay = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, Math.Min(attempt - 1, 5))));
+                logger.LogWarning(exception,
+                    "Could not store payment result on attempt {Attempt}; retaining the unacknowledged delivery and retrying in {RetryDelay}.",
+                    attempt, delay);
+                await Task.Delay(delay, token);
             }
         }
     }
