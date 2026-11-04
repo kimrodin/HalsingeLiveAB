@@ -4,6 +4,8 @@ services:
     build:
       context: ./frontend/admin-web
       dockerfile: Dockerfile.dev
+    # Refresh the persistent dependency volume before starting Vite.
+    command: ["sh", "-c", "npm ci && exec npm run dev -- --host 0.0.0.0"]
     environment:
       CATALOG_API_PROXY_TARGET: http://eventcatalog:8080
       BOOKING_API_PROXY_TARGET: http://booking:8080

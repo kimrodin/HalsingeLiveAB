@@ -23,8 +23,12 @@ interval; Booking then applies exact Swedish calendar-date filtering. This avoid
 fetching the entire event history while retaining correct midnight and DST boundaries. Deleted events are excluded. Sold counts retain the
 existing inventory calculation: total quantity minus available quantity.
 
-The occupancy branch was integrated selectively. Its tracked `env` file and
-container-start `npm ci` command were excluded. Existing local changes were kept.
+The admin development container runs `npm ci` before starting Vite. This refreshes
+its persistent `/app/node_modules` volume from the lockfile on each start, so
+dependencies added on another branch, such as `@mui/x-charts`, are installed.
+
+The occupancy branch was integrated selectively. Its tracked `env` file was
+excluded. Existing local changes were kept.
 No merge commit was created. `env` and `.env` are ignored; `.env.example` contains
 no key. Copy the template to `src/.env` for Compose and generate a local key.
 Any previously committed key still exists in the source branch/history and must
