@@ -40,14 +40,20 @@ export interface BookingPayment {
 
 export interface BookingTicket {
   ticketId: string;
+  eventId: string;
   eventName: string;
   status: string;
   issuedAt: string;
+}
+
+export interface TicketStatusChange {
+  ticketId: string;
+  status: string;
+  changedAt: string;
 }
 
 export interface BookingDetails {
   booking: Booking;
   history: BookingHistoryItem[];
   payment: BookingPayment | null;
-  tickets: BookingTicket[];
 }

@@ -115,5 +115,16 @@ public sealed class TicketIssueOutboxDispatcherTests
             bool download,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Array.Empty<byte>());
+
+        public Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
+            Guid ticketId,
+            Guid eventId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new TicketServiceStatusChangeResponse(ticketId, "CheckedIn", DateTimeOffset.UtcNow));
+
+        public Task<TicketServiceStatusChangeResponse> CancelTicketAsync(
+            Guid ticketId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new TicketServiceStatusChangeResponse(ticketId, "Cancelled", DateTimeOffset.UtcNow));
     }
 }

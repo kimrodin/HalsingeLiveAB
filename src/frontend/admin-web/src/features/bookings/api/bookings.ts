@@ -1,5 +1,5 @@
 import { request, requestBlob, sendJson } from '../../../shared/api/http';
-import type { Booking, BookingDetails } from '../types';
+import type { Booking, BookingDetails, BookingTicket, TicketStatusChange } from '../types';
 
 export interface ListBookingsParams {
   search?: string;
@@ -34,6 +34,10 @@ export function getBookingDetails(bookingId: string): Promise<BookingDetails> {
   return request<BookingDetails>(`/GetAdminBookingDetails/${bookingId}`, {}, '/booking-api');
 }
 
+export function getBookingTickets(bookingId: string): Promise<BookingTicket[]> {
+  return request<BookingTicket[]>(`/tickets/admin/bookings/${bookingId}`, {}, '/ticket-api');
+}
+
 export function updateBookingCustomer(
   bookingId: string,
   customer: UpdateBookingCustomerRequest,
@@ -43,8 +47,24 @@ export function updateBookingCustomer(
 
 export function getTicketPdf(bookingId: string, ticketId: string): Promise<Blob> {
   return requestBlob(
-    `/GetAdminTicketPdf/${bookingId}/${ticketId}?download=false`,
+    `/tickets/admin/bookings/${bookingId}/${ticketId}/pdf?download=false`,
     {},
+    '/ticket-api',
+  );
+}
+
+export function checkInTicket(ticketId: string, eventId: string): Promise<TicketStatusChange> {
+  return request<TicketStatusChange>(
+    `/admin/tickets/${ticketId}/check-in?eventId=${encodeURIComponent(eventId)}`,
+    { method: 'POST' },
+    '/booking-api',
+  );
+}
+
+export function cancelTicket(ticketId: string): Promise<TicketStatusChange> {
+  return request<TicketStatusChange>(
+    `/admin/tickets/${ticketId}/cancel`,
+    { method: 'POST' },
     '/booking-api',
   );
 }

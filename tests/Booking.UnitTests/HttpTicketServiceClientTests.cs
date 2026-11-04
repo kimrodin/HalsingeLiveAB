@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Booking.Features.Tickets;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 
 namespace Booking.UnitTests;
@@ -62,12 +63,77 @@ public sealed class HttpTicketServiceClientTests
         Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
     }
 
+    [Theory]
+    [InlineData("check-in", "CheckedIn")]
+    [InlineData("cancel", "Cancelled")]
+    public async Task TicketStatusChange_PostsWithInternalApiKeyAndReturnsStatus(
+        string action,
+        string status)
+    {
+        var ticketId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+        var changedAt = DateTimeOffset.UtcNow;
+        var httpClient = CreateClient(request =>
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal($"/tickets/{ticketId:D}/{action}", request.RequestUri!.AbsolutePath);
+            if (action == "check-in")
+                Assert.Equal($"?eventId={eventId:D}", request.RequestUri.Query);
+            Assert.Equal("configured-key", request.Headers.GetValues("X-Internal-Api-Key").Single());
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(
+                    new TicketServiceStatusChangeResponse(ticketId, status, changedAt))
+            });
+        });
+        var client = CreateTicketClient(httpClient);
+
+        var result = action == "check-in"
+            ? await client.CheckInTicketAsync(ticketId, eventId)
+            : await client.CancelTicketAsync(ticketId);
+
+        Assert.Equal(ticketId, result.TicketId);
+        Assert.Equal(status, result.Status);
+        Assert.Equal(changedAt, result.ChangedAt);
+    }
+
+    [Fact]
+    public async Task CheckInTicketAsync_PreservesConflictStatus()
+    {
+        var client = CreateTicketClient(CreateClient(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict)
+            {
+                Content = JsonContent.Create(new ProblemDetails
+                {
+                    Title = "The ticket is for a different event.",
+                    Status = 409
+                })
+            })));
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            client.CheckInTicketAsync(Guid.NewGuid(), Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+        Assert.Contains("The ticket is for a different event.", exception.Message);
+    }
+
     private static HttpClient CreateClient(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync) =>
         new(new StubHttpMessageHandler(sendAsync))
         {
             BaseAddress = new Uri("http://ticket-service/")
         };
+
+    private static HttpTicketServiceClient CreateTicketClient(HttpClient httpClient)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["TicketService:InternalApiKey"] = "configured-key"
+            })
+            .Build();
+        return new HttpTicketServiceClient(httpClient, configuration);
+    }
 
     private static async Task<HttpResponseMessage> VerifyBodyAndRespondAsync(
         HttpRequestMessage request,

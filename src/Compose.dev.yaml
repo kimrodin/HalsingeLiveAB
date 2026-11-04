@@ -8,7 +8,9 @@ services:
     command: ["sh", "-c", "npm ci && exec npm run dev -- --host 0.0.0.0"]
     environment:
       CATALOG_API_PROXY_TARGET: http://eventcatalog:8080
+      PAYMENT_API_PROXY_TARGET: http://payment-simulator:8080
       BOOKING_API_PROXY_TARGET: http://booking:8080
+      TICKET_API_PROXY_TARGET: http://ticketservice:8080
     ports: !override
       - "5173:5173"
     volumes:

@@ -1,11 +1,11 @@
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
+using PaymentSimulator.Authentication;
 using Microsoft.EntityFrameworkCore;
 using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.GetPayment;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
+using PaymentSimulator.Features.Payments.Simulation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,30 +19,16 @@ builder.Services.AddScoped<PaymentSimulator.Features.Seed.SeedPaymentsHandler>()
 builder.Services.AddScoped<GetPaymentHandler>();
 builder.Services.AddScoped<ProcessPaymentHandler>();
 builder.Services.AddScoped<RefundPaymentHandler>();
+builder.Services.AddScoped<SimulationSettingsService>();
 builder.Services.AddHostedService<PaymentRecoveryWorker>();
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
-{
-    options.Authority = builder.Configuration["Authentication:Authority"]
-        ?? "http://localhost:8180/realms/halsingelive";
-    if (builder.Configuration["Authentication:MetadataAddress"] is { Length: > 0 } metadataAddress)
-        options.MetadataAddress = metadataAddress;
-    options.Audience = "eventcatalog";
-    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-    options.MapInboundClaims = false;
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidIssuer = options.Authority.TrimEnd('/'), NameClaimType = "preferred_username", RoleClaimType = "roles"
-    };
-});
-builder.Services.AddAuthorization(options => options.AddPolicy("AdminOnly", policy =>
-    policy.RequireAuthenticatedUser().RequireRole("admin")));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
+builder.Services.AddAdminAuthentication(builder.Configuration, builder.Environment.IsDevelopment());
 
 var app = builder.Build();
 

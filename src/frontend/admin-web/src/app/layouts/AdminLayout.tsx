@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { deleteSeedData, seedData } from '../../features/seed/api/seed';
 import sidebarLandscape from '../../assets/sidebar-landscape.svg';
+import PaymentSimulationDialog from '../../features/payment-simulation/components/PaymentSimulationDialog';
 
 const drawerWidth = 260;
 
@@ -27,12 +28,14 @@ const navItems = [
   { label: 'Evenemang', to: '/events' },
   { label: 'Scener', to: '/venues' },
   { label: 'Bokningar', to: '/bookings' },
+  { label: 'Entréskanner', to: '/ticket-scanner' },
 ];
 
 export default function AdminLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [paymentSimulationOpen, setPaymentSimulationOpen] = useState(false);
   const queryClient = useQueryClient();
 
   async function logout() {
@@ -124,6 +127,12 @@ export default function AdminLayout() {
               <Button color="inherit" disabled={seedActionPending} onClick={handleDeleteSeed} sx={{ justifyContent: 'flex-start' }}>
                 Ta bort seeddata
               </Button>
+              <Button color="inherit" onClick={() => {
+                setMobileNavOpen(false);
+                setPaymentSimulationOpen(true);
+              }} sx={{ justifyContent: 'flex-start' }}>
+                Betalningssimulator
+              </Button>
             </>
           )}
           <Button color="inherit" onClick={() => void logout()} sx={{ justifyContent: 'flex-start' }}>
@@ -196,6 +205,15 @@ export default function AdminLayout() {
           {notice?.message ?? ''}
         </Alert>
       </Snackbar>
+      {import.meta.env.DEV && paymentSimulationOpen && (
+        <PaymentSimulationDialog
+          onClose={() => setPaymentSimulationOpen(false)}
+          onSaved={() => {
+            setPaymentSimulationOpen(false);
+            setNotice({ message: 'Betalningsinställningarna sparades.', severity: 'success' });
+          }}
+        />
+      )}
     </Box>
   );
 }

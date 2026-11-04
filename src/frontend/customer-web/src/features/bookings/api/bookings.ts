@@ -1,4 +1,4 @@
-import { getBlob, getJson, postJson } from '../../../shared/api/http'
+import { ApiError, getBlob, getJson, postJson } from '../../../shared/api/http'
 
 const bookingApiBase = '/booking-api'
 
@@ -25,6 +25,7 @@ export interface BookingDetails {
   totalPrice: number
   createdAt: string
   expiresAt: string | null
+  paymentStatus?: string | null
   items: BookingItem[]
 }
 
@@ -95,13 +96,29 @@ export function getBooking(
   )
 }
 
-export function startPayment(bookingId: string, accessToken: string): Promise<StartPaymentResponse> {
-  return postJson<StartPaymentResponse>(
-    `/StartPayment/${encodeURIComponent(bookingId)}`,
-    undefined,
-    bookingApiBase,
-    guestTokenHeader(accessToken),
-  )
+export async function startPayment(bookingId: string, accessToken: string): Promise<StartPaymentResponse> {
+  try {
+    return await postJson<StartPaymentResponse>(
+      `/StartPayment/${encodeURIComponent(bookingId)}`,
+      undefined,
+      bookingApiBase,
+      guestTokenHeader(accessToken),
+    )
+  } catch (error) {
+    // Booking returns terminal unsuccessful payment results as HTTP 409.
+    if (error instanceof ApiError && error.status === 409 && error.body && typeof error.body === 'object') {
+      const body = error.body as Record<string, unknown>
+      if (body.bookingId === bookingId && typeof body.bookingStatus === 'string'
+        && typeof body.message === 'string' && typeof body.paymentStatus === 'string'
+        && ['Failed', 'TimedOut', 'Refunded', 'NotStarted'].includes(body.paymentStatus)) {
+        return {
+          bookingId, bookingStatus: body.bookingStatus,
+          paymentStatus: body.paymentStatus, message: body.message,
+        }
+      }
+    }
+    throw error
+  }
 }
 
 export function cancelBooking(bookingId: string, accessToken: string): Promise<BookingStatusResponse> {

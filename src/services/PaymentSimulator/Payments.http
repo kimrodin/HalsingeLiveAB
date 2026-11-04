@@ -1,4 +1,20 @@
 @baseUrl = http://localhost:5111
+@accessToken = replace-with-keycloak-admin-access-token
+
+### Read settings (Keycloak access token with admin role)
+GET {{baseUrl}}/api/admin/payment-simulation
+Authorization: Bearer {{accessToken}}
+
+### Change defaults for NEW bookings only: Succeeded, Failed, TimedOut or Random
+PUT {{baseUrl}}/api/admin/payment-simulation
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "outcome": "Failed",
+  "delayMs": 500,
+  "timeoutMs": 5000
+}
 
 ### Process a simulated payment
 # @name processPayment
