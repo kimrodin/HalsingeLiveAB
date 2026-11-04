@@ -39,11 +39,15 @@ public sealed class CapacityHandlerTests(EventCatalogDatabaseFixture database)
     public async Task UpdateVenue_AcceptsSectionSumButRejectsCapacityBelowIt(int capacity, bool accepted)
     {
         var venue = await database.CreateVenueAsync();
-        await database.CreateSectionAsync(venue.VenueId, 40);
-        await database.CreateSectionAsync(venue.VenueId, 20);
+        var floor = await database.CreateSectionAsync(venue.VenueId, 40);
+        var balcony = await database.CreateSectionAsync(venue.VenueId, 20);
         await using var db = database.CreateContext();
         var handler = new UpdateVenueHandler(db);
-        var request = new UpdateVenueRequest(venue.VenueId, "Renamed", "New Street", "99999", "New City", capacity);
+        var request = new UpdateVenueRequest(venue.VenueId, "Renamed", "New Street", "99999", "New City", capacity,
+        [
+            new UpdateVenueSectionRequest(floor.SectionId, "Floor", 40, SeatingType.GeneralAdmission),
+            new UpdateVenueSectionRequest(balcony.SectionId, "Balcony", 20, SeatingType.GeneralAdmission)
+        ]);
         if (accepted) Assert.True(await handler.Handle(request));
         else await Assert.ThrowsAsync<VenueCapacityConflictException>(() => handler.Handle(request));
 
