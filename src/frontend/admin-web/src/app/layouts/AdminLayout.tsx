@@ -48,6 +48,9 @@ export default function AdminLayout() {
   const refreshCatalog = async () => Promise.all([
     queryClient.invalidateQueries({ queryKey: ['events'] }),
     queryClient.invalidateQueries({ queryKey: ['venues'] }),
+    queryClient.invalidateQueries({ queryKey: ['bookings'] }),
+    queryClient.invalidateQueries({ queryKey: ['sales-statistics'] }),
+    queryClient.invalidateQueries({ queryKey: ['dashboard', 'occupancy'] }),
   ]);
 
   const seedMutation = useMutation({
@@ -55,34 +58,34 @@ export default function AdminLayout() {
     onSuccess: async (result) => {
       await refreshCatalog();
       setNotice({
-        message: result.events.createdCount === 0
+        message: result.events.createdCount === 0 && result.purchases.createdBookings === 0
           ? 'Seeddata finns redan.'
-          : 'Seeddata skapades.',
+          : `Seeddata skapades: ${result.events.createdCount} evenemang, ${result.purchases.createdBookings} köp och ${result.purchases.createdTickets} biljetter. Biljetterna utfärdas i bakgrunden.`,
         severity: 'success',
       });
     },
-    onError: (error) => setNotice({
-      message: `Kunde inte skapa seeddata: ${error.message}`,
-      severity: 'error',
-    }),
+    onError: async (error) => {
+      await refreshCatalog();
+      setNotice({ message: `Kunde inte skapa seeddata: ${error.message}`, severity: 'error' });
+    },
   });
   const deleteMutation = useMutation({
     mutationFn: deleteSeedData,
     onSuccess: async (result) => {
       await refreshCatalog();
       setNotice({
-        message: `Seeddata borttagen: ${result.deletedEventCount} evenemang, ${result.deletedSectionCount} sektioner och ${result.deletedVenueCount} scener.`,
+        message: `Seeddata borttagen: ${result.deletedEventCount} evenemang, ${result.deletedSectionCount} sektioner och ${result.deletedVenueCount} scener samt ${result.deletedBookingCount} bokningar, ${result.deletedTicketCount} biljetter och ${result.deletedPaymentCount} betalningar.`,
         severity: 'success',
       });
     },
-    onError: (error) => setNotice({
-      message: `Kunde inte ta bort seeddata: ${error.message}`,
-      severity: 'error',
-    }),
+    onError: async (error) => {
+      await refreshCatalog();
+      setNotice({ message: `Kunde inte ta bort seeddata: ${error.message}`, severity: 'error' });
+    },
   });
 
   const handleDeleteSeed = () => {
-    if (window.confirm('Ta bort seedade evenemang, sektioner och scener?')) {
+    if (window.confirm('Ta bort seedade bokningar, betalningar, biljetter, evenemang, sektioner och scener?')) {
       deleteMutation.mutate();
     }
   };

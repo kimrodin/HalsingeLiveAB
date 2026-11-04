@@ -22,8 +22,30 @@ public sealed class SeedEventsHandler(
         new(7, "Sommarklubb på Studion", "Sommarkväll med DJ och dans.", "Studion", Utc(2027, 6, 5, 21), [250m]),
         new(8, "Hälsingesommar Festival", "En tvådagars musikfestival för hela familjen.", "Sommarfestivalens område", Utc(2027, 7, 9, 12), [495m], DurationHours: 36),
         new(9, "Rock under bar himmel", "En utomhuskonsert med svenska rockband.", "Sommarfestivalens område", Utc(2027, 8, 14, 17), [595m]),
-        new(10, "Avslutningsfestivalen", "Vi avslutar sommaren med musik och mat.", "Sommarfestivalens område", Utc(2027, 9, 4, 14), [395m])
+        new(10, "Avslutningsfestivalen", "Vi avslutar sommaren med musik och mat.", "Sommarfestivalens område", Utc(2027, 9, 4, 14), [395m]),
+        ..Create2026Events()
     ];
+
+    private static IEnumerable<EventSeedDefinition> Create2026Events()
+    {
+        string[] months = ["januari", "februari", "mars", "april", "maj", "juni",
+            "juli", "augusti", "september", "oktober", "november", "december"];
+        for (var month = 1; month <= 12; month++)
+        {
+            yield return new(9 + month * 2, $"Live på Kulturhuset – {months[month - 1]} 2026",
+                "Konsertkväll med lokala artister och gäster.", "Kulturhuset (stora salen)",
+                Utc(2026, month, 10, 18), [425m, 350m, 275m]);
+            var outdoor = month is >= 6 and <= 9;
+            yield return new(10 + month * 2, $"{(outdoor ? "Utomhuslive" : "Klubbkväll")} – {months[month - 1]} 2026",
+                "Musik, gemenskap och upplevelser i Hälsingland.",
+                outdoor ? "Sommarfestivalens område" : "Studion",
+                Utc(2026, month, 24, 18), [outdoor ? 395m : 245m]);
+        }
+        for (var index = 0; index < 6; index++)
+            yield return new(35 + index, $"Höstscenen 2026 – kväll {index + 1}",
+                "En del av höstens konsertserie på Studion.", "Studion",
+                Utc(2026, 10, 3 + index * 5, 18), [195m + index * 20m]);
+    }
 
     public static IReadOnlyList<(string EventName, string VenueName)> SeedEventVenueNames =>
         Definitions.Select(definition => (definition.Name, definition.VenueName)).ToArray();

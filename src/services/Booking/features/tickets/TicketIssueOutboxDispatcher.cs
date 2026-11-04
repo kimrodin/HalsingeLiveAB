@@ -23,34 +23,55 @@ public sealed class TicketIssueOutboxDispatcher(
 
         foreach (var message in messages)
         {
-            try
+            if (!message.BookingId.ToString().StartsWith("51000000-", StringComparison.Ordinal))
             {
-                await ticketServiceClient.IssueTicketsAsync(ToContract(message), cancellationToken);
-                message.DeliveredAtUtc = timeProvider.GetUtcNow();
-                message.LastError = null;
-                logger.LogInformation(
-                    "Issued tickets for booking {BookingId}, item {BookingItemId}.",
-                    message.BookingId,
-                    message.BookingItemId);
+                await DispatchMessageAsync(message, cancellationToken);
+                continue;
             }
-            catch (Exception exception) when (
-                exception is HttpRequestException or OperationCanceledException &&
-                !cancellationToken.IsCancellationRequested)
-            {
-                message.AttemptCount++;
-                message.NextAttemptAtUtc = timeProvider.GetUtcNow()
-                    .Add(GetRetryDelay(message.AttemptCount));
-                message.LastError = Truncate(exception.Message);
-                logger.LogError(
-                    exception,
-                    "Could not issue tickets for booking {BookingId}, item {BookingItemId}; retry scheduled for {NextAttemptAtUtc}.",
-                    message.BookingId,
-                    message.BookingItemId,
-                    message.NextAttemptAtUtc);
-            }
-
-            await dbContext.SaveChangesAsync(cancellationToken);
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+            await dbContext.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(51000000)", cancellationToken);
+            // A deletion can remove queued messages while this batch waits on its
+            // lock. Reload instead of issuing a stale copy from the original batch.
+            await dbContext.Entry(message).ReloadAsync(cancellationToken);
+            if (dbContext.Entry(message).State == EntityState.Detached || message.DeliveredAtUtc is not null)
+                continue;
+            if (!await dbContext.Bookings.AnyAsync(row => row.BookingId == message.BookingId
+                && row.Status == Bookings.BookingStatuses.Confirmed, cancellationToken))
+                continue;
+            await DispatchMessageAsync(message, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
+    }
+
+    private async Task DispatchMessageAsync(TicketIssueOutboxMessage message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ticketServiceClient.IssueTicketsAsync(ToContract(message), cancellationToken);
+            message.DeliveredAtUtc = timeProvider.GetUtcNow();
+            message.LastError = null;
+            logger.LogInformation(
+                "Issued tickets for booking {BookingId}, item {BookingItemId}.",
+                message.BookingId,
+                message.BookingItemId);
+        }
+        catch (Exception exception) when (
+            exception is HttpRequestException or OperationCanceledException &&
+            !cancellationToken.IsCancellationRequested)
+        {
+            message.AttemptCount++;
+            message.NextAttemptAtUtc = timeProvider.GetUtcNow()
+                .Add(GetRetryDelay(message.AttemptCount));
+            message.LastError = Truncate(exception.Message);
+            logger.LogError(
+                exception,
+                "Could not issue tickets for booking {BookingId}, item {BookingItemId}; retry scheduled for {NextAttemptAtUtc}.",
+                message.BookingId,
+                message.BookingItemId,
+                message.NextAttemptAtUtc);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static BookingConfirmedMessage ToContract(TicketIssueOutboxMessage message) => new()

@@ -70,6 +70,9 @@ namespace PaymentSimulator.Migrations
                     b.HasIndex("BookingId")
                         .IsUnique();
 
+                    b.HasIndex("PaidAt", "Id")
+                        .HasFilter("\"PaidAt\" IS NOT NULL");
+
                     b.HasIndex("Status", "CompleteAfter");
 
                     b.ToTable("Payments");
