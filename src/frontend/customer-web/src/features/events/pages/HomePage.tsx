@@ -132,7 +132,7 @@ export default function HomePage() {
             </Alert>
           )}
           {eventsQuery.hasNextPage && (
-            <Stack ref={loadMoreRef} spacing={1} alignItems="center" aria-live="polite">
+            <Stack ref={loadMoreRef} spacing={1} sx={{ alignItems: 'center' }} aria-live="polite">
               <Button
                 variant="outlined"
                 onClick={() => void eventsQuery.fetchNextPage()}
