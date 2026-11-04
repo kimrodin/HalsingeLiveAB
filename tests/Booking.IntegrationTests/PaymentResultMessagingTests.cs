@@ -72,6 +72,9 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
                 NullLogger<PaymentResultConsumer>.Instance);
             using var requestConsumer = new PaymentRequestedConsumer(paymentConnection, services.GetRequiredService<IServiceScopeFactory>(),
                 NullLogger<PaymentRequestedConsumer>.Instance);
+            using var recovery = new PaymentRecoveryWorker(services.GetRequiredService<IServiceScopeFactory>(),
+                NullLogger<PaymentRecoveryWorker>.Instance);
+            await recovery.StartAsync(token);
             await consumer.StartAsync(token);
             await requestConsumer.StartAsync(token);
             try
@@ -217,6 +220,7 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
             {
                 await requestConsumer.StopAsync(CancellationToken.None);
                 await consumer.StopAsync(CancellationToken.None);
+                await recovery.StopAsync(CancellationToken.None);
             }
         }
         finally

@@ -87,9 +87,10 @@ public sealed class PaymentRequestedConsumer(
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var handler = scope.ServiceProvider.GetRequiredService<PaymentRequestedHandler>();
                 var result = await handler.HandleAsync(message, stoppingToken);
+                // Once persisted, completion and result publication survive this acknowledgement.
                 await channel.BasicAckAsync(delivery.DeliveryTag, multiple: false, stoppingToken);
                 logger.LogInformation(
-                    "Processed payment request {MessageId} for booking {BookingId}, correlation {CorrelationId}; payment {PaymentId}, status {Status}.",
+                    "Accepted payment request {MessageId} for booking {BookingId}, correlation {CorrelationId}; payment {PaymentId}, status {Status}.",
                     message.MessageId, message.BookingId, message.CorrelationId, result.PaymentId, result.Status);
                 return;
             }

@@ -20,6 +20,6 @@ public sealed class PaymentRequestedHandler(ProcessPaymentHandler paymentHandler
         if (currency != message.Currency)
             throw new ArgumentException("Currency must be a three-letter uppercase currency code.", nameof(message));
 
-        return paymentHandler.Handle(request, cancellationToken);
+        return paymentHandler.AcceptAsync(request, cancellationToken);
     }
 }

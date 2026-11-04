@@ -68,6 +68,8 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
         await using var channel = await connection.CreateChannelAsync(new CreateChannelOptions(
             publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), token);
         using var consumer = CreateConsumer(services);
+        using var recovery = CreateRecoveryWorker(services);
+        await recovery.StartAsync(token);
         await consumer.StartAsync(token);
         try
         {
@@ -86,6 +88,7 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
 
                 // Prefetch is one: the conflict's dead letter proves earlier duplicates finished.
                 Assert.Equal(conflicting, await ReadDeadLetterAsync(channel, token));
+                await WaitForPaymentAsync(message.BookingId, Enum.Parse<PaymentStatus>(outcome.ToString()), token);
                 await using var db = CreateDb();
                 var payment = Assert.Single(await db.Payments.Where(p => p.BookingId == message.BookingId).ToListAsync(token));
                 Assert.Equal(outcome.ToString(), payment.Status.ToString());
@@ -117,12 +120,70 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
         finally
         {
             await consumer.StopAsync(CancellationToken.None);
+            await recovery.StopAsync(CancellationToken.None);
         }
         Assert.Equal(0u, (await channel.QueueDeclarePassiveAsync(Queue, token)).MessageCount);
     }
 
     [PaymentMessagingFact]
-    public async Task Consume_ShutdownRequeuesDurablePendingPaymentAndRestartReusesItsOutcome()
+    public async Task Consume_AcknowledgesDelayedPaymentsWithoutSerializingTheirCompletion()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var token = timeout.Token;
+        await using var services = CreateServices();
+        await using (var scope = services.CreateAsyncScope())
+            await scope.ServiceProvider.GetRequiredService<SimulationSettingsService>()
+                .Update(new(SimulationOutcome.Succeeded, 30000, 30000), token);
+        var connection = await services.GetRequiredService<RabbitMqConnectionProvider>().GetConnectionAsync(token);
+        await using var channel = await connection.CreateChannelAsync(new CreateChannelOptions(
+            publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), token);
+        using var consumer = CreateConsumer(services);
+        using var recovery = CreateRecoveryWorker(services);
+        await consumer.StartAsync(token);
+        try
+        {
+            await WaitForConsumerAsync(channel, token);
+            var messages = Enumerable.Range(0, 3).Select(_ => CreateMessage()).ToArray();
+            await PublishAsync(channel, JsonSerializer.SerializeToUtf8Bytes(messages[0]), token);
+            // Replaying a Pending payment must not wait for its completion either.
+            foreach (var message in messages)
+                await PublishAsync(channel, JsonSerializer.SerializeToUtf8Bytes(message), token);
+            var barrier = JsonSerializer.SerializeToUtf8Bytes(messages[0] with { Amount = 999m });
+            await PublishAsync(channel, barrier, token);
+            using (var acceptanceDeadline = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                // All requests and their acknowledgements must finish before even the first
+                // payment's 30-second delay. The conflicting delivery is a prefetch-one barrier.
+                acceptanceDeadline.CancelAfter(TimeSpan.FromSeconds(15));
+                Assert.Equal(barrier, await ReadDeadLetterAsync(channel, acceptanceDeadline.Token));
+            }
+            await using (var db = CreateDb())
+            {
+                var pending = await db.Payments.AsNoTracking().ToArrayAsync(token);
+                Assert.Equal(3, pending.Length);
+                Assert.All(pending, payment => Assert.Equal(PaymentStatus.Pending, payment.Status));
+                Assert.Empty(await db.PaymentResultOutboxMessages.ToListAsync(token));
+                Assert.Equal(0u, (await channel.QueueDeclarePassiveAsync(Queue, token)).MessageCount);
+
+                await db.Payments.ExecuteUpdateAsync(update => update.SetProperty(payment => payment.CompleteAfter,
+                    DateTimeOffset.UtcNow.AddSeconds(-1)), token);
+            }
+            await recovery.StartAsync(token);
+            foreach (var message in messages)
+                await WaitForPaymentAsync(message.BookingId, PaymentStatus.Succeeded, token);
+            await using var verification = CreateDb();
+            Assert.Equal(3, await verification.Payments.CountAsync(token));
+            Assert.Equal(3, await verification.PaymentResultOutboxMessages.CountAsync(token));
+        }
+        finally
+        {
+            await consumer.StopAsync(CancellationToken.None);
+            await recovery.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [PaymentMessagingFact]
+    public async Task Consume_AcknowledgedPendingPaymentSurvivesRestartAndReplayReusesItsOutcome()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var token = timeout.Token;
@@ -134,6 +195,7 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
         await using var channel = await connection.CreateChannelAsync(new CreateChannelOptions(
             publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), token);
         var message = CreateMessage();
+        Guid paymentId;
         using (var consumer = CreateConsumer(services))
         {
             await consumer.StartAsync(token);
@@ -142,13 +204,19 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
                 await WaitForConsumerAsync(channel, token);
                 await PublishAsync(channel, JsonSerializer.SerializeToUtf8Bytes(message), token);
                 await WaitForPaymentAsync(message.BookingId, PaymentStatus.Pending, token);
+                var conflicting = JsonSerializer.SerializeToUtf8Bytes(message with { Amount = 999m });
+                await PublishAsync(channel, conflicting, token);
+                // The conflicting delivery proves the Pending payment was acknowledged.
+                Assert.Equal(conflicting, await ReadDeadLetterAsync(channel, token));
+                await using var db = CreateDb();
+                paymentId = (await db.Payments.AsNoTracking().SingleAsync(token)).Id;
             }
             finally
             {
                 await consumer.StopAsync(CancellationToken.None);
             }
         }
-        Assert.Equal(1u, (await channel.QueueDeclarePassiveAsync(Queue, token)).MessageCount);
+        Assert.Equal(0u, (await channel.QueueDeclarePassiveAsync(Queue, token)).MessageCount);
         await using (var db = CreateDb())
             await db.Payments.ExecuteUpdateAsync(update => update.SetProperty(p => p.CompleteAfter,
                 DateTimeOffset.UtcNow.AddSeconds(-1)), token);
@@ -157,9 +225,13 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
                 .Update(new(SimulationOutcome.Failed, 0, 5000), token);
 
         using var restarted = CreateConsumer(services);
+        using var recovery = CreateRecoveryWorker(services);
+        await recovery.StartAsync(token);
         await restarted.StartAsync(token);
         try
         {
+            await WaitForConsumerAsync(channel, token);
+            await PublishAsync(channel, JsonSerializer.SerializeToUtf8Bytes(message), token);
             await WaitForPaymentAsync(message.BookingId, PaymentStatus.Succeeded, token);
             var conflicting = JsonSerializer.SerializeToUtf8Bytes(message with { Amount = 999m });
             await PublishAsync(channel, conflicting, token);
@@ -168,9 +240,11 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
         finally
         {
             await restarted.StopAsync(CancellationToken.None);
+            await recovery.StopAsync(CancellationToken.None);
         }
         await using var verification = CreateDb();
-        Assert.Single(await verification.Payments.ToListAsync(token));
+        Assert.Equal(paymentId, Assert.Single(await verification.Payments.AsNoTracking().ToListAsync(token)).Id);
+        Assert.Equal(paymentId, Assert.Single(await verification.PaymentResultOutboxMessages.ToListAsync(token)).PaymentId);
         Assert.Equal(0u, (await channel.QueueDeclarePassiveAsync(Queue, token)).MessageCount);
     }
 
@@ -195,6 +269,9 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
     private static PaymentRequestedConsumer CreateConsumer(ServiceProvider services) => new(
         services.GetRequiredService<RabbitMqConnectionProvider>(), services.GetRequiredService<IServiceScopeFactory>(),
         NullLogger<PaymentRequestedConsumer>.Instance);
+
+    private static PaymentRecoveryWorker CreateRecoveryWorker(ServiceProvider services) => new(
+        services.GetRequiredService<IServiceScopeFactory>(), NullLogger<PaymentRecoveryWorker>.Instance);
 
     private static PaymentRequestedV1 CreateMessage() => new()
     {

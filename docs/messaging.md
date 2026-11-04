@@ -108,11 +108,11 @@ Booking registrerar [IPaymentRequestedPublisher](../src/services/Booking/feature
 ### 3. Behandla betalningsbegäran
 
 1. [PaymentRequestedConsumer](../src/services/PaymentSimulator/messaging/PaymentRequestedConsumer.cs) läser från begäranskön och deserialiserar `PaymentRequestedV1`.
-2. [PaymentRequestedHandler](../src/services/PaymentSimulator/messaging/PaymentRequestedHandler.cs) kontrollerar metadata, boknings-ID, belopp och valuta och anropar sedan [ProcessPaymentHandler](../src/services/PaymentSimulator/features/payments/ProcessPayment/ProcessPaymentHandler.cs).
+2. [PaymentRequestedHandler](../src/services/PaymentSimulator/messaging/PaymentRequestedHandler.cs) kontrollerar metadata, boknings-ID, belopp och valuta och anropar sedan `AcceptAsync` i [ProcessPaymentHandler](../src/services/PaymentSimulator/features/payments/ProcessPayment/ProcessPaymentHandler.cs).
 3. Betalningen sparas med `BookingId` som idempotensnyckel. Samma bokning med samma belopp och valuta återanvänder det befintliga försöket. Ändrat belopp eller ändrad valuta betraktas som en konflikt.
-4. Konsumenten kvitterar när hanteraren har returnerat en beständigt sparad betalning. `Failed` och `TimedOut` är giltiga affärsutfall och kvitteras normalt.
+4. Konsumenten kvitterar så snart betalningen är beständigt sparad eller ett befintligt försök har verifierats. Den väntar inte på simuleringens fördröjning, så nästa begäran kan behandlas medan tidigare betalningar fortfarande är `Pending`. Även befintliga terminala utfall kvitteras normalt.
 
-En sparad betalning som fortfarande är `Pending` kan slutföras av [PaymentRecoveryWorker](../src/services/PaymentSimulator/features/payments/ProcessPayment/PaymentRecoveryWorker.cs), även om den ursprungliga anslutningen har avbrutits.
+[PaymentRecoveryWorker](../src/services/PaymentSimulator/features/payments/ProcessPayment/PaymentRecoveryWorker.cs) kontrollerar förfallna `Pending`-betalningar ungefär varje sekund och sparar utfallet tillsammans med resultat-outbox. Betalningarna finns kvar för återhämtning även efter att begäran har kvitterats eller tjänsten har startats om. Det direkta HTTP-anropet `POST /api/payments` använder fortsatt `Handle` och väntar på resultatet enligt sin befintliga tidsgräns.
 
 ### 4. Hantera köfördröjning och utgångna reservationer
 
@@ -213,7 +213,7 @@ Leveransen kan ske mer än en gång. Exempelvis kan RabbitMQ ha accepterat ett m
 
 | Konsument | Villkor för `ack` |
 | --- | --- |
-| PaymentSimulator: betalningsbegäran | Betalningshanteraren har returnerat en beständigt sparad betalning. Slutförande kan vid behov fortsätta genom återställningsarbetaren. |
+| PaymentSimulator: betalningsbegäran | Betalningen är beständigt sparad eller ett befintligt försök har verifierats. Konsumenten väntar inte på slutförandet; återställningsarbetaren hanterar väntande betalningar. |
 | Booking: betalningsresultat | Resultatet är validerat och beständigt sparat i inbox. Fortsatt arbete ägs därefter av inbox-arbetaren. |
 | TicketService: bekräftad bokningsrad | Biljetterna har sparats. |
 
@@ -321,7 +321,7 @@ Testerna skapar och tar bort egna slumpmässigt namngivna PostgreSQL-databaser. 
 
 Viktiga testfall finns i:
 
-- [PaymentRequestedConsumerTests](../tests/PaymentSimulator.IntegrationTests/PaymentRequestedConsumerTests.cs): betalningsbegäran, dubbletter, ogiltiga meddelanden och omleverans efter avbrott.
+- [PaymentRequestedConsumerTests](../tests/PaymentSimulator.IntegrationTests/PaymentRequestedConsumerTests.cs): snabb kvittens av flera fördröjda betalningar, dubbletter, ogiltiga meddelanden och återhämtning av kvitterade `Pending`-betalningar efter omstart.
 - [PaymentProcessingTests](../tests/PaymentSimulator.IntegrationTests/PaymentProcessingTests.cs): atomär lagring av resultat och outbox, återställning, publiceringsfel och återbetalningar.
 - [PaymentRequestTests](../tests/Booking.IntegrationTests/PaymentRequestTests.cs): start utan kontakt med betaltjänsten, atomär lagring av avsikt och begäran samt avstämning utan HTTP-start.
 - [PaymentResultMessagingTests](../tests/Booking.IntegrationTests/PaymentResultMessagingTests.cs): hela vägen från Bookings request-outbox genom betalningskonsumenten och resultat-outbox till Bookings inbox och bokningsändring, inklusive dubbletter.

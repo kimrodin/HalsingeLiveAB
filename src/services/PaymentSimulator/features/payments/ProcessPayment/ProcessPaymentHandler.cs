@@ -14,6 +14,33 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSetting
     public async Task<ProcessPaymentResponse> Handle(
         ProcessPaymentRequest request, CancellationToken cancellationToken)
     {
+        var payment = await GetOrCreatePaymentAsync(request, cancellationToken);
+        if (payment.Status == PaymentStatus.Pending)
+        {
+            var waitUntil = payment.CompleteAfter < DateTimeOffset.UtcNow.AddSeconds(30)
+                ? payment.CompleteAfter : DateTimeOffset.UtcNow.AddSeconds(30);
+            // Timers may wake slightly early; recheck the persisted deadline before completion.
+            while (waitUntil > DateTimeOffset.UtcNow)
+            {
+                var remaining = waitUntil - DateTimeOffset.UtcNow;
+                await Task.Delay(TimeSpan.FromMilliseconds(Math.Max(1,
+                    Math.Ceiling(remaining.TotalMilliseconds))), cancellationToken);
+            }
+            await CompleteDuePayments(cancellationToken);
+            payment = await dbContext.Payments.AsNoTracking()
+                .SingleAsync(p => p.Id == payment.Id, cancellationToken);
+        }
+        return ToResponse(payment);
+    }
+
+    // Queue deliveries only need durable acceptance; the recovery worker owns completion.
+    public async Task<ProcessPaymentResponse> AcceptAsync(
+        ProcessPaymentRequest request, CancellationToken cancellationToken) =>
+        ToResponse(await GetOrCreatePaymentAsync(request, cancellationToken));
+
+    private async Task<Payment> GetOrCreatePaymentAsync(
+        ProcessPaymentRequest request, CancellationToken cancellationToken)
+    {
         var currency = PaymentValidation.ValidateAndNormalizeCurrency(request);
 
         var payment = await dbContext.Payments.AsNoTracking()
@@ -46,22 +73,7 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSetting
         if (payment.Amount != request.Amount || payment.Currency != currency)
             throw new PaymentConflictException("A payment with different details already exists for this booking.");
 
-        if (payment.Status == PaymentStatus.Pending)
-        {
-            var waitUntil = payment.CompleteAfter < DateTimeOffset.UtcNow.AddSeconds(30)
-                ? payment.CompleteAfter : DateTimeOffset.UtcNow.AddSeconds(30);
-            // Timers may wake slightly early; recheck the persisted deadline before completion.
-            while (waitUntil > DateTimeOffset.UtcNow)
-            {
-                var remaining = waitUntil - DateTimeOffset.UtcNow;
-                await Task.Delay(TimeSpan.FromMilliseconds(Math.Max(1,
-                    Math.Ceiling(remaining.TotalMilliseconds))), cancellationToken);
-            }
-            await CompleteDuePayments(cancellationToken);
-            payment = await dbContext.Payments.AsNoTracking()
-                .SingleAsync(p => p.Id == payment.Id, cancellationToken);
-        }
-        return ToResponse(payment);
+        return payment;
     }
 
     public async Task CompleteDuePayments(CancellationToken cancellationToken)
