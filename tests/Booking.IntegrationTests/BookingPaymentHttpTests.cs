@@ -376,6 +376,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
 
         public Task<TicketServiceStatusChangeResponse> CheckInTicketAsync(
             Guid ticketId,
+            Guid eventId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new TicketServiceStatusChangeResponse(ticketId, "CheckedIn", DateTimeOffset.UtcNow));
 

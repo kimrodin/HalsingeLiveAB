@@ -182,14 +182,16 @@ public sealed class TicketsController(
 
     [HttpPost("{ticketId:guid}/check-in")]
     [ProducesResponseType(typeof(TicketStatusChangeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public Task<IActionResult> CheckInTicket(
         Guid ticketId,
         [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
-        CancellationToken cancellationToken) =>
-        ChangeTicketStatusAsync(ticketId, TicketStatus.CheckedIn, apiKey, cancellationToken);
+        CancellationToken cancellationToken,
+        [FromQuery] Guid eventId = default) =>
+        ChangeTicketStatusAsync(ticketId, TicketStatus.CheckedIn, apiKey, cancellationToken, eventId);
 
     [HttpPost("{ticketId:guid}/cancel")]
     [ProducesResponseType(typeof(TicketStatusChangeResponse), StatusCodes.Status200OK)]
@@ -206,7 +208,8 @@ public sealed class TicketsController(
         Guid ticketId,
         TicketStatus newStatus,
         string apiKey,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? expectedEventId = null)
     {
         var authorizationFailure = AuthorizeInternalRequest(apiKey);
         if (authorizationFailure is not null)
@@ -219,10 +222,25 @@ public sealed class TicketsController(
                 Status = StatusCodes.Status400BadRequest
             });
 
+        if (newStatus == TicketStatus.CheckedIn &&
+            (expectedEventId is null || expectedEventId == Guid.Empty))
+            return BadRequest(new ProblemDetails
+            {
+                Title = "A valid event ID is required for check-in.",
+                Status = StatusCodes.Status400BadRequest
+            });
+
         var ticket = await dbContext.Tickets
             .SingleOrDefaultAsync(item => item.TicketId == ticketId, cancellationToken);
         if (ticket is null)
             return NotFound();
+
+        if (expectedEventId.HasValue && ticket.EventId != expectedEventId.Value)
+            return Conflict(new ProblemDetails
+            {
+                Title = "The ticket is for a different event.",
+                Status = StatusCodes.Status409Conflict
+            });
 
         if (ticket.Status != TicketStatus.Valid)
             return InvalidTicketState(ticket);

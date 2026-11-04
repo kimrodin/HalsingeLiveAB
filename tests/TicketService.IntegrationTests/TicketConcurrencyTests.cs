@@ -92,8 +92,8 @@ public sealed class TicketConcurrencyTests(TicketDatabaseFixture database) : ICl
         await using var secondDb = database.CreateContext(gate);
 
         var results = await Task.WhenAll(
-            ChangeStatus(CreateController(firstDb), ticket.TicketId, firstCheckIn),
-            ChangeStatus(CreateController(secondDb), ticket.TicketId, secondCheckIn));
+            ChangeStatus(CreateController(firstDb), ticket.TicketId, firstCheckIn, ticket.EventId),
+            ChangeStatus(CreateController(secondDb), ticket.TicketId, secondCheckIn, ticket.EventId));
 
         var success = Assert.Single(results.OfType<OkObjectResult>());
         var winner = Assert.IsType<TicketStatusChangeResponse>(success.Value);
@@ -139,8 +139,10 @@ public sealed class TicketConcurrencyTests(TicketDatabaseFixture database) : ICl
     private static DateTimeOffset ToPostgresPrecision(DateTimeOffset value) =>
         value.AddTicks(-(value.Ticks % 10));
 
-    private static Task<IActionResult> ChangeStatus(TicketsController controller, Guid id, bool checkIn) =>
-        checkIn ? controller.CheckInTicket(id, "test-key", default) : controller.CancelTicket(id, "test-key", default);
+    private static Task<IActionResult> ChangeStatus(
+        TicketsController controller, Guid id, bool checkIn, Guid eventId) =>
+        checkIn ? controller.CheckInTicket(id, "test-key", default, eventId)
+            : controller.CancelTicket(id, "test-key", default);
 
     private static TicketsController CreateController(TicketDbContext db) => new(
         db, new IssueTicketsHandler(db, TimeProvider.System), new TicketDocumentService(),

@@ -40,6 +40,7 @@ export interface BookingPayment {
 
 export interface BookingTicket {
   ticketId: string;
+  eventId: string;
   eventName: string;
   status: string;
   issuedAt: string;
