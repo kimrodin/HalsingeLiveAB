@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import {
   Alert,
@@ -19,13 +19,14 @@ export default function HomePage() {
   const now = useNow()
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const loadMoreRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearchTerm(searchTerm.trim()), 300)
     return () => window.clearTimeout(timeout)
   }, [searchTerm])
 
   const eventsQuery = useInfiniteQuery({
-    queryKey: ['events', 'catalog', debouncedSearchTerm],
+    queryKey: ['events', 'catalog', debouncedSearchTerm, Math.floor(now / 60_000)],
     queryFn: ({ pageParam, signal }) => getEventPage(
       pageParam,
       { eventName: debouncedSearchTerm || undefined, endsAfter: new Date(now).toISOString() },
@@ -40,45 +41,26 @@ export default function HomePage() {
     queryFn: ({ signal }) => getVenues(signal),
   })
 
+  useEffect(() => {
+    const target = loadMoreRef.current
+    if (!target || !eventsQuery.hasNextPage || eventsQuery.isFetchingNextPage || eventsQuery.isFetchNextPageError) return
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) void eventsQuery.fetchNextPage()
+    }, { rootMargin: '300px' })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [eventsQuery.hasNextPage, eventsQuery.isFetchingNextPage, eventsQuery.isFetchNextPageError, eventsQuery.fetchNextPage])
+
   const venuesById = useMemo(
     () => new Map(venuesQuery.data?.map((venue) => [venue.id, `${venue.name}, ${venue.city}`]) ?? []),
     [venuesQuery.data],
   )
 
-  // Sidan väntar bara på evenemangen. Scennamn är en bonus och fylls i när de har hämtats,
-  // så att ett fel på scenerna inte döljer hela listan.
-  if (eventsQuery.isPending) {
-    return (
-      <Stack spacing={2} role="status" aria-busy="true" aria-label="Hämtar evenemang">
-        <Typography variant="h3" component="h1" sx={{ mb: 1, fontWeight: 700 }}>
-          Evenemang i Hälsingland
-        </Typography>
-        {[1, 2, 3].map((item) => <Skeleton key={item} variant="rounded" height={150} />)}
-      </Stack>
-    )
-  }
-
-  if (eventsQuery.isError) {
-    return (
-      <Stack spacing={2}>
-        <Typography variant="h3" component="h1" sx={{ fontWeight: 700 }}>
-          Evenemang i Hälsingland
-        </Typography>
-        <Alert
-          severity="error"
-          action={<Button color="inherit" size="small" onClick={() => void eventsQuery.refetch()}>Försök igen</Button>}
-        >
-          Evenemangen kunde inte hämtas just nu. Kontrollera anslutningen och försök igen.
-        </Alert>
-      </Stack>
-    )
-  }
-
-  const events = eventsQuery.data.pages.flatMap((page) => page.events)
-  const featuredEvents = events
-    .filter((event) => new Date(event.endDate).getTime() >= now)
-    .slice(0, 3)
-  const totalCount = eventsQuery.data.pages[0]?.totalCount ?? 0
+  const events = eventsQuery.data?.pages.flatMap((page) => page.events) ?? []
+  const visibleEvents = events.filter((event) => new Date(event.endDate).getTime() >= now)
+  const featuredEvents = visibleEvents.slice(0, 3)
+  const totalCount = eventsQuery.data?.pages[0]?.totalCount ?? 0
 
   return (
     <Stack spacing={3} useFlexGap>
@@ -118,26 +100,47 @@ export default function HomePage() {
         />
       </Stack>
 
-      {events.length === 0 ? (
+      {eventsQuery.isPending ? (
+        <Stack spacing={2} role="status" aria-busy="true" aria-label="Hämtar evenemang">
+          {[1, 2, 3].map((item) => <Skeleton key={item} variant="rounded" height={150} />)}
+        </Stack>
+      ) : eventsQuery.isError && !eventsQuery.data ? (
+        <Alert
+          severity="error"
+          action={<Button color="inherit" size="small" onClick={() => void eventsQuery.refetch()}>Försök igen</Button>}
+        >
+          Evenemangen kunde inte hämtas just nu. Kontrollera anslutningen och försök igen.
+        </Alert>
+      ) : visibleEvents.length === 0 ? (
         <Alert severity="info">Inga evenemang hittades.</Alert>
       ) : (
         <>
           <Typography variant="body2" color="text.secondary" role="status">
-            Visar {events.length} av {totalCount} evenemang
+            Visar {visibleEvents.length} av {totalCount} evenemang
           </Typography>
           <Stack spacing={2}>
-            {events.map((event) => (
+            {visibleEvents.map((event) => (
               <EventCard key={event.eventId} event={event} venueName={venuesById.get(event.venueId)} now={now} />
             ))}
           </Stack>
-          {eventsQuery.hasNextPage && (
-            <Button
-              variant="outlined"
-              onClick={() => void eventsQuery.fetchNextPage()}
-              disabled={eventsQuery.isFetchingNextPage}
+          {eventsQuery.isFetchNextPageError && (
+            <Alert
+              severity="error"
+              action={<Button color="inherit" size="small" onClick={() => void eventsQuery.fetchNextPage()}>Försök igen</Button>}
             >
-              {eventsQuery.isFetchingNextPage ? 'Hämtar fler evenemang…' : `Visa fler (${eventPageSize})`}
-            </Button>
+              Fler evenemang kunde inte hämtas.
+            </Alert>
+          )}
+          {eventsQuery.hasNextPage && (
+            <Stack ref={loadMoreRef} spacing={1} alignItems="center" aria-live="polite">
+              <Button
+                variant="outlined"
+                onClick={() => void eventsQuery.fetchNextPage()}
+                disabled={eventsQuery.isFetchingNextPage || eventsQuery.isFetchNextPageError}
+              >
+                {eventsQuery.isFetchingNextPage ? 'Hämtar fler evenemang…' : `Visa fler (${eventPageSize})`}
+              </Button>
+            </Stack>
           )}
         </>
       )}
