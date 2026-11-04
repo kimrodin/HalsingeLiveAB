@@ -68,6 +68,7 @@ public sealed class TicketIssueOutboxDispatcherTests
         new(
             dbContext,
             client,
+            new RecordingBookingConfirmedPublisher(),
             TimeProvider.System,
             NullLogger<TicketIssueOutboxDispatcher>.Instance);
 
@@ -100,7 +101,8 @@ public sealed class TicketIssueOutboxDispatcherTests
         };
     }
 
-    private sealed class RecordingBookingConfirmedPublisher(Exception? exception = null) : IBookingConfirmedPublisher
+    private sealed class RecordingBookingConfirmedPublisher(Exception? exception = null)
+        : IBookingConfirmedPublisher, ITicketServiceClient
     {
         public BookingConfirmedV1? Message { get; private set; }
 
@@ -111,6 +113,9 @@ public sealed class TicketIssueOutboxDispatcherTests
             Message = message;
             return exception is null ? Task.CompletedTask : Task.FromException(exception);
         }
+
+        public Task IssueTicketsAsync(BookingConfirmedV1 message, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Ordinary ticket issuance must use RabbitMQ.");
 
         public Task<IReadOnlyList<TicketServiceTicketResponse>> GetTicketsForBookingAsync(
             Guid bookingId,

@@ -182,6 +182,8 @@ Det skapas ett `BookingConfirmedV1` per bokningsrad, inte ett per hel bokning. M
 
 Outbox-radens ID blir `MessageId`, bokningens ID blir `CorrelationId` och radens skapandetid blir `OccurredAtUtc`. Värdena bevaras vid nya försök. `DeliveredAtUtc` sätts efter publisher confirm; annars sparas felet och ett nytt försök planeras.
 
+Utvecklingsverktygets seedbokningar med ID-prefix `51000000-` är ett undantag. Deras biljetter utfärdas via HTTP medan dispatchern håller samma databaslås som seedraderingen. Dispatchern läser om raden under låset och inväntar TicketServices svar innan `DeliveredAtUtc` sätts. Därmed lämnas inga seedmeddelanden i RabbitMQ som kan återskapa biljetter efter radering. Vanliga kundbokningar använder fortsatt RabbitMQ. Seedbetalningar skapas direkt som historiska, slutreglerade betalningar via seed-API:t och går inte genom betalningsköerna. Försäljningsstatistiken läser betalningar via HTTP oavsett hur kundbetalningen startades.
+
 ### 3. Skapa och spara biljetter
 
 [BookingConfirmedConsumer](../src/services/TicketService/Features/Tickets/IssueTickets/BookingConfirmedConsumer.cs) anropar [IssueTicketsHandler](../src/services/TicketService/Features/Tickets/IssueTickets/IssueTicketsHandler.cs), som validerar meddelandet och sparar biljetterna. Först när detta är klart kvitteras leveransen.

@@ -1,6 +1,6 @@
 import { getJson } from '../../../shared/api/http'
 
-const pageSize = 100
+export const eventPageSize = 24
 
 export interface EventListItem {
   eventId: string
@@ -26,22 +26,19 @@ interface EventPage {
   pageSize: number
 }
 
-async function getEventPage(page: number, signal?: AbortSignal): Promise<EventPage> {
-  const query = new URLSearchParams({ Page: String(page), PageSize: String(pageSize) })
-  return getJson<EventPage>(`/ListEvents?${query.toString()}`, signal)
-}
-
-export async function getAllEvents(signal?: AbortSignal): Promise<EventListItem[]> {
-  const firstPage = await getEventPage(1, signal)
-  const events = [...firstPage.events]
-
-  for (let page = 2; events.length < firstPage.totalCount; page += 1) {
-    const nextPage = await getEventPage(page, signal)
-    if (nextPage.events.length === 0) break
-    events.push(...nextPage.events)
+export async function getEventPage(
+  page: number,
+  options: { eventName?: string; endsAfter?: string } = {},
+  signal?: AbortSignal,
+): Promise<EventPage> {
+  const query = new URLSearchParams({ Page: String(page), PageSize: String(eventPageSize) })
+  if (options.eventName) query.set('EventName', options.eventName)
+  if (options.endsAfter) query.set('EndsAfter', options.endsAfter)
+  const result = await getJson<EventPage>(`/ListEvents?${query.toString()}`, signal)
+  return {
+    ...result,
+    events: result.events.map((event) => ({ ...event, imageUrl: toImageUrl(event.imageUrl) })),
   }
-
-  return events.map((event) => ({ ...event, imageUrl: toImageUrl(event.imageUrl) }))
 }
 
 function toImageUrl(url?: string | null): string | null {

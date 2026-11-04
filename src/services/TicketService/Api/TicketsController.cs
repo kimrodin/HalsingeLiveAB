@@ -115,6 +115,21 @@ public sealed class TicketsController(
         }
     }
 
+    [HttpDelete("seed")]
+    public async Task<IActionResult> DeleteSeedTickets(
+        [FromServices] IWebHostEnvironment environment,
+        [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
+        CancellationToken cancellationToken)
+    {
+        if (!environment.IsDevelopment()) return NotFound();
+        var authorizationFailure = AuthorizeInternalRequest(apiKey);
+        if (authorizationFailure is not null) return authorizationFailure;
+        var deleted = await dbContext.Tickets
+            .Where(ticket => ticket.BookingId.ToString().StartsWith("51000000-"))
+            .ExecuteDeleteAsync(cancellationToken);
+        return Ok(new { DeletedTickets = deleted });
+    }
+
     [HttpGet("by-booking/{bookingId:guid}")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

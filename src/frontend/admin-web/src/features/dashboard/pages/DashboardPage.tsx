@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Alert, Box, Button, CircularProgress, Link, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Typography,
@@ -6,15 +7,21 @@ import { useQuery } from '@tanstack/react-query';
 import { Link as RouterLink } from 'react-router';
 import { getEvents } from '../../events/api/events';
 import { getVenues } from '../../venues/api/venues';
+import OccupancySection from '../components/OccupancySection';
+import SalesStatisticsSection from '../components/SalesStatisticsSection';
+import DashboardPeriodFilter from '../components/DashboardPeriodFilter';
+import { eventPeriodBounds, last30Days } from '../utils/dashboardPeriod';
+import type { DashboardPeriod } from '../utils/dashboardPeriod';
 
 const dateFormatter = new Intl.DateTimeFormat('sv-SE', {
   dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Stockholm',
 });
 
 export default function DashboardPage() {
-  const active = useQuery({
-    queryKey: ['events', 'dashboard', 'active'],
-    queryFn: () => getEvents({ endsAfter: new Date().toISOString(), pageSize: 1 }),
+  const [period, setPeriod] = useState<DashboardPeriod>(() => last30Days());
+  const periodEvents = useQuery({
+    queryKey: ['events', 'dashboard', 'period', period.from, period.to],
+    queryFn: ({ signal }) => getEvents({ ...eventPeriodBounds(period), pageSize: 1 }, signal),
     refetchInterval: 60_000,
   });
   const upcoming = useQuery({
@@ -26,28 +33,29 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Typography component="h1" variant="h4" sx={{ mb: 1 }}>Dashboard</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Översikt över evenemang på Hälsinge Live.
-      </Typography>
+      <Typography component="h1" variant="h4" sx={{ mb: 3 }}>Dashboard</Typography>
 
-      <Paper sx={{ p: 3, maxWidth: { sm: 420 }, mb: 3 }}>
-        <Typography component="h2" variant="h6">Aktiva evenemang</Typography>
-        <Box aria-live="polite" sx={{ my: 1 }}>
-          {active.isError ? (
-            <Alert severity="error" action={<Button color="inherit" onClick={() => void active.refetch()}>Försök igen</Button>}>
-              Kunde inte hämta aktiva evenemang.
-            </Alert>
-          ) : active.isPending ? (
-            <CircularProgress size={28} aria-label="Hämtar antal aktiva evenemang" />
-          ) : (
-            <Typography variant="h3" component="p" sx={{ color: 'primary.light' }}>
-              {active.data.totalCount.toLocaleString('sv-SE')}
-            </Typography>
-          )}
-        </Box>
-        <Typography variant="body2" color="text.secondary">Kommande och pågående evenemang.</Typography>
-      </Paper>
+      <DashboardPeriodFilter key={`${period.from}/${period.to}`} period={period} onApply={setPeriod} />
+      <SalesStatisticsSection period={period}>
+        <Paper sx={{ p: 3, minWidth: 0 }}>
+          <Typography component="h2" variant="h6">Evenemang</Typography>
+          <Box aria-live="polite" sx={{ my: 1 }}>
+            {periodEvents.isError ? (
+              <Alert severity="error" action={<Button color="inherit" onClick={() => void periodEvents.refetch()}>Försök igen</Button>}>
+                Kunde inte hämta antal evenemang för perioden.
+              </Alert>
+            ) : periodEvents.isPending ? (
+              <CircularProgress size={28} aria-label="Hämtar antal evenemang för perioden" />
+            ) : (
+              <Typography variant="h3" component="p" sx={{ color: 'primary.light' }}>
+                {periodEvents.data.totalCount.toLocaleString('sv-SE')}
+              </Typography>
+            )}
+          </Box>
+        </Paper>
+      </SalesStatisticsSection>
+
+      <OccupancySection period={period} />
 
       <Paper sx={{ overflow: 'hidden' }}>
         <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>

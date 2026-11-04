@@ -1,3 +1,5 @@
+using EventCatalog.Features.Venues.Models;
+
 namespace EventCatalog.Features.Venues.UpdateVenue;
 
 public record UpdateVenueRequest(
@@ -6,4 +8,7 @@ public record UpdateVenueRequest(
     string StreetAddress,
     string PostalCode,
     string City,
-    int Capacity);
+    int Capacity,
+    IReadOnlyList<UpdateVenueSectionRequest> Sections);
+
+public record UpdateVenueSectionRequest(Guid? SectionId, string Name, int Capacity, SeatingType SeatingType);

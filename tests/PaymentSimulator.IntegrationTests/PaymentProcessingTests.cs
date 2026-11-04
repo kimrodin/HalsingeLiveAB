@@ -48,6 +48,64 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         await command.ExecuteNonQueryAsync();
     }
 
+    [Fact]
+    public async Task SeedPayments_CreatesHistoricalPaymentsAndDeletesOnlySeedRows()
+    {
+        var row = new PaymentSimulator.Features.Seed.SeedPayment(
+            Guid.Parse("51000000-0001-0001-0000-000000000001"), 100m,
+            new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero));
+        var ordinaryId = Guid.NewGuid();
+        await using var db = CreateDb();
+        var handler = new PaymentSimulator.Features.Seed.SeedPaymentsHandler(db);
+        Assert.Equal(1, await handler.Handle([row], default));
+        Assert.Equal(0, await handler.Handle([row], default));
+        var payment = Assert.Single(await db.Payments.AsNoTracking().ToArrayAsync());
+        Assert.Equal(row.PaidAt, payment.PaidAt);
+        Assert.Equal(PaymentStatus.Succeeded, payment.Status);
+        db.Payments.Add(new Payment { Id = Guid.NewGuid(), BookingId = ordinaryId, Amount = 125m,
+            Currency = "SEK", Status = PaymentStatus.Succeeded, PlannedOutcome = PaymentStatus.Succeeded,
+            CreatedAt = row.PaidAt, PaidAt = row.PaidAt, CompleteAfter = row.PaidAt });
+        await db.SaveChangesAsync();
+        Assert.Equal(1, await handler.Delete(default));
+        Assert.Equal(0, await handler.Delete(default));
+        Assert.Equal(ordinaryId, Assert.Single(await db.Payments.AsNoTracking().ToArrayAsync()).BookingId);
+    }
+
+    [Fact]
+    public async Task SalesRange_ExcludesOldPaymentsAndPaginatesTiedTimestamps()
+    {
+        await using var db = CreateDb();
+        var paid = new DateTimeOffset(2026, 10, 25, 0, 0, 0, TimeSpan.Zero);
+        var expected = new List<Guid>();
+        for (var i = 0; i < 4; i++)
+        {
+            var id = Guid.NewGuid();
+            var date = i == 0 ? paid.AddYears(-1) : i == 3 ? paid.AddDays(1) : paid;
+            if (date == paid) expected.Add(id);
+            db.Payments.Add(new Payment
+            {
+                Id = id, BookingId = Guid.NewGuid(), Amount = i == 0 ? 99m : 125m, Currency = "SEK",
+                Status = PaymentStatus.Succeeded, PlannedOutcome = PaymentStatus.Succeeded,
+                CreatedAt = date, CompleteAfter = date, CompletedAt = date, PaidAt = date
+            });
+        }
+        await db.SaveChangesAsync();
+        var controller = new PaymentSimulator.Features.Payments.Statistics.PaymentSalesController(db);
+        var found = new List<Guid>();
+        PaymentSimulator.Features.Payments.Statistics.PaymentSalesCursor? cursor = null;
+        do
+        {
+            var result = await controller.Get(new(paid, paid.AddDays(1), cursor?.PaidAt, cursor?.PaymentId, 1), default);
+            var page = Assert.IsType<PaymentSimulator.Features.Payments.Statistics.PaymentSalesPage>(
+                Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result).Value);
+            Assert.Equal(125m, Assert.Single(page.Payments).Amount);
+            found.Add(page.Payments[0].PaymentId);
+            cursor = page.Next;
+        } while (cursor is not null);
+        Assert.Equal(expected.Order(), found);
+        Assert.Equal(2, found.Count);
+    }
+
     private PaymentDbContext CreateDb() => new(new DbContextOptionsBuilder<PaymentDbContext>()
         .UseNpgsql(connectionString).Options);
 
