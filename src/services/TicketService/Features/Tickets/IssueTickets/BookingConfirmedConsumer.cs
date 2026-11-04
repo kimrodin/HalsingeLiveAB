@@ -27,7 +27,15 @@ public sealed class BookingConfirmedConsumer(
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogError(exception, "Ticket issuance consumer stopped; reconnecting shortly.");
+            }
+
+            try
+            {
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
         }
     }
@@ -40,9 +48,20 @@ public sealed class BookingConfirmedConsumer(
         await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
 
         var consumer = new AsyncEventingBasicConsumer(channel);
+        var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        consumer.ShutdownAsync += (_, _) =>
+        {
+            disconnected.TrySetResult();
+            return Task.CompletedTask;
+        };
+        consumer.UnregisteredAsync += (_, _) =>
+        {
+            disconnected.TrySetResult();
+            return Task.CompletedTask;
+        };
         consumer.ReceivedAsync += async (_, delivery) => await HandleDeliveryAsync(channel, delivery, stoppingToken);
         await channel.BasicConsumeAsync(TicketMessagingTopology.Queue, autoAck: false, consumer, stoppingToken);
-        await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
+        await disconnected.Task.WaitAsync(stoppingToken);
     }
 
     private async Task HandleDeliveryAsync(

@@ -60,6 +60,7 @@ jobs:
       BOOKING_TEST_POSTGRES: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
       BOOKING_TEST_REDIS: localhost:6379
       TICKET_TEST_POSTGRES: Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres
+      TICKET_TEST_RABBITMQ: amqp://payment-tests:payment-tests@localhost:5672/
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -76,7 +77,8 @@ jobs:
         run: dotnet build HalsingeLiveAB.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test HalsingeLiveAB.sln --configuration Release --no-build --no-restore
+        # Messaging suites share fixed queues on this broker; run projects sequentially.
+        run: dotnet test HalsingeLiveAB.sln --configuration Release --no-build --no-restore --maxcpucount:1
 
   frontend:
     name: Frontend checks (${{ matrix.app }})

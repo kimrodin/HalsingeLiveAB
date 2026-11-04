@@ -294,6 +294,8 @@ Exempel på tester nära meddelandeflödena är [PaymentRequestOutboxDispatcherT
 
 Meddelandetesterna använder fasta könamn och ska därför köras mot en separat testbroker eller en isolerad virtual host. Använd inte samma köer som utvecklingstjänster som redan körs.
 
+Kör testprojekten i följd när de delar testbroker. Booking- och PaymentSimulator-testerna har egna databaser men konkurrerar om samma betalningsköer vid parallell körning. För hela lösningen används `dotnet test HalsingeLiveAB.sln --maxcpucount:1`; CI använder också detta alternativ.
+
 En separat lokal testbroker kan startas så här:
 
 ```powershell
@@ -308,11 +310,14 @@ $env:PAYMENT_TEST_DB = 'Host=localhost;Port=5434;Database=postgres;Username=post
 $env:PAYMENT_TEST_RABBITMQ = 'amqp://payment-tests:payment-tests@localhost:5673/'
 $env:BOOKING_TEST_POSTGRES = 'Host=localhost;Port=5433;Database=postgres;Username=postgres;Password=postgres'
 $env:BOOKING_TEST_REDIS = 'localhost:6379'
+$env:TICKET_TEST_POSTGRES = 'Host=localhost;Port=5435;Database=postgres;Username=postgres;Password=postgres'
+$env:TICKET_TEST_RABBITMQ = $env:PAYMENT_TEST_RABBITMQ
 dotnet test tests/PaymentSimulator.IntegrationTests/PaymentSimulator.IntegrationTests.csproj
 dotnet test tests/Booking.IntegrationTests/Booking.IntegrationTests.csproj
+dotnet test tests/TicketService.IntegrationTests/TicketService.IntegrationTests.csproj
 ```
 
-Testerna skapar och tar bort egna slumpmässigt namngivna PostgreSQL-databaser. RabbitMQ-testerna hoppas över om `PAYMENT_TEST_RABBITMQ` saknas. Övriga integrationstester kan ha andra anslutningskrav. [CI-konfigurationen](../.github/workflows/ci.yml) tillhandahåller PostgreSQL, Redis och en separat RabbitMQ-tjänst för testkörningen.
+Testerna skapar och tar bort egna slumpmässigt namngivna PostgreSQL-databaser. Betalningsflödets RabbitMQ-tester hoppas över om `PAYMENT_TEST_RABBITMQ` saknas. Biljettflödets meddelandetester kräver både `TICKET_TEST_POSTGRES` och `TICKET_TEST_RABBITMQ`. Övriga integrationstester kan ha andra anslutningskrav. [CI-konfigurationen](../.github/workflows/ci.yml) tillhandahåller PostgreSQL, Redis och en separat RabbitMQ-tjänst för testkörningen.
 
 Viktiga testfall finns i:
 
@@ -321,6 +326,7 @@ Viktiga testfall finns i:
 - [PaymentRequestTests](../tests/Booking.IntegrationTests/PaymentRequestTests.cs): start utan kontakt med betaltjänsten, atomär lagring av avsikt och begäran samt avstämning utan HTTP-start.
 - [PaymentResultMessagingTests](../tests/Booking.IntegrationTests/PaymentResultMessagingTests.cs): hela vägen från Bookings request-outbox genom betalningskonsumenten och resultat-outbox till Bookings inbox och bokningsändring, inklusive dubbletter.
 - [PaymentResultTests](../tests/Booking.IntegrationTests/PaymentResultTests.cs): samtidighet med HTTP-avstämning, misslyckade återbetalningar, konflikter och ombehandling efter redan genomförd bokningsbekräftelse.
+- [BookingConfirmedConsumerTests](../tests/TicketService.IntegrationTests/BookingConfirmedConsumerTests.cs): återanslutning och biljettutfärdande efter att kön återskapats eller konsumentens anslutning stängts.
 
 Stoppa testbrokern efter körningen med `docker stop halsingelive-rabbitmq-test`.
 
