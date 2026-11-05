@@ -40,17 +40,23 @@ export default function HomePage() {
     queryKey: ['venues'],
     queryFn: ({ signal }) => getVenues(signal),
   })
+  const {
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+  } = eventsQuery
 
   useEffect(() => {
     const target = loadMoreRef.current
-    if (!target || !eventsQuery.hasNextPage || eventsQuery.isFetchingNextPage || eventsQuery.isFetchNextPageError) return
+    if (!target || !hasNextPage || isFetchingNextPage || isFetchNextPageError) return
 
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) void eventsQuery.fetchNextPage()
+      if (entry.isIntersecting) void fetchNextPage()
     }, { rootMargin: '300px' })
     observer.observe(target)
     return () => observer.disconnect()
-  }, [eventsQuery.hasNextPage, eventsQuery.isFetchingNextPage, eventsQuery.isFetchNextPageError, eventsQuery.fetchNextPage])
+  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
   const venuesById = useMemo(
     () => new Map(venuesQuery.data?.map((venue) => [venue.id, `${venue.name}, ${venue.city}`]) ?? []),

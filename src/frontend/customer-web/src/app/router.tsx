@@ -1,13 +1,17 @@
+import { Suspense } from 'react'
+import { CircularProgress } from '@mui/material'
 import { createBrowserRouter } from 'react-router'
 import CustomerLayout from './layouts/CustomerLayout'
-import HomePage from '../features/events/pages/HomePage'
-import EventDetailPage from '../features/events/pages/EventDetailPage'
-import BookingPage from '../features/bookings/pages/BookingPage'
+import { BookingPage, EventDetailPage, HomePage } from './routePages'
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <CustomerLayout />,
+    element: (
+      <Suspense fallback={<CircularProgress aria-label="Laddar sida" />}>
+        <CustomerLayout />
+      </Suspense>
+    ),
     children: [
       { index: true, element: <HomePage /> },
       { path: 'events/:eventId', element: <EventDetailPage /> },
