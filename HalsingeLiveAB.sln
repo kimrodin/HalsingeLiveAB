@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaymentSimulator.UnitTests"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketService.IntegrationTests", "tests\TicketService.IntegrationTests\TicketService.IntegrationTests.csproj", "{0335C856-EF62-4099-B9D1-5CFE9B1A79BE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiGateway", "src\ApiGateway\ApiGateway.csproj", "{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -187,6 +189,18 @@ Global
 		{0335C856-EF62-4099-B9D1-5CFE9B1A79BE}.Release|x64.Build.0 = Release|Any CPU
 		{0335C856-EF62-4099-B9D1-5CFE9B1A79BE}.Release|x86.ActiveCfg = Release|Any CPU
 		{0335C856-EF62-4099-B9D1-5CFE9B1A79BE}.Release|x86.Build.0 = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|x64.Build.0 = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|x86.Build.0 = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|x64.ActiveCfg = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|x64.Build.0 = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|x86.ActiveCfg = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -205,5 +219,6 @@ Global
 		{01B79BE0-AAD3-4B47-8B15-BFEE2608BE59} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{F5274718-E394-4604-8623-A84C08CCD6CE} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{0335C856-EF62-4099-B9D1-5CFE9B1A79BE} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA} = {984BB9B3-3FA3-BE33-9484-CAC21695A33C}
 	EndGlobalSection
 EndGlobal

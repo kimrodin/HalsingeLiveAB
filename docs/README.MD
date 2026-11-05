@@ -172,6 +172,34 @@ docker compose -f src/Compose.yaml exec eventcatalog-db psql -U postgres -d post
 
 Kör sedan `dotnet ef database update` enligt första-start-steget.
 
+## ApiGateway i Docker Compose
+
+Compose startar YARP-gatewayen som `api-gateway`. Båda frontendapparna skickar API-anrop till `http://api-gateway:8080` genom `API_GATEWAY_PROXY_TARGET`. Detta gäller både Vite i utvecklingsläget och Nginx i grundkonfigurationen. Prefixen behålls fram till YARP, som väljer tjänst och tar bort prefixet.
+
+Gatewayens destinationsadresser sätts i `src/Compose.yaml` med `ReverseProxy__Clusters__...__Address`. De använder interna Compose-värdnamn, medan `appsettings.json` behåller adresserna för lokal .NET-körning.
+
+Med `COMPOSE_FILE=src/Compose.yaml:src/Compose.dev.yaml` i rotens `.env` kör du från projektroten:
+
+```bash
+docker compose up -d --build
+```
+
+Gatewayen publiceras på `http://localhost:5212`. Kontrollera först själva gatewayen och sedan ett anrop genom den till EventCatalog:
+
+```bash
+curl --fail http://localhost:5212/health
+curl --fail http://localhost:5212/api/ListEvents
+curl --fail http://localhost:5174/api/ListEvents
+```
+
+Det sista anropet verifierar kundappens proxy → gateway → EventCatalog. Testa sedan boknings- och betalningsflödet i kundappen samt inloggning och skyddade anrop i adminappen. `/health` kontrollerar bara gatewayen, inte att alla backendtjänster är redo.
+
+Visa relevanta loggar vid fel:
+
+```bash
+docker compose logs --tail=100 api-gateway admin-web customer-web
+```
+
 ## Frontend-appar
 
 Admin-web ligger i `src/frontend/admin-web` och customer-web i `src/frontend/customer-web`. Compose bygger dem som separata tjänster från respektive mapp. Varje app har egna produktions- och utvecklings-Dockerfiler och anropar EventCatalog API:t via sin `/api`-proxy. Admin-web använder Keycloak för inloggning.
