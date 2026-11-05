@@ -1,19 +1,28 @@
+import { Suspense } from 'react';
+import { CircularProgress } from '@mui/material';
 import { createBrowserRouter, Navigate } from 'react-router';
 import AdminLayout from './layouts/AdminLayout';
-import EventListPage from '../features/events/pages/EventListPage';
-import EventFormPage from '../features/events/pages/EventFormPage';
-import VenueListPage from '../features/venues/pages/VenueListPage';
-import NotFoundPage from './pages/NotFoundPage';
-import VenueFormPage from '../features/venues/pages/VenueFormPage';
-import BookingListPage from '../features/bookings/pages/BookingListPage';
-import DashboardPage from '../features/dashboard/pages/DashboardPage';
-import BookingDetailsPage from '../features/bookings/pages/BookingDetailsPage';
-import TicketScannerRoute from '../features/check-in/pages/TicketScannerRoute';
+
+import {
+  BookingDetailsPage,
+  BookingListPage,
+  DashboardPage,
+  EventFormPage,
+  EventListPage,
+  NotFoundPage,
+  TicketScannerRoute,
+  VenueFormPage,
+  VenueListPage,
+} from './routePages';
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <AdminLayout />,
+    element: (
+      <Suspense fallback={<CircularProgress aria-label="Laddar sida" />}>
+        <AdminLayout />
+      </Suspense>
+    ),
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
