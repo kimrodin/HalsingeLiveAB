@@ -53,8 +53,6 @@ docker compose -f src/Compose.yaml logs booking payment-simulator
 | PaymentSimulator PostgreSQL | `localhost:5434` | `payment-simulator-db:5432` |
 | Redis | `localhost:6379` | `booking-redis:6379` |
 
-Swagger: `http://localhost:8081/swagger` och `http://localhost:5111/swagger`.
-
 Booking använder `PaymentSimulator:BaseUrl` och `PaymentSimulator:TimeoutSeconds`. Compose sätter basadressen till `http://payment-simulator:8080/` och HTTP-timeout till 5 sekunder. Vid körning från IDE är standardadressen `http://localhost:5111/`. Inuti containrarna används databasport 5432 för båda databaserna; värdportarna är separata.
 
 ### Befintlig PaymentSimulator-databas

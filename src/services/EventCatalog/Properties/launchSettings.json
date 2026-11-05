@@ -3,8 +3,7 @@
   "profiles": {
     "EventCatalog": {
       "commandName": "Project",
-      "launchBrowser": true,
-      "launchUrl": "swagger",
+      "launchBrowser": false,
       "applicationUrl": "http://localhost:5080",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",

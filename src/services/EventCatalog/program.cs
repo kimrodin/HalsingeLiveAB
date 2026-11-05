@@ -28,8 +28,6 @@ builder.Services.AddDbContext<EventCatalogDbContext>(options =>
         builder.Configuration.GetConnectionString("EventCatalog")));
 
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<EventImageStorageOptions>(builder.Configuration.GetSection("EventImageStorage"));
 builder.Services.AddSingleton<IEventImageStorage, LocalEventImageStorage>();
@@ -109,9 +107,6 @@ if (app.Environment.IsDevelopment())
         var dbContext = scope.ServiceProvider.GetRequiredService<EventCatalogDbContext>();
         await dbContext.Database.MigrateAsync();
     }
-
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();

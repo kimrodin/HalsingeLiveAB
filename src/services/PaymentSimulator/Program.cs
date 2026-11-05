@@ -25,8 +25,6 @@ builder.Services
     .AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
 builder.Services.AddAdminAuthentication(builder.Configuration, builder.Environment.IsDevelopment());
 
@@ -36,12 +34,6 @@ var app = builder.Build();
     await using var scope = app.Services.CreateAsyncScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
     await PaymentDatabaseMigration.MigrateAsync(dbContext);
-}
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
 
 app.UseExceptionHandler();
