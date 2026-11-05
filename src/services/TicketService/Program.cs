@@ -51,8 +51,6 @@ builder.Services.AddAuthorization(options => options.AddPolicy("AdminOnly", poli
     policy.RequireAuthenticatedUser();
     policy.RequireRole("admin");
 }));
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
@@ -61,12 +59,6 @@ if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Ini
     await using var scope = app.Services.CreateAsyncScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<TicketDbContext>();
     await dbContext.Database.MigrateAsync();
-}
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
 
 app.UseAuthentication();

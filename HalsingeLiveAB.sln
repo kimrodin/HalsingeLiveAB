@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Messaging", "src\Contracts\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TicketService.IntegrationTests", "tests\TicketService.IntegrationTests\TicketService.IntegrationTests.csproj", "{0335C856-EF62-4099-B9D1-5CFE9B1A79BE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiGateway", "src\ApiGateway\ApiGateway.csproj", "{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -203,6 +205,18 @@ Global
 		{0335C856-EF62-4099-B9D1-5CFE9B1A79BE}.Release|x64.Build.0 = Release|Any CPU
 		{0335C856-EF62-4099-B9D1-5CFE9B1A79BE}.Release|x86.ActiveCfg = Release|Any CPU
 		{0335C856-EF62-4099-B9D1-5CFE9B1A79BE}.Release|x86.Build.0 = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|x64.Build.0 = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Debug|x86.Build.0 = Debug|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|x64.ActiveCfg = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|x64.Build.0 = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|x86.ActiveCfg = Release|Any CPU
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -223,5 +237,6 @@ Global
 		{FFBE31B8-50B9-B415-22BC-2F92C97CADA3} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{DBE5625F-AD28-4CB2-8150-BF2FCA1CB124} = {FFBE31B8-50B9-B415-22BC-2F92C97CADA3}
 		{0335C856-EF62-4099-B9D1-5CFE9B1A79BE} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{CCB1DD08-603D-4FDA-8526-5AA5A9DC33EA} = {984BB9B3-3FA3-BE33-9484-CAC21695A33C}
 	EndGlobalSection
 EndGlobal

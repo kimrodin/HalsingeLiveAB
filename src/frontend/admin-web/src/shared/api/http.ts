@@ -1,5 +1,5 @@
 import keycloak from '../../app/auth/keycloak';
-// Shared fetch helper; Vite proxies /api to EventCatalog (vite.config.ts).
+// Shared fetch helper; Vite forwards /api to ApiGateway (vite.config.ts).
 export const BASE_URL: string = import.meta.env.VITE_CATALOG_API_URL ?? '/api';
 
 export class ApiError extends Error {

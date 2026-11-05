@@ -23,16 +23,23 @@ npm run preview
 
 ## API proxy
 
-During local development, Vite proxies requests to the backend services. The defaults target host ports; override them with environment variables when the services run elsewhere.
+During local development, Vite forwards `/api`, `/booking-api`, `/ticket-api` and `/payment-api` to ApiGateway at `http://localhost:5212`, preserving the complete path. YARP selects the backend service and removes the prefix.
 
-| Prefix | Service | Default target | Environment variable |
-| --- | --- | --- | --- |
-| `/api` | EventCatalog | `http://localhost:8080` | `CATALOG_API_PROXY_TARGET` |
-| `/booking-api` | Booking | `http://localhost:8081` | `BOOKING_API_PROXY_TARGET` |
-| `/ticket-api` | TicketService | `http://localhost:8082` | `TICKET_API_PROXY_TARGET` |
-| `/payment-api` | PaymentSimulator | `http://localhost:5111` | `PAYMENT_API_PROXY_TARGET` |
+Start the gateway from the repository root, along with the backend services:
 
-The proxy removes the prefix before forwarding the request. In Docker Compose development, the targets are set to the corresponding Compose service names.
+```bash
+dotnet run --project src/ApiGateway --launch-profile http
+```
+
+To use another gateway address, set `API_GATEWAY_PROXY_TARGET` in this app's `.env.local`, then restart Vite:
+
+```dotenv
+API_GATEWAY_PROXY_TARGET=http://localhost:5212
+```
+
+The previous service-specific `*_API_PROXY_TARGET` variables are no longer used. When Vite runs in Docker, set `API_GATEWAY_PROXY_TARGET` to a gateway address reachable from that container. The gateway must also use backend addresses reachable from its own environment.
+
+The Vite proxy only applies to the development server. Production hosting must route these API prefixes to ApiGateway separately.
 
 ## Code layout and API contracts
 

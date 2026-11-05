@@ -135,8 +135,6 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole("admin");
     });
 });
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
@@ -148,9 +146,6 @@ if (app.Environment.IsDevelopment())
         var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
         await dbContext.Database.MigrateAsync();
     }
-
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
 
 app.UseAuthentication();

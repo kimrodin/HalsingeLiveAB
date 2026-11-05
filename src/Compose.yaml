@@ -3,6 +3,25 @@ name: services
 
 services:
 
+  api-gateway:
+    build:
+      context: ./ApiGateway
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ReverseProxy__Clusters__eventCatalog__Destinations__primary__Address: http://eventcatalog:8080/
+      ReverseProxy__Clusters__booking__Destinations__primary__Address: http://booking:8080/
+      ReverseProxy__Clusters__ticketService__Destinations__primary__Address: http://ticketservice:8080/
+      ReverseProxy__Clusters__paymentSimulator__Destinations__primary__Address: http://payment-simulator:8080/
+    ports:
+      - "127.0.0.1:5212:8080"
+    depends_on:
+      - eventcatalog
+      - booking
+      - ticketservice
+      - payment-simulator
+
   booking:
     build:
       context: .
@@ -26,8 +45,6 @@ services:
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
-    ports:
-      - "8081:8080"
     healthcheck: &api-healthcheck
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "5", "http://localhost:8080/health/ready"]
       interval: 15s
@@ -62,8 +79,6 @@ services:
       RabbitMq__VirtualHost: "/"
       RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
       RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
-    ports:
-      - "8082:8080"
     healthcheck: *api-healthcheck
     depends_on:
       ticketservice-db:
@@ -117,8 +132,6 @@ services:
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       VenueMapStorage__RootPath: /app/uploads/venue-maps
       EventImageStorage__RootPath: /app/uploads/event-images
-    ports:
-      - "8080:8080"
     healthcheck: *api-healthcheck
     volumes:
       - venue-maps-data:/app/uploads/venue-maps
@@ -211,8 +224,6 @@ services:
       RabbitMq__VirtualHost: "/"
       RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
       RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
-    ports:
-      - "127.0.0.1:5111:8080"
     healthcheck: *api-healthcheck
     depends_on:
       payment-simulator-db:
@@ -225,32 +236,22 @@ services:
       context: ./frontend/admin-web
       dockerfile: Dockerfile
     environment:
-      API_PROXY_TARGET: eventcatalog:8080
-      BOOKING_API_PROXY_TARGET: booking:8080
-      TICKET_API_PROXY_TARGET: ticketservice:8080
-      PAYMENT_API_PROXY_TARGET: payment-simulator:8080
+      API_GATEWAY_PROXY_TARGET: http://api-gateway:8080
     ports:
       - "5173:80"
     depends_on:
-      - eventcatalog
-      - booking
-      - ticketservice
-      - payment-simulator
+      - api-gateway
 
   customer-web:
     build:
       context: ./frontend/customer-web
       dockerfile: Dockerfile
     environment:
-      API_PROXY_TARGET: eventcatalog:8080
-      BOOKING_API_PROXY_TARGET: booking:8080
-      TICKET_API_PROXY_TARGET: ticketservice:8080
+      API_GATEWAY_PROXY_TARGET: http://api-gateway:8080
     ports:
       - "5174:80"
     depends_on:
-      - eventcatalog
-      - booking
-      - ticketservice
+      - api-gateway
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1

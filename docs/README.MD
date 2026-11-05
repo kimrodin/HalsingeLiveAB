@@ -27,7 +27,7 @@ med hot reload. Vid första starten eller när Docker-avbildningarna behöver by
 om, kör `docker compose up -d --build`. EventCatalog-databasens första migration
 behöver fortfarande appliceras enligt instruktionerna nedan.
 
-## Starta EventCatalog med Docker och Swagger
+## Starta EventCatalog med Docker
 
 ### Förutsättningar
 
@@ -90,11 +90,9 @@ Scripten startar PostgreSQL, väntar tills databasen är redo, applicerar EF Cor
    docker compose -f src/Compose.yaml up -d --build
    ```
 
-4. Öppna Swagger UI:
+4. Öppna kundappen på **http://localhost:5174** eller adminappen på **http://localhost:5173**.
 
-   **http://localhost:8080/swagger**
-
-Compose sätter `ASPNETCORE_ENVIRONMENT=Development`, vilket aktiverar Swagger. API:t lyssnar på port `8080`; PostgreSQL publiceras på port `5432`.
+Compose sätter `ASPNETCORE_ENVIRONMENT=Development`. PostgreSQL publiceras på port `5432`.
 
 ### Automatisk migration vid uppstart (valfritt)
 
@@ -161,7 +159,7 @@ docker compose -f src/Compose.yaml up -d eventcatalog-db
 dotnet run --project src/services/EventCatalog/EventCatalog.csproj --launch-profile EventCatalog
 ```
 
-Startprofilen använder `Host=localhost` och öppnar Swagger på **http://localhost:5080/swagger**. Applicera migrationerna enligt steget ovan första gången.
+Startprofilen använder `Host=localhost` och API:t lyssnar på **http://localhost:5080**. Applicera migrationerna enligt steget ovan första gången.
 
 ### Anslutningssträngar
 
@@ -176,6 +174,34 @@ docker compose -f src/Compose.yaml exec eventcatalog-db psql -U postgres -d post
 ```
 
 Kör sedan `dotnet ef database update` enligt första-start-steget.
+
+## ApiGateway i Docker Compose
+
+Compose startar YARP-gatewayen som `api-gateway`. Båda frontendapparna skickar API-anrop till `http://api-gateway:8080` genom `API_GATEWAY_PROXY_TARGET`. Detta gäller både Vite i utvecklingsläget och Nginx i grundkonfigurationen. Prefixen behålls fram till YARP, som väljer tjänst och tar bort prefixet.
+
+Gatewayens destinationsadresser sätts i `src/Compose.yaml` med `ReverseProxy__Clusters__...__Address`. De använder interna Compose-värdnamn, medan `appsettings.json` behåller adresserna för lokal .NET-körning.
+
+Med `COMPOSE_FILE=src/Compose.yaml:src/Compose.dev.yaml` i rotens `.env` kör du från projektroten:
+
+```bash
+docker compose up -d --build
+```
+
+Gatewayen publiceras på `http://localhost:5212`. Kontrollera först själva gatewayen och sedan ett anrop genom den till EventCatalog:
+
+```bash
+curl --fail http://localhost:5212/health
+curl --fail http://localhost:5212/api/ListEvents
+curl --fail http://localhost:5174/api/ListEvents
+```
+
+Det sista anropet verifierar kundappens proxy → gateway → EventCatalog. Testa sedan boknings- och betalningsflödet i kundappen samt inloggning och skyddade anrop i adminappen. `/health` kontrollerar bara gatewayen, inte att alla backendtjänster är redo.
+
+Visa relevanta loggar vid fel:
+
+```bash
+docker compose logs --tail=100 api-gateway admin-web customer-web
+```
 
 ## Frontend-appar
 

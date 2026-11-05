@@ -20,7 +20,6 @@ Den är separat från BookingService eftersom en bokning och en biljett har olik
 | **Intern API-nyckel** | Skyddar tjänst-till-tjänst-anrop från BookingService. |
 | **QRCoder** | Skapar en QR-kod som innehåller biljettens ID. |
 | **QuestPDF** | Skapar biljett-PDF:er vid behov. |
-| **Swagger** | Beskriver och gör API:et möjligt att utforska i utvecklingsmiljö. |
 
 ## Var finns koden?
 

@@ -379,7 +379,6 @@ dessa proxade anrop.
 | --- | --- | --- |
 | Admin-webben | <http://localhost:5173> | `testadmin` / `testadmin` |
 | Keycloaks admin-konsol | <http://localhost:8180/admin> | `keycloak-admin` / `keycloak-admin` |
-| Swagger | <http://localhost:5080/swagger> | Skyddade anrop kräver token även här |
 
 Börja med admin-webben på port 5173. Klicka **Logga in**; Keycloak öppnar sin
 inloggningssida och skickar dig tillbaka till admin-webben efter inloggning.
@@ -445,8 +444,6 @@ sektioner och evenemang.
   `http://localhost:5173` och att redirect-inställningarna matchar.
 - **Keycloaks admin-lösenord fungerar inte:** bootstrap-inställningen ersätter
   inte lösenordet om kontot redan finns i den sparade Keycloak-volymen.
-- **Swagger ger 401:** inloggningen i admin-webben skickar inte automatiskt token
-  från Swagger. OAuth/Bearer-stöd i Swagger är en separat konfiguration.
 
 ## Köra hela systemet i Docker
 
@@ -457,8 +454,7 @@ Kör från projektets rot efter att databas-migrationerna har applicerats:
 docker compose -f src/Compose.yaml up -d --build
 ```
 
-Admin-webben finns på <http://localhost:5173>, Swagger på
-<http://localhost:8080/swagger> och Keycloak på <http://localhost:8180/admin>.
+Admin-webben finns på <http://localhost:5173> och Keycloak på <http://localhost:8180/admin>.
 Stoppa eventuell lokal Vite-server innan du startar frontend-containern på port 5173.
 
 API-containern hämtar discovery-information via `http://keycloak:8080`, medan
