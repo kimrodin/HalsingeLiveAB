@@ -4,6 +4,7 @@ using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
+using PaymentSimulator.Messaging;
 
 namespace PaymentSimulator.Features.Payments.ProcessPayment;
 
@@ -11,6 +12,33 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSetting
     RefundPaymentHandler refundPaymentHandler)
 {
     public async Task<ProcessPaymentResponse> Handle(
+        ProcessPaymentRequest request, CancellationToken cancellationToken)
+    {
+        var payment = await GetOrCreatePaymentAsync(request, cancellationToken);
+        if (payment.Status == PaymentStatus.Pending)
+        {
+            var waitUntil = payment.CompleteAfter < DateTimeOffset.UtcNow.AddSeconds(30)
+                ? payment.CompleteAfter : DateTimeOffset.UtcNow.AddSeconds(30);
+            // Timers may wake slightly early; recheck the persisted deadline before completion.
+            while (waitUntil > DateTimeOffset.UtcNow)
+            {
+                var remaining = waitUntil - DateTimeOffset.UtcNow;
+                await Task.Delay(TimeSpan.FromMilliseconds(Math.Max(1,
+                    Math.Ceiling(remaining.TotalMilliseconds))), cancellationToken);
+            }
+            await CompleteDuePayments(cancellationToken);
+            payment = await dbContext.Payments.AsNoTracking()
+                .SingleAsync(p => p.Id == payment.Id, cancellationToken);
+        }
+        return ToResponse(payment);
+    }
+
+    // Queue deliveries only need durable acceptance; the recovery worker owns completion.
+    public async Task<ProcessPaymentResponse> AcceptAsync(
+        ProcessPaymentRequest request, CancellationToken cancellationToken) =>
+        ToResponse(await GetOrCreatePaymentAsync(request, cancellationToken));
+
+    private async Task<Payment> GetOrCreatePaymentAsync(
         ProcessPaymentRequest request, CancellationToken cancellationToken)
     {
         var currency = PaymentValidation.ValidateAndNormalizeCurrency(request);
@@ -45,35 +73,29 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSetting
         if (payment.Amount != request.Amount || payment.Currency != currency)
             throw new PaymentConflictException("A payment with different details already exists for this booking.");
 
-        if (payment.Status == PaymentStatus.Pending)
-        {
-            var waitUntil = payment.CompleteAfter < DateTimeOffset.UtcNow.AddSeconds(30)
-                ? payment.CompleteAfter : DateTimeOffset.UtcNow.AddSeconds(30);
-            // Timers may wake slightly early; recheck the persisted deadline before completion.
-            while (waitUntil > DateTimeOffset.UtcNow)
-            {
-                var remaining = waitUntil - DateTimeOffset.UtcNow;
-                await Task.Delay(TimeSpan.FromMilliseconds(Math.Max(1,
-                    Math.Ceiling(remaining.TotalMilliseconds))), cancellationToken);
-            }
-            await CompleteDuePayments(cancellationToken);
-            payment = await dbContext.Payments.AsNoTracking()
-                .SingleAsync(p => p.Id == payment.Id, cancellationToken);
-        }
-        return ToResponse(payment);
+        return payment;
     }
 
     public async Task CompleteDuePayments(CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
-        // Conditional database updates allow multiple workers/HTTP requests without overwriting
-        // terminal results or a refund's cancellation fence.
-        await dbContext.Payments
-            .Where(p => p.Status == PaymentStatus.Pending && p.CompleteAfter <= now)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(p => p.Status, p => p.PlannedOutcome)
-                .SetProperty(p => p.CompletedAt, now)
-                .SetProperty(p => p.PaidAt, p => p.PlannedOutcome == PaymentStatus.Succeeded ? now : p.PaidAt), cancellationToken);
+        // One statement commits the terminal outcome and its event atomically. PostgreSQL
+        // rechecks the Pending predicate after competing completions or cancellation fences.
+        await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            WITH completed AS (
+                UPDATE "Payments"
+                SET "Status" = "PlannedOutcome", "CompletedAt" = {now},
+                    "PaidAt" = CASE WHEN "PlannedOutcome" = 'Succeeded' THEN {now} ELSE "PaidAt" END
+                WHERE "Status" = 'Pending' AND "CompleteAfter" <= {now}
+                RETURNING *
+            )
+            INSERT INTO "PaymentResultOutboxMessages"
+                ("MessageId", "PaymentId", "BookingId", "Amount", "Currency", "Outcome",
+                 "PaidAtUtc", "OccurredAtUtc", "NextAttemptAtUtc", "AttemptCount")
+            SELECT gen_random_uuid(), "Id", "BookingId", "Amount", "Currency", "Status",
+                   "PaidAt", "CompletedAt", "CompletedAt", 0 FROM completed
+            ON CONFLICT ("PaymentId") DO NOTHING
+            """, cancellationToken);
     }
 
     public async Task<ProcessPaymentResponse> Cancel(ProcessPaymentRequest request, CancellationToken cancellationToken)
@@ -96,6 +118,7 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSetting
                 RefundedAt = now
             };
             dbContext.Payments.Add(payment);
+            dbContext.PaymentResultOutboxMessages.Add(PaymentResultOutboxMessage.FromPayment(payment));
             try { await dbContext.SaveChangesAsync(cancellationToken); }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException
                 { SqlState: PostgresErrorCodes.UniqueViolation })

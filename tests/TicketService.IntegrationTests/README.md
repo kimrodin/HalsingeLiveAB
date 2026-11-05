@@ -36,6 +36,14 @@ dotnet test tests/TicketService.IntegrationTests/TicketService.IntegrationTests.
 A configured but unreachable server or insufficient database permissions causes
 a test failure. CI supplies the variable using its PostgreSQL service.
 
+The consumer recovery tests also require `TICKET_TEST_RABBITMQ`, an AMQP URI for
+a dedicated RabbitMQ test broker or isolated virtual host. They recreate the
+ticket queue and close the consumer connection, then verify that ticket issuance
+resumes. See [the messaging test instructions](../../docs/messaging.md#integrationstester-med-rabbitmq)
+for broker setup. These tests skip if either connection variable is missing.
+When sharing a test broker across projects, run the solution with
+`dotnet test HalsingeLiveAB.sln --maxcpucount:1`, as CI does.
+
 Separate EF contexts wait at a bounded save barrier so both requests read the original
 state before competing. Tests cover identical and conflicting concurrent issuance,
 double check-in, double cancellation, and check-in versus cancellation. They verify

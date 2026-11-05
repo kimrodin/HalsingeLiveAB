@@ -1,5 +1,6 @@
 using Booking.Features.Bookings.Models;
 using Booking.Features.Tickets;
+using Booking.Features.Payments;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
 using InventoryModel = Booking.Features.EventInventory.Models.EventInventory;
@@ -12,9 +13,32 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
     public DbSet<BookingItem> BookingItems => Set<BookingItem>();
     public DbSet<InventoryModel> EventInventory => Set<InventoryModel>();
     public DbSet<TicketIssueOutboxMessage> TicketIssueOutboxMessages => Set<TicketIssueOutboxMessage>();
+    public DbSet<PaymentResultInboxMessage> PaymentResultInboxMessages => Set<PaymentResultInboxMessage>();
+    public DbSet<PaymentRequestOutboxMessage> PaymentRequestOutboxMessages => Set<PaymentRequestOutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<PaymentRequestOutboxMessage>(entity =>
+        {
+            entity.ToTable("PaymentRequestOutboxMessages");
+            entity.HasKey(message => message.MessageId);
+            entity.HasIndex(message => message.BookingId).IsUnique();
+            entity.HasIndex(message => new { message.DeliveredAtUtc, message.SuppressedAtUtc, message.NextAttemptAtUtc });
+            entity.Property(message => message.Amount).HasPrecision(18, 2);
+            entity.Property(message => message.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(message => message.LastError).HasMaxLength(2000).IsRequired(false);
+        });
+        modelBuilder.Entity<PaymentResultInboxMessage>(entity =>
+        {
+            entity.ToTable("PaymentResultInboxMessages");
+            entity.HasKey(message => message.MessageId);
+            entity.HasIndex(message => message.PaymentId);
+            entity.HasIndex(message => new { message.ProcessedAtUtc, message.RejectedAtUtc, message.NextAttemptAtUtc });
+            entity.Property(message => message.Amount).HasPrecision(18, 2);
+            entity.Property(message => message.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(message => message.Outcome).HasMaxLength(20).IsRequired();
+            entity.Property(message => message.LastError).HasMaxLength(2000).IsRequired(false);
+        });
         modelBuilder.Entity<BookingModel>(entity =>
         {
             entity.ToTable("Bookings");

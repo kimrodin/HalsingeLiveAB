@@ -5,8 +5,8 @@ services:
 
   booking:
     build:
-      context: ./services/Booking
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/Booking/Dockerfile
     environment:
       ConnectionStrings__Booking: "Host=booking-db;Port=5432;Database=booking_dev;Username=postgres;Password=postgres"
       ConnectionStrings__Redis: "booking-redis:6379"
@@ -17,26 +17,39 @@ services:
       TicketService__BaseUrl: "http://ticketservice:8080/"
       TicketService__TimeoutSeconds: "5"
       TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__VirtualHost: "/"
+      RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
       Authentication__Authority: http://localhost:8180/realms/halsingelive
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
     ports:
       - "8081:8080"
+    healthcheck: &api-healthcheck
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "5", "http://localhost:8080/health/ready"]
+      interval: 15s
+      timeout: 6s
+      retries: 3
+      start_period: 30s
     depends_on:
       booking-db:
         condition: service_healthy
       booking-redis:
         condition: service_healthy
       payment-simulator:
-        condition: service_started
+        condition: service_healthy
       ticketservice:
-        condition: service_started
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   ticketservice:
     build:
-      context: ./services/TicketService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/TicketService/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       InitializeDatabase: "true"
@@ -44,10 +57,18 @@ services:
       Authentication__Authority: http://localhost:8180/realms/halsingelive
       Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
       ConnectionStrings__TicketService: "Host=ticketservice-db;Port=5432;Database=ticketservice_dev;Username=postgres;Password=postgres"
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__VirtualHost: "/"
+      RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
     ports:
       - "8082:8080"
+    healthcheck: *api-healthcheck
     depends_on:
       ticketservice-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   ticketservice-db:
@@ -98,6 +119,7 @@ services:
       EventImageStorage__RootPath: /app/uploads/event-images
     ports:
       - "8080:8080"
+    healthcheck: *api-healthcheck
     volumes:
       - venue-maps-data:/app/uploads/venue-maps
       - event-images-data:/app/uploads/event-images
@@ -107,7 +129,7 @@ services:
       keycloak:
         condition: service_started
       booking:
-        condition: service_started
+        condition: service_healthy
 
   eventcatalog-db:
     image: postgres:18-alpine
@@ -140,6 +162,22 @@ services:
       timeout: 3s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit loopback_users []"
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   payment-simulator-db:
     image: postgres:18-alpine
     environment:
@@ -158,8 +196,8 @@ services:
 
   payment-simulator:
     build:
-      context: ./services/PaymentSimulator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/PaymentSimulator/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       Authentication__Authority: http://localhost:8180/realms/halsingelive
@@ -168,10 +206,18 @@ services:
       PaymentSimulation__Outcome: "${PAYMENT_SIMULATION_OUTCOME:-Succeeded}"
       PaymentSimulation__DelayMs: "${PAYMENT_SIMULATION_DELAY_MS:-500}"
       PaymentSimulation__TimeoutMs: "${PAYMENT_SIMULATION_TIMEOUT_MS:-5000}"
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__VirtualHost: "/"
+      RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
     ports:
       - "127.0.0.1:5111:8080"
+    healthcheck: *api-healthcheck
     depends_on:
       payment-simulator-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   admin-web:
@@ -228,4 +274,5 @@ volumes:
   event-images-data:
   venue-maps-data:
   booking-redis-data:
+  rabbitmq-data:
   ticketservice-data:

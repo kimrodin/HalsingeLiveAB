@@ -176,38 +176,27 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
     }
 
     [BookingIntegrationFact]
-    public async Task ConcurrentRequests_OnlyOnePaymentIsSubmittedAndStockIsDeductedOnce()
+    public async Task ConcurrentRequests_SaveOneRequestWithoutCallingThePaymentGateway()
     {
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var gateway = new FakePaymentGateway
-        {
-            BeforeResult = async () => { entered.SetResult(); await release.Task.WaitAsync(TimeSpan.FromSeconds(10)); }
-        };
+        var gateway = new FakePaymentGateway();
         var inventory = await fixture.CreateInventoryAsync();
         var id = await fixture.ReserveAsync(inventory, gateway);
-
-        var first = PayAsync(id, gateway);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        StartPaymentResult second;
-        try
+        async Task<StartPaymentResult> StartAsync()
         {
-            second = await PayAsync(id, gateway).WaitAsync(TimeSpan.FromSeconds(10));
+            await using var db = fixture.CreateContext();
+            return await fixture.CreateService(db, gateway).StartPaymentAsync(id);
         }
-        finally
-        {
-            release.TrySetResult();
-        }
-        var completed = await first;
-
-        Assert.Equal(BookingStatuses.Confirmed, completed.BookingStatus);
-        Assert.Contains(second.PaymentStatus, new[] { "Pending", "Succeeded" });
-        Assert.Equal(1, gateway.ProcessCalls);
-        Assert.Equal(9, await DatabaseStockAsync(inventory));
+        var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => StartAsync()));
+        Assert.All(results, result => Assert.Equal("Pending", result.PaymentStatus));
+        Assert.Equal(0, gateway.ProcessCalls);
+        await using var verify = fixture.CreateContext();
+        Assert.Single(await verify.PaymentRequestOutboxMessages.Where(row => row.BookingId == id).ToListAsync());
+        Assert.True((await verify.Bookings.SingleAsync(row => row.BookingId == id)).PaymentRequested);
+        Assert.Equal(10, await DatabaseStockAsync(inventory));
     }
 
     [BookingIntegrationFact]
-    public async Task LostHttpResponse_IsRecoveredByLookupWithoutSubmittingAnotherCharge()
+    public async Task UncertainRequestDelivery_IsRecoveredByLookupWithoutSubmittingAnotherCharge()
     {
         var gateway = new FakePaymentGateway { LoseFirstResponse = true };
         var inventory = await fixture.CreateInventoryAsync();
@@ -339,8 +328,34 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
 
     private async Task<StartPaymentResult> PayAsync(Guid id, IPaymentGateway gateway)
     {
-        await using var db = fixture.CreateContext();
-        return await fixture.CreateService(db, gateway).StartPaymentAsync(id);
+        StartPaymentResult started;
+        await using (var db = fixture.CreateContext())
+            started = await fixture.CreateService(db, gateway).StartPaymentAsync(id);
+        if (started.PaymentStatus != "Pending")
+            return started;
+
+        // Simulate the payment consumer processing the persisted request. Production
+        // Booking must never call ProcessAsync; the real broker path is tested separately.
+        await using (var db = fixture.CreateContext())
+        {
+            var message = await db.PaymentRequestOutboxMessages.SingleOrDefaultAsync(row => row.BookingId == id);
+            var booking = await db.Bookings.SingleAsync(row => row.BookingId == id);
+            if (message is { DeliveredAtUtc: null } && booking.Status == BookingStatuses.Reserved && booking.ExpiresAt > DateTime.UtcNow)
+            {
+                try
+                {
+                    await gateway.ProcessAsync(message.BookingId, message.Amount, message.Currency, CancellationToken.None);
+                    message.DeliveredAtUtc = DateTimeOffset.UtcNow;
+                    await db.SaveChangesAsync();
+                }
+                catch (HttpRequestException)
+                {
+                    return started with { PaymentStatus = "Unknown" };
+                }
+            }
+        }
+        await using var recovery = fixture.CreateContext();
+        return await fixture.CreateService(recovery, gateway).ReconcilePaymentAsync(id);
     }
 
     private async Task SetExpirationAsync(Guid id, DateTime expiresAt)

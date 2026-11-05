@@ -1,3 +1,4 @@
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -23,8 +24,9 @@ public sealed class TicketConcurrencyTests(TicketDatabaseFixture database) : ICl
         var gate = new ConcurrentSaveGate();
         await using var firstDb = database.CreateContext(gate);
         await using var secondDb = database.CreateContext(gate);
-        var message = new BookingConfirmedMessage
+        var message = new BookingConfirmedV1
         {
+            MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
             BookingId = Guid.NewGuid(), BookingItemId = Guid.NewGuid(), EventId = Guid.NewGuid(),
             EventName = "Concurrent event", EventStartsAtUtc = DateTimeOffset.Parse("2026-11-01T19:00:00Z"),
             VenueName = "Hall", SectionName = "Standing", Quantity = quantity, UnitPrice = 100m, Currency = "SEK"
@@ -116,7 +118,7 @@ public sealed class TicketConcurrencyTests(TicketDatabaseFixture database) : ICl
     }
 
     private static async Task<(IssueTicketsResult? Result, Exception? Error)> AttemptIssue(
-        TicketDbContext db, BookingConfirmedMessage message)
+        TicketDbContext db, BookingConfirmedV1 message)
     {
         try
         {

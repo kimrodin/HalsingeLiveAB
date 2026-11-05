@@ -1,6 +1,6 @@
-# Bokning och betalning via HTTP
+# Bokning och betalning
 
-Booking äger priset och reservationstiden (10 minuter). Klienten skickar endast ett boknings-ID till `POST /StartPayment/{bookingId}`. Booking läser `TotalPrice` från sin databas och skickar beloppet med valutan `SEK` till PaymentSimulator. Bekräftelse kräver ett verifierat betalningsresultat med rätt bokning, belopp, valuta och status `Succeeded`, samt en fortfarande giltig reservation. PostgreSQLs villkorade lageruppdatering är slutlig kontroll mot dubbelförsäljning.
+Booking äger priset och reservationstiden (10 minuter). Klienten skickar ett boknings-ID till `POST /StartPayment/{bookingId}` med bokningens gästtoken i `X-Guest-Access-Token`. Booking sparar betalningsavsikten och en request-outbox med databasens `TotalPrice` och valutan `SEK` i samma transaktion. Den första accepterade starten returnerar `202 Accepted` med `Pending`; betalningen startas därefter via RabbitMQ. Bekräftelse kräver ett verifierat betalningsresultat med rätt bokning, belopp, valuta och status `Succeeded`, samt en fortfarande giltig reservation. PostgreSQLs villkorade lageruppdatering är slutlig kontroll mot dubbelförsäljning. Se [meddelandeflöden och kodreferenser](messaging.md).
 
 `POST /ConfirmBooking/{bookingId}` returnerar `403 Forbidden` utan att ändra bokningen. Använd `StartPayment` för hela flödet.
 
@@ -9,7 +9,7 @@ Svaret från `StartPayment` innehåller `bookingId`, `bookingStatus`, `paymentSt
 | HTTP-status | Betydelse |
 | --- | --- |
 | `200` | Bokningen är bekräftad. |
-| `202` | Bearbetning pågår eller betalningsresultatet är ännu okänt. |
+| `202` | Begäran är beständigt accepterad för asynkron behandling, bearbetning pågår eller betalningsresultatet är ännu okänt. |
 | `404` | Bokningen saknas. |
 | `409` | Betalningen misslyckades, fick terminal timeout, återbetalades eller bokningen kan inte längre bekräftas. |
 | `502` | Simulatorns svar klarade inte kontraktskontrollen eller simulatorn avvisade begäran, exempelvis med `409`. |
@@ -19,7 +19,7 @@ Detta är HTTP-statusarna från **Booking till kundwebben**. De är skilda från
 | Svar från PaymentSimulator | Bookings hantering |
 | --- | --- |
 | `200` med betalningsstatus `Failed` eller `TimedOut` | Bokningen avbryts och reservationen släpps. `StartPayment` returnerar `409` med betalningsresultatet. |
-| `404` vid uppslag via boknings-ID | Ingen betalning hittades. Booking kan starta ett försök om reservationen är giltig, annars spärra ett tidigare begärt försök. |
+| `404` vid uppslag via boknings-ID | Ingen betalning hittades. Booking väntar på RabbitMQ-flödet om reservationen är giltig, annars spärras ett tidigare begärt försök. Avstämningen startar aldrig ett försök via HTTP. |
 | `409`, eller annat avvisat `4xx` utom `408`/`429` | Kontraktsfel, exempelvis motstridiga belopp. `StartPayment` returnerar `502` med `paymentStatus: Invalid`. `404` vid återbetalning är också ett kontraktsfel, inte en saknad bokning. |
 | `200` med felaktig JSON eller betalningsuppgifter som inte matchar | `502` med `paymentStatus: Invalid`. |
 | `408`, `429`, `5xx`, HTTP-timeout eller nätverksfel | Utfallet är osäkert. `202` med `paymentStatus: Unknown`; bakgrundstjänsten följer upp försöket. |
@@ -28,7 +28,7 @@ Ett kontraktsfel innebär inte att betalningen misslyckats. Booking bekräftar e
 
 Controllerns `[Route("/[action]")]` ingår i routningen. `ConfirmBooking`, `StartPayment` och `CancelBooking` får därför olika POST-adresser trots samma `"{bookingId:guid}"`-mall på metoderna. HTTP-integrationstesterna kontrollerar routningen och betalningsklientens statushantering tillsammans.
 
-HTTP-kommunikationen ligger bakom Booking-tjänstens betalningsgränssnitt. Simulatorns betalningslogik ligger kvar i `ProcessPaymentHandler`. Transporten kan senare ersättas med RabbitMQ; ingen broker behövs för det här flödet.
+Betalningsbegäran och betalningsresultat går via RabbitMQ med outbox och inbox. HTTP används fortfarande för kundens anrop till Booking, betalningsuppslag och kompensation genom spärrning/återbetalning. Simulatorns betalningslogik ligger kvar i `ProcessPaymentHandler`. RabbitMQ behöver köras för att nya betalningsbegäranden ska behandlas; ett brokeravbrott lämnar dem väntande i Bookings outbox.
 
 ## Starta med Docker Compose
 
@@ -39,7 +39,7 @@ docker compose -f src/Compose.yaml up -d --build booking payment-simulator
 docker compose -f src/Compose.yaml ps
 ```
 
-Beroenden (Booking PostgreSQL, PaymentSimulator PostgreSQL och Redis) startas också. Tjänsterna initierar sina databaser vid uppstart i utvecklingsmiljön. Kontrollera loggarna om databasen eller API:t ännu inte är redo:
+Beroenden, inklusive PostgreSQL, Redis och RabbitMQ, startas också. Ange `TICKET_SERVICE_INTERNAL_API_KEY` för Booking och TicketService innan Compose-kommandot körs. Tjänsterna initierar sina databaser vid uppstart i utvecklingsmiljön. Kontrollera loggarna om databasen eller API:t ännu inte är redo:
 
 ```powershell
 docker compose -f src/Compose.yaml logs booking payment-simulator
@@ -77,12 +77,13 @@ $request = @{
 } | ConvertTo-Json
 $reservation = Invoke-RestMethod -Method Post -Uri "$bookingApi/CreateBooking" -ContentType 'application/json' -Body $request
 $bookingId = $reservation.bookingId
-Invoke-RestMethod -Method Post -Uri "$bookingApi/StartPayment/$bookingId"
-Invoke-RestMethod -Uri "$bookingApi/GetBooking/$bookingId"
+$guestHeaders = @{ 'X-Guest-Access-Token' = $reservation.guestAccessToken }
+Invoke-RestMethod -Method Post -Uri "$bookingApi/StartPayment/$bookingId" -Headers $guestHeaders
+Invoke-RestMethod -Uri "$bookingApi/GetBooking/$bookingId" -Headers $guestHeaders
 Invoke-RestMethod -Uri "http://localhost:5111/api/payments/by-booking/$bookingId"
 ```
 
-Med standardinställningarna ska betalningen bli `Succeeded` och bokningen `Confirmed`. Ett upprepat `StartPayment` för samma bokning får inte skapa en extra betalning eller minska lagret igen. För att kontrollera spärren för direkt bekräftelse: skapa en ny reservation och anropa `POST /ConfirmBooking/{bookingId}` före betalningen. Bokningen ska förbli obetald och obekräftad.
+Med standardinställningarna ska betalningen efter bakgrundsbehandlingen bli `Succeeded` och bokningen `Confirmed`. Läs `GetBooking` igen om status fortfarande är väntande; det första startsvarvet väntar inte på betalningen. Ett upprepat `StartPayment` för samma bokning får inte skapa en extra betalning eller minska lagret igen. För att kontrollera spärren för direkt bekräftelse: skapa en ny reservation och anropa `POST /ConfirmBooking/{bookingId}` före betalningen. Bokningen ska förbli obetald och obekräftad.
 
 ## Simulera fel och timeout
 
@@ -102,7 +103,7 @@ docker compose -f src/Compose.yaml up -d --no-deps --force-recreate payment-simu
 
 Skapa en ny reservation och kör `StartPayment` igen. Vid `Failed` ska Booking avbryta bokningen och frigöra reservationen. För simulatorns terminala timeout, ändra `PAYMENT_SIMULATION_OUTCOME` till `TimedOut`, återskapa simulatorcontainern och använd en ny bokning. Bokningen ska inte bekräftas.
 
-För att testa ett oklart HTTP-resultat, använd `Succeeded`, fördröjning `10000` och simulatortimeout `30000`. Booking-klientens femsekunderstimeout kan då inträffa innan simulatorn har slutfört betalningen. Ett nätverksfel eller HTTP-timeout får inte tolkas som `Failed`. Booking sparar att betalning begärts och en bakgrundstjänst kontrollerar oavslutade flöden var 15:e sekund. Vänta på återhämtningen och läs bokningen med `GetBooking`. Det går också att upprepa `StartPayment` med samma boknings-ID för att återanvända det befintliga försöket. Skicka inte ett nytt slumpmässigt boknings-ID för samma köp.
+För att testa väntan på betalning, använd `Succeeded`, fördröjning `10000` och simulatortimeout `30000`. Starten svarar fortfarande direkt med `202` och `Pending`, och betalningen slutförs senare via meddelandeflödet. Ett nätverksfel vid uppslag eller ett brokeravbrott får inte tolkas som `Failed`. Outbox-arbetaren försöker publicera väntande begäranden igen, och avstämningen kontrollerar oavslutade flöden var 15:e sekund. Läs bokningen med `GetBooking` och gästtoken för att följa återhämtningen. Det går också att upprepa `StartPayment` med samma boknings-ID för att återanvända det befintliga flödet. Reservationens sluttid förlängs inte. Skicka inte ett nytt slumpmässigt boknings-ID för samma köp.
 
 Reservationens ursprungliga `ExpiresAt` gäller hela tiden. Betalningsfel, polling och återförsök förlänger inte tiden. För att testa en sen betalning: starta en fördröjd lyckad betalning nära reservationens slut och kontrollera att bokningen inte blir `Confirmed` efter utgångstiden. Återbetalningen ska synas som `refundedAt` på betalningen.
 

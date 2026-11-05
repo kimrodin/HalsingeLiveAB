@@ -45,6 +45,31 @@ public sealed class IssueTicketsEndpointTests
         Assert.Empty(await db.Tickets.ToArrayAsync());
     }
 
+    [Theory]
+    [InlineData("MessageId")]
+    [InlineData("CorrelationId")]
+    [InlineData("OccurredAtUtc")]
+    public async Task IssueFromBooking_InvalidMetadataReturnsBadRequestWithoutSaving(string field)
+    {
+        await using var db = CreateDbContext();
+        var message = CreateMessage();
+        message = field switch
+        {
+            "MessageId" => message with { MessageId = Guid.Empty },
+            "CorrelationId" => message with { CorrelationId = Guid.Empty },
+            "OccurredAtUtc" => message with { OccurredAtUtc = default },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+
+        var result = await CreateController(db).IssueFromBooking(message, "test-key", default);
+
+        var response = Assert.IsType<BadRequestObjectResult>(result);
+        var problem = Assert.IsType<ProblemDetails>(response.Value);
+        Assert.Equal(400, problem.Status);
+        Assert.Contains(field, problem.Detail);
+        Assert.Empty(await db.Tickets.ToArrayAsync());
+    }
+
     [Fact]
     public async Task IssueFromBooking_ChangedSnapshotReturnsConflictWithoutReplacingTickets()
     {

@@ -12,13 +12,21 @@ public sealed class RefundPaymentHandler(PaymentDbContext dbContext)
         var now = DateTimeOffset.UtcNow;
         // A refund racing completion either refunds Succeeded or fences Pending. The original
         // outcome of a completed payment is immutable; RefundedAt records compensation separately.
-        await dbContext.Payments.Where(p => p.Id == paymentId && p.RefundedAt == null
-            && (p.Status == PaymentStatus.Pending || p.Status == PaymentStatus.Succeeded))
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(p => p.RefundedAt, now)
-                .SetProperty(p => p.CompletedAt, p => p.CompletedAt ?? now)
-                .SetProperty(p => p.Status, p => p.Status == PaymentStatus.Pending
-                    ? PaymentStatus.TimedOut : p.Status), cancellationToken);
+        await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            WITH cancelled AS (
+                UPDATE "Payments"
+                SET "RefundedAt" = {now}, "CompletedAt" = COALESCE("CompletedAt", {now}),
+                    "Status" = CASE WHEN "Status" = 'Pending' THEN 'TimedOut' ELSE "Status" END
+                WHERE "Id" = {paymentId} AND "RefundedAt" IS NULL AND "Status" IN ('Pending', 'Succeeded')
+                RETURNING *
+            )
+            INSERT INTO "PaymentResultOutboxMessages"
+                ("MessageId", "PaymentId", "BookingId", "Amount", "Currency", "Outcome",
+                 "PaidAtUtc", "OccurredAtUtc", "NextAttemptAtUtc", "AttemptCount")
+            SELECT gen_random_uuid(), "Id", "BookingId", "Amount", "Currency", "Status",
+                   "PaidAt", "CompletedAt", "CompletedAt", 0 FROM cancelled WHERE "Status" = 'TimedOut'
+            ON CONFLICT ("PaymentId") DO NOTHING
+            """, cancellationToken);
         var payment = await dbContext.Payments.AsNoTracking()
             .SingleOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
         return payment is null ? null : ProcessPaymentHandler.ToResponse(payment);
