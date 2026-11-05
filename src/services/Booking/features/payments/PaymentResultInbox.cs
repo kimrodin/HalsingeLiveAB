@@ -55,6 +55,8 @@ public sealed class PaymentResultInbox(BookingDbContext db, TimeProvider clock)
         if (message.MessageId == Guid.Empty || message.CorrelationId == Guid.Empty
             || message.PaymentId == Guid.Empty || message.BookingId == Guid.Empty)
             throw new InvalidDataException("MessageId, CorrelationId, PaymentId and BookingId must be non-empty.");
+        if (message.CorrelationId != message.BookingId)
+            throw new InvalidDataException("CorrelationId must match BookingId.");
         if (message.OccurredAtUtc == default || message.Outcome is not ("Succeeded" or "Failed" or "TimedOut"))
             throw new InvalidDataException("Payment result requires an occurrence time and a known terminal outcome.");
         if (message.Amount <= 0 || message.Amount > 9999999999999999.99m || decimal.Round(message.Amount, 2) != message.Amount
