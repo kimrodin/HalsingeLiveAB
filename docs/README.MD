@@ -6,6 +6,9 @@ Service messaging with RabbitMQ: [ticket issuance flow and local setup](messagin
 
 Repositoryt innehåller EventCatalog API:t, Booking-tjänsten, PaymentSimulator och två separata webbklienter: admin-web och customer-web. Compose-filen `src/Compose.yaml` startar tjänsterna, databaserna, Keycloak och båda webbklienterna. Inloggning och lokal utveckling beskrivs i [keycloak.md](keycloak.md).
 
+Health-endpoints för de fyra API-tjänsterna och Docker Compose beskrivs i
+[health-checks.md](health-checks.md).
+
 ## Enkel start för lokal utveckling
 
 Kopiera `.env.example` till `.env` i projektets rot och fyll i

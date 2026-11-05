@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using EventCatalog.Data;
@@ -26,6 +28,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<EventCatalogDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("EventCatalog")));
+
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<EventCatalogDbContext>("postgresql", tags: ["ready"]);
+builder.Services.Configure<HealthCheckServiceOptions>(options =>
+    options.Registrations.Single(check => check.Name == "postgresql").Timeout = TimeSpan.FromSeconds(3));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -114,14 +121,37 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+app.UseWhen(context => !context.Request.Path.StartsWithSegments("/health"),
+    branch => branch.UseHttpsRedirection());
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-// Endpoints
-// --------------------------------------------------
 
-// Event endpoints will be registered here
+var readinessOptions = new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable
+    }
+};
+app.MapHealthChecks("/health", readinessOptions).AllowAnonymous();
+app.MapHealthChecks("/health/ready", readinessOptions).AllowAnonymous();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = WriteHealthResponse
+}).AllowAnonymous();
 
 app.Run();
+
+static Task WriteHealthResponse(HttpContext context, HealthReport report) =>
+    context.Response.WriteAsJsonAsync(new
+    {
+        status = report.Status.ToString(),
+        checks = report.Entries.ToDictionary(
+            entry => entry.Key,
+            entry => entry.Value.Status.ToString())
+    }, cancellationToken: context.RequestAborted);

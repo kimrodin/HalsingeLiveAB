@@ -28,15 +28,21 @@ services:
       InitializeDatabase: "true"
     ports:
       - "8081:8080"
+    healthcheck: &api-healthcheck
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "5", "http://localhost:8080/health/ready"]
+      interval: 15s
+      timeout: 6s
+      retries: 3
+      start_period: 30s
     depends_on:
       booking-db:
         condition: service_healthy
       booking-redis:
         condition: service_healthy
       payment-simulator:
-        condition: service_started
+        condition: service_healthy
       ticketservice:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
 
@@ -58,6 +64,7 @@ services:
       RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
     ports:
       - "8082:8080"
+    healthcheck: *api-healthcheck
     depends_on:
       ticketservice-db:
         condition: service_healthy
@@ -112,6 +119,7 @@ services:
       EventImageStorage__RootPath: /app/uploads/event-images
     ports:
       - "8080:8080"
+    healthcheck: *api-healthcheck
     volumes:
       - venue-maps-data:/app/uploads/venue-maps
       - event-images-data:/app/uploads/event-images
@@ -121,7 +129,7 @@ services:
       keycloak:
         condition: service_started
       booking:
-        condition: service_started
+        condition: service_healthy
 
   eventcatalog-db:
     image: postgres:18-alpine
@@ -205,6 +213,7 @@ services:
       RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
     ports:
       - "127.0.0.1:5111:8080"
+    healthcheck: *api-healthcheck
     depends_on:
       payment-simulator-db:
         condition: service_healthy

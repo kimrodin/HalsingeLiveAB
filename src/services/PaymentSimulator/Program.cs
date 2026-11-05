@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using PaymentSimulator.Authentication;
 using Microsoft.EntityFrameworkCore;
 using PaymentSimulator.Data;
@@ -16,6 +18,11 @@ var connectionString = builder.Configuration.GetConnectionString("PaymentSimulat
 
 builder.Services.AddDbContext<PaymentDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<PaymentDbContext>("postgresql", tags: ["ready"]);
+builder.Services.Configure<HealthCheckServiceOptions>(options =>
+    options.Registrations.Single(check => check.Name == "postgresql").Timeout = TimeSpan.FromSeconds(3));
+
 builder.Services.AddScoped<PaymentSimulator.Features.Seed.SeedPaymentsHandler>();
 builder.Services.AddScoped<GetPaymentHandler>();
 builder.Services.AddScoped<ProcessPaymentHandler>();
@@ -58,6 +65,32 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+var readinessOptions = new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable
+    }
+};
+app.MapHealthChecks("/health", readinessOptions).AllowAnonymous();
+app.MapHealthChecks("/health/ready", readinessOptions).AllowAnonymous();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = WriteHealthResponse
+}).AllowAnonymous();
+
 app.Run();
+
+static Task WriteHealthResponse(HttpContext context, HealthReport report) =>
+    context.Response.WriteAsJsonAsync(new
+    {
+        status = report.Status.ToString(),
+        checks = report.Entries.ToDictionary(
+            entry => entry.Key,
+            entry => entry.Value.Status.ToString())
+    }, cancellationToken: context.RequestAborted);
 
 public partial class Program;
