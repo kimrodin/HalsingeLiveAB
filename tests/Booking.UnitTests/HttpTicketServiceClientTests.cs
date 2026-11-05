@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Booking.Features.Tickets;
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 
@@ -12,21 +13,7 @@ public sealed class HttpTicketServiceClientTests
     [Fact]
     public async Task IssueTicketsAsync_PostsConfirmationWithInternalApiKey()
     {
-        var message = new BookingConfirmedMessage
-        {
-            CorrelationId = Guid.NewGuid(),
-            BookingId = Guid.NewGuid(),
-            BookingItemId = Guid.NewGuid(),
-            EventId = Guid.NewGuid(),
-            EventName = "Snapshot concert",
-            EventStartsAtUtc = DateTimeOffset.UtcNow,
-            VenueName = "Snapshot hall",
-            SectionName = "Standing",
-            Quantity = 2,
-            UnitPrice = 199.50m,
-            Currency = "SEK",
-            OccurredAtUtc = DateTime.UtcNow
-        };
+        var message = CreateMessage();
         var httpClient = CreateClient(request =>
         {
             Assert.Equal(HttpMethod.Post, request.Method);
@@ -58,7 +45,7 @@ public sealed class HttpTicketServiceClientTests
 
         var exception = await Assert.ThrowsAsync<HttpRequestException>(() =>
             new HttpTicketServiceClient(client, configuration)
-                .IssueTicketsAsync(new BookingConfirmedMessage()));
+                .IssueTicketsAsync(CreateMessage()));
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, exception.StatusCode);
     }
@@ -117,6 +104,23 @@ public sealed class HttpTicketServiceClientTests
         Assert.Contains("The ticket is for a different event.", exception.Message);
     }
 
+    private static BookingConfirmedV1 CreateMessage() => new()
+    {
+        MessageId = Guid.NewGuid(),
+        CorrelationId = Guid.NewGuid(),
+        BookingId = Guid.NewGuid(),
+        BookingItemId = Guid.NewGuid(),
+        EventId = Guid.NewGuid(),
+        EventName = "Snapshot concert",
+        EventStartsAtUtc = DateTimeOffset.UtcNow,
+        VenueName = "Snapshot hall",
+        SectionName = "Standing",
+        Quantity = 2,
+        UnitPrice = 199.50m,
+        Currency = "SEK",
+        OccurredAtUtc = DateTimeOffset.UtcNow
+    };
+
     private static HttpClient CreateClient(
         Func<HttpRequestMessage, Task<HttpResponseMessage>> sendAsync) =>
         new(new StubHttpMessageHandler(sendAsync))
@@ -137,9 +141,9 @@ public sealed class HttpTicketServiceClientTests
 
     private static async Task<HttpResponseMessage> VerifyBodyAndRespondAsync(
         HttpRequestMessage request,
-        BookingConfirmedMessage expected)
+        BookingConfirmedV1 expected)
     {
-        var actual = await request.Content!.ReadFromJsonAsync<BookingConfirmedMessage>();
+        var actual = await request.Content!.ReadFromJsonAsync<BookingConfirmedV1>();
         Assert.Equal(expected, actual);
         return new HttpResponseMessage(HttpStatusCode.OK);
     }

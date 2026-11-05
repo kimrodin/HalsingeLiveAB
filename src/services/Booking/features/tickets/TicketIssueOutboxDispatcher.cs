@@ -1,10 +1,12 @@
 using Booking.Data;
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
 
 namespace Booking.Features.Tickets;
 
 public sealed class TicketIssueOutboxDispatcher(
     BookingDbContext dbContext,
+    IBookingConfirmedPublisher publisher,
     ITicketServiceClient ticketServiceClient,
     TimeProvider timeProvider,
     ILogger<TicketIssueOutboxDispatcher> logger)
@@ -47,17 +49,24 @@ public sealed class TicketIssueOutboxDispatcher(
     {
         try
         {
-            await ticketServiceClient.IssueTicketsAsync(ToContract(message), cancellationToken);
+            if (message.BookingId.ToString().StartsWith("51000000-", StringComparison.Ordinal))
+            {
+                // Seed deletion shares the lock above. Wait for issuance to finish;
+                // a broker confirmation would still leave tickets queued after deletion.
+                await ticketServiceClient.IssueTicketsAsync(ToContract(message), cancellationToken);
+            }
+            else
+            {
+                await publisher.PublishAsync(ToContract(message), cancellationToken);
+            }
             message.DeliveredAtUtc = timeProvider.GetUtcNow();
             message.LastError = null;
             logger.LogInformation(
-                "Issued tickets for booking {BookingId}, item {BookingItemId}.",
+                "Delivered ticket issuance for booking {BookingId}, item {BookingItemId}.",
                 message.BookingId,
                 message.BookingItemId);
         }
-        catch (Exception exception) when (
-            exception is HttpRequestException or OperationCanceledException &&
-            !cancellationToken.IsCancellationRequested)
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
             message.AttemptCount++;
             message.NextAttemptAtUtc = timeProvider.GetUtcNow()
@@ -74,9 +83,10 @@ public sealed class TicketIssueOutboxDispatcher(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static BookingConfirmedMessage ToContract(TicketIssueOutboxMessage message) => new()
+    private static BookingConfirmedV1 ToContract(TicketIssueOutboxMessage message) => new()
     {
-        CorrelationId = message.MessageId,
+        MessageId = message.MessageId,
+        CorrelationId = message.BookingId,
         BookingId = message.BookingId,
         BookingItemId = message.BookingItemId,
         EventId = message.EventId,

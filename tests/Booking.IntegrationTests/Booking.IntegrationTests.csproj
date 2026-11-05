@@ -16,10 +16,12 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="../Shared/DatabaseOutage.cs" Link="DatabaseOutage.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\services\Booking\Booking.csproj" />
+    <ProjectReference Include="..\..\src\services\PaymentSimulator\PaymentSimulator.csproj" />
   </ItemGroup>
 
 </Project>

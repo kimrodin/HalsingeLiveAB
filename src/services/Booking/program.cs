@@ -1,4 +1,6 @@
 using Booking.Data;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Booking.Features.EventInventory;
 using Booking.Features.EventInventory.CreateEventInventory;
 using Booking.Features.EventInventory.GetEventInventory;
@@ -17,6 +19,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Booking")));
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<BookingDbContext>("postgresql", tags: ["ready"])
+    .AddCheck<Booking.Health.RedisHealthCheck>("redis", tags: ["ready"], timeout: TimeSpan.FromSeconds(3));
+builder.Services.Configure<HealthCheckServiceOptions>(options =>
+    options.Registrations.Single(check => check.Name == "postgresql").Timeout = TimeSpan.FromSeconds(3));
+
 builder.Services.AddHttpClient<IEventSnapshotProvider, EventCatalogClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["EventCatalog:BaseUrl"]
@@ -26,7 +34,10 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 {
     var connectionString = builder.Configuration.GetConnectionString("Redis")
         ?? throw new InvalidOperationException("Redis connection string is missing.");
-    return ConnectionMultiplexer.Connect(connectionString);
+    var options = ConfigurationOptions.Parse(connectionString);
+    // Keep the shared connection available for readiness checks and reconnect after an outage.
+    options.AbortOnConnectFail = false;
+    return ConnectionMultiplexer.Connect(options);
 });
 builder.Services.AddSingleton<Booking.Features.BookingHolds.RedisReservationService>();
 builder.Services.AddScoped<Booking.Features.Bookings.BookingService>();
@@ -58,6 +69,15 @@ builder.Services.AddHttpClient<ITicketServiceClient, HttpTicketServiceClient>(cl
         ?? throw new InvalidOperationException("TicketService base URL is missing."));
     client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TicketService:TimeoutSeconds", 5));
 });
+builder.Services.AddSingleton<RabbitMqConnectionProvider>();
+builder.Services.AddSingleton<IBookingConfirmedPublisher, RabbitMqBookingConfirmedPublisher>();
+builder.Services.AddSingleton<IPaymentRequestedPublisher, RabbitMqPaymentRequestedPublisher>();
+builder.Services.AddScoped<PaymentRequestOutboxDispatcher>();
+builder.Services.AddHostedService<PaymentRequestOutboxWorker>();
+builder.Services.AddScoped<PaymentResultInbox>();
+builder.Services.AddScoped<PaymentResultInboxDispatcher>();
+builder.Services.AddHostedService<PaymentResultConsumer>();
+builder.Services.AddHostedService<PaymentResultInboxWorker>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<TicketIssueOutboxDispatcher>();
 builder.Services.AddHostedService<TicketIssueOutboxBackgroundService>();
@@ -131,4 +151,31 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+var readinessOptions = new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse,
+    ResultStatusCodes =
+    {
+        [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable
+    }
+};
+app.MapHealthChecks("/health", readinessOptions).AllowAnonymous();
+app.MapHealthChecks("/health/ready", readinessOptions).AllowAnonymous();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = WriteHealthResponse
+}).AllowAnonymous();
+
 app.Run();
+
+static Task WriteHealthResponse(HttpContext context, HealthReport report) =>
+    context.Response.WriteAsJsonAsync(new
+    {
+        status = report.Status.ToString(),
+        checks = report.Entries.ToDictionary(
+            entry => entry.Key,
+            entry => entry.Value.Status.ToString())
+    }, cancellationToken: context.RequestAborted);

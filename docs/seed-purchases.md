@@ -53,6 +53,10 @@ restoring their stock twice; new deletions do not create this intermediate state
 A short transaction advisory lock remains around seed operations and seed ticket
 dispatch because the ticket worker runs automatically. The worker reloads queued
 messages under that lock, so a stale batch cannot recreate deleted seed tickets.
+Seed tickets use synchronous HTTP issuance while this lock is held; ordinary customer
+tickets use RabbitMQ. A broker confirmation alone would leave seed messages able to
+recreate tickets after deletion. Historical seed payments are created through the
+seed HTTP API as already settled payments and do not enter the payment queues.
 No Redis restoration ledger or session advisory lock is needed.
 
 After updating, rebuild EventCatalog, Booking, PaymentSimulator and TicketService before using the

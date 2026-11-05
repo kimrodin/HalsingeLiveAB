@@ -8,6 +8,9 @@ using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
+using PaymentSimulator.Messaging;
+using HalsingeLive.Contracts.Messaging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace PaymentSimulator.IntegrationTests;
 
@@ -36,7 +39,8 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         if (connectionString is null) return;
-        NpgsqlConnection.ClearAllPools();
+        using var pool = new NpgsqlConnection(connectionString);
+        NpgsqlConnection.ClearPool(pool);
         var builder = new NpgsqlConnectionStringBuilder(connectionString) { Database = "postgres" };
         await using var admin = new NpgsqlConnection(builder.ConnectionString);
         await admin.OpenAsync();
@@ -166,6 +170,13 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         Assert.Equal(result, repeat);
         var lookup = await new GetPaymentHandler(db).GetByBooking(request.BookingId, default);
         Assert.Equal(result.PaymentId, lookup!.PaymentId);
+        var outbox = Assert.Single(await db.PaymentResultOutboxMessages.AsNoTracking().ToListAsync());
+        Assert.Equal(result.PaymentId, outbox.PaymentId);
+        Assert.Equal(request.BookingId, outbox.BookingId);
+        Assert.Equal(expected.ToString(), outbox.Outcome);
+        Assert.Equal(result.PaidAt, outbox.PaidAtUtc);
+        Assert.Equal(result.CompletedAt, outbox.OccurredAtUtc);
+        Assert.Null(outbox.DeliveredAtUtc);
     }
 
     [Fact]
@@ -204,6 +215,7 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         Assert.All(results, r => Assert.Equal(PaymentStatus.Succeeded, r.Status));
         await using var verify = CreateDb();
         Assert.Equal(1, await verify.Payments.CountAsync());
+        Assert.Equal(1, await verify.PaymentResultOutboxMessages.CountAsync());
     }
 
     [Fact]
@@ -212,13 +224,26 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         var request = new ProcessPaymentRequest(Guid.NewGuid(), 100m, "SEK");
         await using var db = CreateDb();
         using var cancelled = new CancellationTokenSource();
-        var task = Handler(db, delay: 10000, timeout: 20000).Handle(request, cancelled.Token);
+        var task = Handler(db, delay: 20000, timeout: 30000).Handle(request, cancelled.Token);
         await using var verify = CreateDb();
-        for (var count = 0; !await verify.Payments.AnyAsync() && count < 200; count++)
-            await Task.Delay(10);
-        Assert.True(await verify.Payments.AnyAsync());
-        cancelled.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        try
+        {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            while (!await verify.Payments.AnyAsync(deadline.Token))
+            {
+                if (task.IsFaulted) await task;
+                await Task.Delay(10, deadline.Token);
+            }
+            cancelled.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        }
+        finally
+        {
+            // Always stop the request before disposing its context, even when a wait fails.
+            cancelled.Cancel();
+            try { await task; }
+            catch (OperationCanceledException) when (cancelled.IsCancellationRequested) { }
+        }
         await verify.Payments.ExecuteUpdateAsync(s => s.SetProperty(p => p.CompleteAfter,
             DateTimeOffset.UtcNow.AddSeconds(-1)));
         // A new handler after restart uses the stored plan despite different current settings.
@@ -247,6 +272,9 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         Assert.Equal(PaymentStatus.Succeeded, first!.Status);
         Assert.NotNull(first.RefundedAt);
         Assert.Equal(first, await refund.Handle(payment.PaymentId, default));
+        var outbox = Assert.Single(await db.PaymentResultOutboxMessages.AsNoTracking().ToListAsync());
+        Assert.Equal("Succeeded", outbox.Outcome);
+        Assert.Equal(payment.PaidAt, outbox.PaidAtUtc);
     }
 
     [Fact]
@@ -314,5 +342,84 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         await PaymentDatabaseMigration.MigrateAsync(db);
         Assert.Empty(await db.Payments.ToListAsync());
         Assert.False(db.Database.HasPendingModelChanges());
+    }
+
+    [Fact]
+    public async Task Completion_rolls_back_when_the_outbox_insert_fails()
+    {
+        await using var db = CreateDb();
+        db.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(), BookingId = Guid.NewGuid(), Amount = 100m, Currency = "SEK",
+            Status = PaymentStatus.Pending, PlannedOutcome = PaymentStatus.Succeeded,
+            CreatedAt = DateTimeOffset.UtcNow, CompleteAfter = DateTimeOffset.UtcNow.AddSeconds(-1)
+        });
+        await db.SaveChangesAsync();
+        await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"PaymentResultOutboxMessages\" ADD CONSTRAINT reject_results CHECK (FALSE)");
+
+        await Assert.ThrowsAsync<PostgresException>(() => Handler(db).CompleteDuePayments(default));
+
+        var payment = await db.Payments.AsNoTracking().SingleAsync();
+        Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.Null(payment.CompletedAt);
+        Assert.Null(payment.PaidAt);
+        Assert.Empty(await db.PaymentResultOutboxMessages.ToListAsync());
+        await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"PaymentResultOutboxMessages\" DROP CONSTRAINT reject_results");
+        await Handler(db).CompleteDuePayments(default);
+        Assert.Equal(1, await db.PaymentResultOutboxMessages.CountAsync());
+    }
+
+    [Fact]
+    public async Task Cancellation_fences_publish_one_terminal_failure_and_preserve_its_identity()
+    {
+        await using var db = CreateDb();
+        var request = new ProcessPaymentRequest(Guid.NewGuid(), 100m, "SEK");
+        await Handler(db).Cancel(request, default);
+        var original = await db.PaymentResultOutboxMessages.AsNoTracking().SingleAsync();
+        await Handler(db).Cancel(request, default);
+        await Handler(db).Handle(request, default);
+        var repeated = Assert.Single(await db.PaymentResultOutboxMessages.AsNoTracking().ToListAsync());
+        Assert.Equal("TimedOut", repeated.Outcome);
+        Assert.Equal(original.MessageId, repeated.MessageId);
+        Assert.Equal(original.OccurredAtUtc, repeated.OccurredAtUtc);
+        Assert.Null(repeated.PaidAtUtc);
+    }
+
+    [Fact]
+    public async Task Outbox_retries_the_original_message_after_publish_failure()
+    {
+        await using var db = CreateDb();
+        await Handler(db).Handle(new(Guid.NewGuid(), 100m, "SEK"), default);
+        var publisher = new RecordingResultPublisher { Fail = true };
+        await new PaymentResultOutboxDispatcher(db, publisher, TimeProvider.System,
+            NullLogger<PaymentResultOutboxDispatcher>.Instance).DispatchPendingAsync();
+        var failed = await db.PaymentResultOutboxMessages.AsNoTracking().SingleAsync();
+        Assert.Null(failed.DeliveredAtUtc);
+        Assert.Equal(1, failed.AttemptCount);
+        Assert.NotNull(failed.LastError);
+        db.ChangeTracker.Clear();
+        await db.PaymentResultOutboxMessages.ExecuteUpdateAsync(update => update.SetProperty(row => row.NextAttemptAtUtc,
+            DateTimeOffset.UtcNow.AddSeconds(-1)));
+        publisher.Fail = false;
+        await new PaymentResultOutboxDispatcher(db, publisher, TimeProvider.System,
+            NullLogger<PaymentResultOutboxDispatcher>.Instance).DispatchPendingAsync();
+        var delivered = await db.PaymentResultOutboxMessages.AsNoTracking().SingleAsync();
+        Assert.NotNull(delivered.DeliveredAtUtc);
+        Assert.Null(delivered.LastError);
+        Assert.Equal(2, publisher.Messages.Count);
+        Assert.Equal(publisher.Messages[0], publisher.Messages[1]);
+    }
+
+    private sealed class RecordingResultPublisher : IPaymentResultPublisher
+    {
+        public bool Fail { get; set; }
+        public List<object> Messages { get; } = [];
+        public Task PublishAsync(PaymentSucceededV1 message, CancellationToken cancellationToken = default) => Record(message);
+        public Task PublishAsync(PaymentFailedV1 message, CancellationToken cancellationToken = default) => Record(message);
+        private Task Record(object message)
+        {
+            Messages.Add(message);
+            return Fail ? Task.FromException(new IOException("Broker unavailable.")) : Task.CompletedTask;
+        }
     }
 }

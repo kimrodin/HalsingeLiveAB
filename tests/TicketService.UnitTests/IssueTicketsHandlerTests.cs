@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using HalsingeLive.Contracts.Messaging;
 using TicketService.Features.Tickets.IssueTickets;
 using TicketService.Features.Tickets.Models;
 using static TicketService.UnitTests.TicketTestData;
@@ -119,6 +120,9 @@ public sealed class IssueTicketsHandlerTests
     public static IEnumerable<object[]> InvalidMessages()
     {
         var message = CreateMessage(1);
+        yield return [message with { MessageId = Guid.Empty }, "MessageId"];
+        yield return [message with { CorrelationId = Guid.Empty }, "CorrelationId"];
+        yield return [message with { OccurredAtUtc = default }, "OccurredAtUtc"];
         yield return [message with { BookingId = Guid.Empty }, "BookingId"];
         yield return [message with { BookingItemId = Guid.Empty }, "BookingItemId"];
         yield return [message with { EventId = Guid.Empty }, "EventId"];
@@ -138,7 +142,7 @@ public sealed class IssueTicketsHandlerTests
 
     [Theory]
     [MemberData(nameof(InvalidMessages))]
-    public async Task HandleAsync_RejectsInvalidSnapshotWithoutSaving(BookingConfirmedMessage message, string field)
+    public async Task HandleAsync_RejectsInvalidSnapshotWithoutSaving(BookingConfirmedV1 message, string field)
     {
         await using var db = CreateDbContext();
         var exception = await Assert.ThrowsAsync<TicketIssueValidationException>(

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using HalsingeLive.Contracts.Messaging;
 using Npgsql;
 using TicketService.Data;
 using TicketService.Features.Tickets.Models;
@@ -14,7 +15,7 @@ public sealed class IssueTicketsHandler(
         "IX_Tickets_BookingItemId_TicketNumberInBookingItem";
 
     public async Task<IssueTicketsResult> HandleAsync(
-        BookingConfirmedMessage message,
+        BookingConfirmedV1 message,
         CancellationToken cancellationToken = default)
     {
         if (message is null)
@@ -70,9 +71,15 @@ public sealed class IssueTicketsHandler(
         }
     }
 
-    private static void Validate(BookingConfirmedMessage message)
+    private static void Validate(BookingConfirmedV1 message)
     {
         var errors = new List<string>();
+        if (message.MessageId == Guid.Empty)
+            errors.Add("MessageId is required.");
+        if (message.CorrelationId == Guid.Empty)
+            errors.Add("CorrelationId is required.");
+        if (message.OccurredAtUtc == default)
+            errors.Add("OccurredAtUtc is required.");
         if (message.BookingId == Guid.Empty)
             errors.Add("BookingId is required.");
         if (message.BookingItemId == Guid.Empty)
@@ -102,7 +109,7 @@ public sealed class IssueTicketsHandler(
 
     private static IssueTicketsResult ExistingOrThrow(
         Ticket[] existingTickets,
-        BookingConfirmedMessage message)
+        BookingConfirmedV1 message)
     {
         var expectedStart = message.EventStartsAtUtc.ToUniversalTime();
         var isSameIssue = existingTickets.Length == message.Quantity &&
@@ -112,7 +119,9 @@ public sealed class IssueTicketsHandler(
                 ticket.BookingId == message.BookingId &&
                 ticket.EventId == message.EventId &&
                 ticket.EventName == message.EventName.Trim() &&
-                ticket.EventStartsAt == expectedStart &&
+                // PostgreSQL stores microseconds; redelivery retains the original
+                // message's finer timestamp precision.
+                ticket.EventStartsAt.UtcTicks / 10 == expectedStart.UtcTicks / 10 &&
                 ticket.VenueName == message.VenueName.Trim() &&
                 ticket.SectionName == message.SectionName.Trim() &&
                 ticket.UnitPrice == message.UnitPrice &&
