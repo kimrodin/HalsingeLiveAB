@@ -1,7 +1,13 @@
+using System.Net;
+using System.Net.Http.Json;
 using Booking.Features.Bookings;
 using Booking.Features.EventCatalog;
 using Booking.Features.Seed.SeedPurchases;
+using Booking.Features.Tickets;
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Inventory = Booking.Features.EventInventory.Models.EventInventory;
 
 namespace Booking.IntegrationTests;
@@ -19,13 +25,29 @@ public sealed class SeedPurchasesTests(BookingDatabaseFixture database) : IClass
             var first = await Seed(stock, payments);
             Assert.True(first.CreatedBookings > 0);
             Assert.Equal(0, (await Seed(stock, payments)).CreatedBookings);
+            using var http = new HttpClient(new TicketIssuanceHandler(database, tickets))
+            {
+                BaseAddress = new Uri("http://ticketservice/")
+            };
+            var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["TicketService:InternalApiKey"] = "seed-test-key"
+            }).Build();
+            await using (var dispatchDb = database.CreateContext())
+            {
+                await new TicketIssueOutboxDispatcher(dispatchDb, new RejectingPublisher(),
+                    new HttpTicketServiceClient(http, configuration), TimeProvider.System,
+                    NullLogger<TicketIssueOutboxDispatcher>.Instance).DispatchPendingAsync();
+                Assert.All(await dispatchDb.TicketIssueOutboxMessages.ToArrayAsync(),
+                    message => Assert.NotNull(message.DeliveredAtUtc));
+            }
             await using (var db = database.CreateContext())
             {
                 foreach (var row in await db.Bookings.Include(row => row.Items).ToArrayAsync())
                 {
                     Assert.Equal(BookingStatuses.Confirmed, row.Status);
                     Assert.True(row.PaymentSettled);
-                    tickets.Rows[row.BookingId] = row.Items.Sum(item => item.Quantity);
+                    Assert.Equal(row.Items.Sum(item => item.Quantity), tickets.Rows[row.BookingId]);
                 }
                 Assert.Equal(first.TotalTickets, tickets.Rows.Values.Sum());
                 var ordinaryId = Guid.NewGuid();
@@ -82,6 +104,31 @@ public sealed class SeedPurchasesTests(BookingDatabaseFixture database) : IClass
             var count = ids.Sum(id => Rows[id]);
             foreach (var id in ids) Rows.Remove(id);
             return Task.FromResult(count);
+        }
+    }
+
+    private sealed class RejectingPublisher : IBookingConfirmedPublisher
+    {
+        public Task PublishAsync(BookingConfirmedV1 message, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Seed tickets must not be queued in RabbitMQ.");
+    }
+
+    private sealed class TicketIssuanceHandler(BookingDatabaseFixture database, Tickets tickets) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal("/tickets/issue-from-booking", request.RequestUri!.AbsolutePath);
+            Assert.Equal("seed-test-key", Assert.Single(request.Headers.GetValues("X-Internal-Api-Key")));
+            // Deletion must remain excluded until synchronous ticket issuance finishes.
+            await using var db = database.CreateContext();
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            Assert.False(await db.Database.SqlQueryRaw<bool>(
+                "SELECT pg_try_advisory_xact_lock(51000000) AS \"Value\"").SingleAsync(ct));
+            var message = await request.Content!.ReadFromJsonAsync<BookingConfirmedV1>(ct);
+            Assert.NotNull(message);
+            tickets.Rows[message.BookingId] = message.Quantity;
+            return new HttpResponseMessage(HttpStatusCode.OK);
         }
     }
 

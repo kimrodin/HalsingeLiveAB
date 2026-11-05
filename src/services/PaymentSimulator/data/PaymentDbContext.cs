@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.Simulation;
+using PaymentSimulator.Messaging;
 
 namespace PaymentSimulator.Data;
 
@@ -9,9 +10,21 @@ public sealed class PaymentDbContext(DbContextOptions<PaymentDbContext> options)
 {
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<SimulationSettings> SimulationSettings => Set<SimulationSettings>();
+    public DbSet<PaymentResultOutboxMessage> PaymentResultOutboxMessages => Set<PaymentResultOutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<PaymentResultOutboxMessage>(entity =>
+        {
+            entity.ToTable("PaymentResultOutboxMessages");
+            entity.HasKey(message => message.MessageId);
+            entity.HasIndex(message => message.PaymentId).IsUnique();
+            entity.HasIndex(message => new { message.DeliveredAtUtc, message.NextAttemptAtUtc });
+            entity.Property(message => message.Amount).HasPrecision(18, 2);
+            entity.Property(message => message.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(message => message.Outcome).HasMaxLength(20).IsRequired();
+            entity.Property(message => message.LastError).HasMaxLength(2000);
+        });
         modelBuilder.Entity<SimulationSettings>(entity =>
         {
             entity.HasKey(settings => settings.Id);

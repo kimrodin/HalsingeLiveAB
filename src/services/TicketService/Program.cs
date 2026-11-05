@@ -26,6 +26,8 @@ builder.Services.Configure<HealthCheckServiceOptions>(options =>
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TicketDocumentService>();
 builder.Services.AddScoped<IssueTicketsHandler>();
+builder.Services.AddSingleton<RabbitMqConnectionProvider>();
+builder.Services.AddHostedService<BookingConfirmedConsumer>();
 builder.Services.AddControllers();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

@@ -1,4 +1,5 @@
 using Booking.Features.Tickets;
+using HalsingeLive.Contracts.Messaging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -66,7 +67,7 @@ public sealed class AdminTicketsControllerTests
         public HttpRequestException? Exception { get; init; }
 
         public Task IssueTicketsAsync(
-            BookingConfirmedMessage message,
+            BookingConfirmedV1 message,
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 

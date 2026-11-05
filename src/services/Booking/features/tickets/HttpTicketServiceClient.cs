@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using HalsingeLive.Contracts.Messaging;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +12,7 @@ public sealed class HttpTicketServiceClient(
     IConfiguration configuration) : ITicketServiceClient
 {
     public async Task IssueTicketsAsync(
-        BookingConfirmedMessage message,
+        BookingConfirmedV1 message,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Post, "tickets/issue-from-booking");
