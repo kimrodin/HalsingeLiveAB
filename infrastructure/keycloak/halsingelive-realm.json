@@ -92,7 +92,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "testadmin",
+          "value": "${KEYCLOAK_APP_ADMIN_PASSWORD}",
           "temporary": false
         }
       ],

@@ -8,14 +8,14 @@ services:
       context: ./ApiGateway
       dockerfile: Dockerfile
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: "8080"
-      ReverseProxy__Clusters__eventCatalog__Destinations__primary__Address: http://eventcatalog:8080/
-      ReverseProxy__Clusters__booking__Destinations__primary__Address: http://booking:8080/
-      ReverseProxy__Clusters__ticketService__Destinations__primary__Address: http://ticketservice:8080/
-      ReverseProxy__Clusters__paymentSimulator__Destinations__primary__Address: http://payment-simulator:8080/
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      ASPNETCORE_HTTP_PORTS: "${API_GATEWAY_HTTP_PORTS:?Set API_GATEWAY_HTTP_PORTS}"
+      ReverseProxy__Clusters__eventCatalog__Destinations__primary__Address: "${EVENTCATALOG_BASE_URL:?Set EVENTCATALOG_BASE_URL}"
+      ReverseProxy__Clusters__booking__Destinations__primary__Address: "${BOOKING_BASE_URL:?Set BOOKING_BASE_URL}"
+      ReverseProxy__Clusters__ticketService__Destinations__primary__Address: "${TICKET_SERVICE_BASE_URL:?Set TICKET_SERVICE_BASE_URL}"
+      ReverseProxy__Clusters__paymentSimulator__Destinations__primary__Address: "${PAYMENT_SIMULATOR_BASE_URL:?Set PAYMENT_SIMULATOR_BASE_URL}"
     ports:
-      - "127.0.0.1:5212:8080"
+      - "${API_GATEWAY_PUBLISHED_PORT:?Set API_GATEWAY_PUBLISHED_PORT}:8080"
     depends_on:
       - eventcatalog
       - booking
@@ -27,24 +27,24 @@ services:
       context: .
       dockerfile: services/Booking/Dockerfile
     environment:
-      ConnectionStrings__Booking: "Host=booking-db;Port=5432;Database=booking_dev;Username=postgres;Password=postgres"
-      ConnectionStrings__Redis: "booking-redis:6379"
-      EventCatalog__BaseUrl: "http://eventcatalog:8080/"
-      PaymentSimulator__BaseUrl: "http://payment-simulator:8080/"
-      PaymentSimulator__TimeoutSeconds: "5"
-      EventCatalog__TimeoutSeconds: "5"
-      TicketService__BaseUrl: "http://ticketservice:8080/"
-      TicketService__TimeoutSeconds: "5"
+      ConnectionStrings__Booking: "Host=${BOOKING_DB_HOST:?Set BOOKING_DB_HOST};Port=${BOOKING_DB_PORT:?Set BOOKING_DB_PORT};Database=${BOOKING_DB_NAME:?Set BOOKING_DB_NAME};Username=${BOOKING_DB_USER:?Set BOOKING_DB_USER};Password=${BOOKING_DB_PASSWORD:?Set BOOKING_DB_PASSWORD}"
+      ConnectionStrings__Redis: "${REDIS_CONNECTION_STRING:?Set REDIS_CONNECTION_STRING}"
+      EventCatalog__BaseUrl: "${EVENTCATALOG_BASE_URL:?Set EVENTCATALOG_BASE_URL}"
+      PaymentSimulator__BaseUrl: "${PAYMENT_SIMULATOR_BASE_URL:?Set PAYMENT_SIMULATOR_BASE_URL}"
+      PaymentSimulator__TimeoutSeconds: "${PAYMENT_SIMULATOR_TIMEOUT_SECONDS:?Set PAYMENT_SIMULATOR_TIMEOUT_SECONDS}"
+      EventCatalog__TimeoutSeconds: "${EVENTCATALOG_TIMEOUT_SECONDS:?Set EVENTCATALOG_TIMEOUT_SECONDS}"
+      TicketService__BaseUrl: "${TICKET_SERVICE_BASE_URL:?Set TICKET_SERVICE_BASE_URL}"
+      TicketService__TimeoutSeconds: "${TICKET_SERVICE_TIMEOUT_SECONDS:?Set TICKET_SERVICE_TIMEOUT_SECONDS}"
       TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
-      RabbitMq__HostName: rabbitmq
-      RabbitMq__Port: "5672"
-      RabbitMq__VirtualHost: "/"
-      RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
-      RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
-      Authentication__Authority: http://localhost:8180/realms/halsingelive
-      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
-      ASPNETCORE_ENVIRONMENT: Development
-      InitializeDatabase: "true"
+      RabbitMq__HostName: "${RABBITMQ_HOST:?Set RABBITMQ_HOST}"
+      RabbitMq__Port: "${RABBITMQ_PORT:?Set RABBITMQ_PORT}"
+      RabbitMq__VirtualHost: "${RABBITMQ_VIRTUAL_HOST:?Set RABBITMQ_VIRTUAL_HOST}"
+      RabbitMq__UserName: "${RABBITMQ_USER:?Set RABBITMQ_USER}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}"
+      Authentication__Authority: "${AUTHENTICATION_AUTHORITY:?Set AUTHENTICATION_AUTHORITY}"
+      Authentication__MetadataAddress: "${AUTHENTICATION_METADATA_ADDRESS:?Set AUTHENTICATION_METADATA_ADDRESS}"
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      InitializeDatabase: "${INITIALIZE_DATABASE:?Set INITIALIZE_DATABASE}"
     healthcheck: &api-healthcheck
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "5", "http://localhost:8080/health/ready"]
       interval: 15s
@@ -68,17 +68,17 @@ services:
       context: .
       dockerfile: services/TicketService/Dockerfile
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      InitializeDatabase: "true"
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      InitializeDatabase: "${INITIALIZE_DATABASE:?Set INITIALIZE_DATABASE}"
       TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
-      Authentication__Authority: http://localhost:8180/realms/halsingelive
-      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
-      ConnectionStrings__TicketService: "Host=ticketservice-db;Port=5432;Database=ticketservice_dev;Username=postgres;Password=postgres"
-      RabbitMq__HostName: rabbitmq
-      RabbitMq__Port: "5672"
-      RabbitMq__VirtualHost: "/"
-      RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
-      RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
+      Authentication__Authority: "${AUTHENTICATION_AUTHORITY:?Set AUTHENTICATION_AUTHORITY}"
+      Authentication__MetadataAddress: "${AUTHENTICATION_METADATA_ADDRESS:?Set AUTHENTICATION_METADATA_ADDRESS}"
+      ConnectionStrings__TicketService: "Host=${TICKETSERVICE_DB_HOST:?Set TICKETSERVICE_DB_HOST};Port=${TICKETSERVICE_DB_PORT:?Set TICKETSERVICE_DB_PORT};Database=${TICKETSERVICE_DB_NAME:?Set TICKETSERVICE_DB_NAME};Username=${TICKETSERVICE_DB_USER:?Set TICKETSERVICE_DB_USER};Password=${TICKETSERVICE_DB_PASSWORD:?Set TICKETSERVICE_DB_PASSWORD}"
+      RabbitMq__HostName: "${RABBITMQ_HOST:?Set RABBITMQ_HOST}"
+      RabbitMq__Port: "${RABBITMQ_PORT:?Set RABBITMQ_PORT}"
+      RabbitMq__VirtualHost: "${RABBITMQ_VIRTUAL_HOST:?Set RABBITMQ_VIRTUAL_HOST}"
+      RabbitMq__UserName: "${RABBITMQ_USER:?Set RABBITMQ_USER}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}"
     healthcheck: *api-healthcheck
     depends_on:
       ticketservice-db:
@@ -87,33 +87,33 @@ services:
         condition: service_healthy
 
   ticketservice-db:
-    image: postgres:18-alpine
+    image: "${POSTGRES_IMAGE:?Set POSTGRES_IMAGE}"
     environment:
-      POSTGRES_DB: ticketservice_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: "${TICKETSERVICE_DB_NAME:?Set TICKETSERVICE_DB_NAME}"
+      POSTGRES_USER: "${TICKETSERVICE_DB_USER:?Set TICKETSERVICE_DB_USER}"
+      POSTGRES_PASSWORD: "${TICKETSERVICE_DB_PASSWORD:?Set TICKETSERVICE_DB_PASSWORD}"
     ports:
-      - "127.0.0.1:5435:5432"
+      - "${TICKETSERVICE_DB_PUBLISHED_PORT:?Set TICKETSERVICE_DB_PUBLISHED_PORT}:5432"
     volumes:
       - ticketservice-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ticketservice_dev"]
+      test: ["CMD-SHELL", "pg_isready -U ${TICKETSERVICE_DB_USER:?Set TICKETSERVICE_DB_USER} -d ${TICKETSERVICE_DB_NAME:?Set TICKETSERVICE_DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   booking-db:
-    image: postgres:18-alpine
+    image: "${POSTGRES_IMAGE:?Set POSTGRES_IMAGE}"
     environment:
-      POSTGRES_DB: booking_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: "${BOOKING_DB_NAME:?Set BOOKING_DB_NAME}"
+      POSTGRES_USER: "${BOOKING_DB_USER:?Set BOOKING_DB_USER}"
+      POSTGRES_PASSWORD: "${BOOKING_DB_PASSWORD:?Set BOOKING_DB_PASSWORD}"
     ports:
-      - "5433:5432"
+      - "${BOOKING_DB_PUBLISHED_PORT:?Set BOOKING_DB_PUBLISHED_PORT}:5432"
     volumes:
       - booking-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d booking_dev"]
+      test: ["CMD-SHELL", "pg_isready -U ${BOOKING_DB_USER:?Set BOOKING_DB_USER} -d ${BOOKING_DB_NAME:?Set BOOKING_DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -123,19 +123,19 @@ services:
       context: ./services/EventCatalog
       dockerfile: Dockerfile
     environment:
-      ConnectionStrings__EventCatalog: "Host=eventcatalog-db;Port=5432;Database=eventcatalog_dev;Username=postgres;Password=postgres"
-      ASPNETCORE_ENVIRONMENT: Development
-      InitializeDatabase: "true"
-      Booking__BaseUrl: "http://booking:8080/"
-      Booking__TimeoutSeconds: "5"
-      Authentication__Authority: http://localhost:8180/realms/halsingelive
-      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
-      VenueMapStorage__RootPath: /app/uploads/venue-maps
-      EventImageStorage__RootPath: /app/uploads/event-images
+      ConnectionStrings__EventCatalog: "Host=${EVENTCATALOG_DB_HOST:?Set EVENTCATALOG_DB_HOST};Port=${EVENTCATALOG_DB_PORT:?Set EVENTCATALOG_DB_PORT};Database=${EVENTCATALOG_DB_NAME:?Set EVENTCATALOG_DB_NAME};Username=${EVENTCATALOG_DB_USER:?Set EVENTCATALOG_DB_USER};Password=${EVENTCATALOG_DB_PASSWORD:?Set EVENTCATALOG_DB_PASSWORD}"
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      InitializeDatabase: "${INITIALIZE_DATABASE:?Set INITIALIZE_DATABASE}"
+      Booking__BaseUrl: "${BOOKING_BASE_URL:?Set BOOKING_BASE_URL}"
+      Booking__TimeoutSeconds: "${BOOKING_TIMEOUT_SECONDS:?Set BOOKING_TIMEOUT_SECONDS}"
+      Authentication__Authority: "${AUTHENTICATION_AUTHORITY:?Set AUTHENTICATION_AUTHORITY}"
+      Authentication__MetadataAddress: "${AUTHENTICATION_METADATA_ADDRESS:?Set AUTHENTICATION_METADATA_ADDRESS}"
+      VenueMapStorage__RootPath: "${VENUE_MAP_STORAGE_ROOT_PATH:?Set VENUE_MAP_STORAGE_ROOT_PATH}"
+      EventImageStorage__RootPath: "${EVENT_IMAGE_STORAGE_ROOT_PATH:?Set EVENT_IMAGE_STORAGE_ROOT_PATH}"
     healthcheck: *api-healthcheck
     volumes:
-      - venue-maps-data:/app/uploads/venue-maps
-      - event-images-data:/app/uploads/event-images
+      - "venue-maps-data:${VENUE_MAP_STORAGE_ROOT_PATH:?Set VENUE_MAP_STORAGE_ROOT_PATH}"
+      - "event-images-data:${EVENT_IMAGE_STORAGE_ROOT_PATH:?Set EVENT_IMAGE_STORAGE_ROOT_PATH}"
     depends_on:
       eventcatalog-db:
         condition: service_healthy
@@ -145,26 +145,26 @@ services:
         condition: service_healthy
 
   eventcatalog-db:
-    image: postgres:18-alpine
+    image: "${POSTGRES_IMAGE:?Set POSTGRES_IMAGE}"
     environment:
-      POSTGRES_DB: eventcatalog_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: "${EVENTCATALOG_DB_NAME:?Set EVENTCATALOG_DB_NAME}"
+      POSTGRES_USER: "${EVENTCATALOG_DB_USER:?Set EVENTCATALOG_DB_USER}"
+      POSTGRES_PASSWORD: "${EVENTCATALOG_DB_PASSWORD:?Set EVENTCATALOG_DB_PASSWORD}"
     ports:
-      - "127.0.0.1:5432:5432"
+      - "${EVENTCATALOG_DB_PUBLISHED_PORT:?Set EVENTCATALOG_DB_PUBLISHED_PORT}:5432"
     volumes:
       - eventcatalog-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d eventcatalog_dev"]
+      test: ["CMD-SHELL", "pg_isready -U ${EVENTCATALOG_DB_USER:?Set EVENTCATALOG_DB_USER} -d ${EVENTCATALOG_DB_NAME:?Set EVENTCATALOG_DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 10
   
   booking-redis:
-    image: redis:7-alpine
+    image: "${REDIS_IMAGE:?Set REDIS_IMAGE}"
     container_name: booking-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PUBLISHED_PORT:?Set REDIS_PUBLISHED_PORT}:6379"
     volumes:
       - booking-redis-data:/data
     command: redis-server --appendonly yes
@@ -176,12 +176,12 @@ services:
       retries: 10
 
   rabbitmq:
-    image: rabbitmq:4-management-alpine
+    image: "${RABBITMQ_IMAGE:?Set RABBITMQ_IMAGE}"
     environment:
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit loopback_users []"
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "${RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS:?Set RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS}"
     ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
+      - "${RABBITMQ_PUBLISHED_PORT:?Set RABBITMQ_PUBLISHED_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PUBLISHED_PORT:?Set RABBITMQ_MANAGEMENT_PUBLISHED_PORT}:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     restart: unless-stopped
@@ -192,17 +192,17 @@ services:
       retries: 10
 
   payment-simulator-db:
-    image: postgres:18-alpine
+    image: "${POSTGRES_IMAGE:?Set POSTGRES_IMAGE}"
     environment:
-      POSTGRES_DB: payment_simulator
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: "${PAYMENT_SIMULATOR_DB_NAME:?Set PAYMENT_SIMULATOR_DB_NAME}"
+      POSTGRES_USER: "${PAYMENT_SIMULATOR_DB_USER:?Set PAYMENT_SIMULATOR_DB_USER}"
+      POSTGRES_PASSWORD: "${PAYMENT_SIMULATOR_DB_PASSWORD:?Set PAYMENT_SIMULATOR_DB_PASSWORD}"
     ports:
-      - "127.0.0.1:5434:5432"
+      - "${PAYMENT_SIMULATOR_DB_PUBLISHED_PORT:?Set PAYMENT_SIMULATOR_DB_PUBLISHED_PORT}:5432"
     volumes:
       - payment-simulator-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_simulator"]
+      test: ["CMD-SHELL", "pg_isready -U ${PAYMENT_SIMULATOR_DB_USER:?Set PAYMENT_SIMULATOR_DB_USER} -d ${PAYMENT_SIMULATOR_DB_NAME:?Set PAYMENT_SIMULATOR_DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -212,18 +212,18 @@ services:
       context: .
       dockerfile: services/PaymentSimulator/Dockerfile
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      Authentication__Authority: http://localhost:8180/realms/halsingelive
-      Authentication__MetadataAddress: http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration
-      ConnectionStrings__PaymentSimulator: "Host=payment-simulator-db;Port=5432;Database=payment_simulator;Username=postgres;Password=postgres"
-      PaymentSimulation__Outcome: "${PAYMENT_SIMULATION_OUTCOME:-Succeeded}"
-      PaymentSimulation__DelayMs: "${PAYMENT_SIMULATION_DELAY_MS:-500}"
-      PaymentSimulation__TimeoutMs: "${PAYMENT_SIMULATION_TIMEOUT_MS:-5000}"
-      RabbitMq__HostName: rabbitmq
-      RabbitMq__Port: "5672"
-      RabbitMq__VirtualHost: "/"
-      RabbitMq__UserName: "${RABBITMQ_USER:-guest}"
-      RabbitMq__Password: "${RABBITMQ_PASSWORD:-guest}"
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      Authentication__Authority: "${AUTHENTICATION_AUTHORITY:?Set AUTHENTICATION_AUTHORITY}"
+      Authentication__MetadataAddress: "${AUTHENTICATION_METADATA_ADDRESS:?Set AUTHENTICATION_METADATA_ADDRESS}"
+      ConnectionStrings__PaymentSimulator: "Host=${PAYMENT_SIMULATOR_DB_HOST:?Set PAYMENT_SIMULATOR_DB_HOST};Port=${PAYMENT_SIMULATOR_DB_PORT:?Set PAYMENT_SIMULATOR_DB_PORT};Database=${PAYMENT_SIMULATOR_DB_NAME:?Set PAYMENT_SIMULATOR_DB_NAME};Username=${PAYMENT_SIMULATOR_DB_USER:?Set PAYMENT_SIMULATOR_DB_USER};Password=${PAYMENT_SIMULATOR_DB_PASSWORD:?Set PAYMENT_SIMULATOR_DB_PASSWORD}"
+      PaymentSimulation__Outcome: "${PAYMENT_SIMULATION_OUTCOME:?Set PAYMENT_SIMULATION_OUTCOME}"
+      PaymentSimulation__DelayMs: "${PAYMENT_SIMULATION_DELAY_MS:?Set PAYMENT_SIMULATION_DELAY_MS}"
+      PaymentSimulation__TimeoutMs: "${PAYMENT_SIMULATION_TIMEOUT_MS:?Set PAYMENT_SIMULATION_TIMEOUT_MS}"
+      RabbitMq__HostName: "${RABBITMQ_HOST:?Set RABBITMQ_HOST}"
+      RabbitMq__Port: "${RABBITMQ_PORT:?Set RABBITMQ_PORT}"
+      RabbitMq__VirtualHost: "${RABBITMQ_VIRTUAL_HOST:?Set RABBITMQ_VIRTUAL_HOST}"
+      RabbitMq__UserName: "${RABBITMQ_USER:?Set RABBITMQ_USER}"
+      RabbitMq__Password: "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}"
     healthcheck: *api-healthcheck
     depends_on:
       payment-simulator-db:
@@ -236,9 +236,9 @@ services:
       context: ./frontend/admin-web
       dockerfile: Dockerfile
     environment:
-      API_GATEWAY_PROXY_TARGET: http://api-gateway:8080
+      API_GATEWAY_PROXY_TARGET: "${API_GATEWAY_PROXY_TARGET:?Set API_GATEWAY_PROXY_TARGET}"
     ports:
-      - "5173:80"
+      - "${ADMIN_WEB_PUBLISHED_PORT:?Set ADMIN_WEB_PUBLISHED_PORT}:80"
     depends_on:
       - api-gateway
 
@@ -247,22 +247,23 @@ services:
       context: ./frontend/customer-web
       dockerfile: Dockerfile
     environment:
-      API_GATEWAY_PROXY_TARGET: http://api-gateway:8080
+      API_GATEWAY_PROXY_TARGET: "${API_GATEWAY_PROXY_TARGET:?Set API_GATEWAY_PROXY_TARGET}"
     ports:
-      - "5174:80"
+      - "${CUSTOMER_WEB_PUBLISHED_PORT:?Set CUSTOMER_WEB_PUBLISHED_PORT}:80"
     depends_on:
       - api-gateway
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.1
+    image: "${KEYCLOAK_IMAGE:?Set KEYCLOAK_IMAGE}"
     command: start-dev --import-realm
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: keycloak-admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: keycloak-admin
-      KC_HOSTNAME: http://localhost:8180
-      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: "${KC_BOOTSTRAP_ADMIN_USERNAME:?Set KC_BOOTSTRAP_ADMIN_USERNAME}"
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "${KC_BOOTSTRAP_ADMIN_PASSWORD:?Set KC_BOOTSTRAP_ADMIN_PASSWORD}"
+      KEYCLOAK_APP_ADMIN_PASSWORD: "${KEYCLOAK_APP_ADMIN_PASSWORD:?Set KEYCLOAK_APP_ADMIN_PASSWORD}"
+      KC_HOSTNAME: "${KC_HOSTNAME:?Set KC_HOSTNAME}"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "${KC_HOSTNAME_BACKCHANNEL_DYNAMIC:?Set KC_HOSTNAME_BACKCHANNEL_DYNAMIC}"
     ports:
-      - "127.0.0.1:8180:8080"
+      - "${KEYCLOAK_PUBLISHED_PORT:?Set KEYCLOAK_PUBLISHED_PORT}:8080"
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ../infrastructure/keycloak:/opt/keycloak/data/import:ro

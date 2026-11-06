@@ -8,17 +8,22 @@ API:t kontrollerar token och kräver admin-behörighet för anrop som ändrar in
 
 ## 1. Starta Keycloak
 
-Lägg till följande under `services:` i `src/Compose.yaml`:
+Keycloak finns redan under `services:` i `src/Compose.yaml`. Lägg först projektets
+utvecklingskonfiguration i rotens `.env` och ange en egen `TICKET_SERVICE_INTERNAL_API_KEY`.
+Keycloak-inställningarna läses sedan från samma fil:
 
 ```yaml
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.1
+    image: "${KEYCLOAK_IMAGE:?Set KEYCLOAK_IMAGE}"
     command: start-dev --import-realm
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: keycloak-admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: keycloak-admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: "${KC_BOOTSTRAP_ADMIN_USERNAME:?Set KC_BOOTSTRAP_ADMIN_USERNAME}"
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "${KC_BOOTSTRAP_ADMIN_PASSWORD:?Set KC_BOOTSTRAP_ADMIN_PASSWORD}"
+      KEYCLOAK_APP_ADMIN_PASSWORD: "${KEYCLOAK_APP_ADMIN_PASSWORD:?Set KEYCLOAK_APP_ADMIN_PASSWORD}"
+      KC_HOSTNAME: "${KC_HOSTNAME:?Set KC_HOSTNAME}"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "${KC_HOSTNAME_BACKCHANNEL_DYNAMIC:?Set KC_HOSTNAME_BACKCHANNEL_DYNAMIC}"
     ports:
-      - "127.0.0.1:8180:8080"
+      - "${KEYCLOAK_PUBLISHED_PORT:?Set KEYCLOAK_PUBLISHED_PORT}:8080"
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ../infrastructure/keycloak:/opt/keycloak/data/import:ro
@@ -31,7 +36,7 @@ Lägg till volymen under det befintliga `volumes:` längst ner i filen:
 ```
 
 Detta använder Keycloaks inbyggda utvecklingsdatabas med sparad volym.
-`start-dev` och lösenordet ovan är bara för lokal utveckling. I produktion ska
+`start-dev` och de lokala utvecklingsuppgifterna är bara för lokal utveckling. I produktion ska
 HTTPS användas och hemligheter hållas utanför repot, exempelvis i miljövariabler.
 Bootstrap-inställningarna ändrar inte lösenordet på ett redan befintligt konto.
 
@@ -64,6 +69,9 @@ Det lokala testkontot skapas med admin-rollen och ett färdigt testlösenord:
 
 - Användarnamn: `testadmin`
 - Lösenord: `testadmin`
+
+Lösenordet hämtas från `KEYCLOAK_APP_ADMIN_PASSWORD` i `.env` när en ny realm
+importeras. Värdet ovan beskriver det befintliga lokala utvecklingskontot.
 
 Öppna <http://localhost:5173> och klicka **Logga in**. Ingen manuell
 lösenordskonfiguration eller obligatorisk lösenordsändring behövs vid första starten.

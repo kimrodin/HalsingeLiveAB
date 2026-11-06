@@ -33,7 +33,6 @@ pnpm-debug.log*
 env
 .env
 .env.*
-!.env.example
 
 # Logs and OS files
 *.log
