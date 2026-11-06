@@ -7,9 +7,9 @@ services:
     # Refresh the persistent dependency volume before starting Vite.
     command: ["sh", "-c", "npm ci && exec npm run dev -- --host 0.0.0.0"]
     environment:
-      API_GATEWAY_PROXY_TARGET: http://api-gateway:8080
+      API_GATEWAY_PROXY_TARGET: "${API_GATEWAY_PROXY_TARGET:?Set API_GATEWAY_PROXY_TARGET}"
     ports: !override
-      - "5173:5173"
+      - "${ADMIN_WEB_PUBLISHED_PORT:?Set ADMIN_WEB_PUBLISHED_PORT}:5173"
     volumes:
       - ./frontend/admin-web:/app
       - admin-web-node-modules:/app/node_modules
@@ -20,9 +20,9 @@ services:
       context: ./frontend/customer-web
       dockerfile: Dockerfile.dev
     environment:
-      API_GATEWAY_PROXY_TARGET: http://api-gateway:8080
+      API_GATEWAY_PROXY_TARGET: "${API_GATEWAY_PROXY_TARGET:?Set API_GATEWAY_PROXY_TARGET}"
     ports: !override
-      - "5174:5173"
+      - "${CUSTOMER_WEB_PUBLISHED_PORT:?Set CUSTOMER_WEB_PUBLISHED_PORT}:5173"
     volumes:
       - ./frontend/customer-web:/app
       - customer-web-node-modules:/app/node_modules

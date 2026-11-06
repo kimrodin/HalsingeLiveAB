@@ -11,10 +11,12 @@ Health-endpoints för de fyra API-tjänsterna och Docker Compose beskrivs i
 
 ## Enkel start för lokal utveckling
 
-Kopiera `.env.example` till `.env` i projektets rot och fyll i
+Lägg projektets utvecklingskonfiguration i `.env` i projektets rot och fyll i
 `TICKET_SERVICE_INTERNAL_API_KEY` med en egen genererad nyckel, exempelvis med
 `openssl rand -hex 32`. Behåll samma nyckel mellan starter. `.env` ignoreras av Git.
-På Windows används semikolon i stället för kolon mellan filerna i `COMPOSE_FILE`.
+En ny arbetskopia behöver en komplett lokal `.env`; filen följer inte med Git.
+`COMPOSE_FILE` väljer Compose-filerna. [Konfiguration via .env](configuration.md)
+beskriver inställningarna och filseparatorn för Windows och Unix.
 
 Kör sedan från projektets rot:
 

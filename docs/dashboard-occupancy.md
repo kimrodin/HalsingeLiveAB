@@ -29,8 +29,8 @@ dependencies added on another branch, such as `@mui/x-charts`, are installed.
 
 The occupancy branch was integrated selectively. Its tracked `env` file was
 excluded. Existing local changes were kept.
-No merge commit was created. `env` and `.env` are ignored; `.env.example` contains
-no key. Copy the template to `src/.env` for Compose and generate a local key.
+No merge commit was created. `env` and `.env` are ignored. Configure `.env` in the
+repository root separately from Git and generate a local internal API key.
 Any previously committed key still exists in the source branch/history and must
 be rotated wherever it is in use; excluding the file does not revoke that key.
 
