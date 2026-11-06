@@ -201,6 +201,13 @@ public sealed class BookingsController(
         try
         {
             var result = await bookingService.CreateReservationAsync(request, cancellationToken);
+            if (result.Status == ReservationStatus.Reserved)
+                logger.LogInformation("Reserved booking {BookingId} for inventory {InventoryId}; quantity {Quantity}.",
+                    result.BookingId, request.InventoryId, request.Quantity);
+            else if (result.Status == ReservationStatus.InsufficientInventory)
+                logger.LogWarning("Could not reserve booking for inventory {InventoryId}; requested quantity {Quantity} is unavailable.",
+                    request.InventoryId, request.Quantity);
+
             return result.Status switch
             {
                 ReservationStatus.InventoryNotFound => NotFound(new ProblemDetails
@@ -232,8 +239,10 @@ public sealed class BookingsController(
                 Status = StatusCodes.Status409Conflict
             });
         }
-        catch (EventCatalogUnavailableException)
+        catch (EventCatalogUnavailableException exception)
         {
+            logger.LogError(exception, "EventCatalog was unavailable while creating a booking for inventory {InventoryId}.",
+                request.InventoryId);
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
             {
                 Title = "Event details are temporarily unavailable. Please try again.",
@@ -271,6 +280,8 @@ public sealed class BookingsController(
         try
         {
             var result = await bookingService.StartPaymentAsync(bookingId, cancellationToken);
+            if (result.BookingStatus == BookingStatuses.Confirmed)
+                logger.LogInformation("Booking {BookingId} confirmed after payment verification.", bookingId);
             if (result.BookingStatus == "NotFound")
                 return NotFound(result);
             if (result.PaymentStatus == "Invalid")
@@ -305,6 +316,10 @@ public sealed class BookingsController(
         {
             return RequestValidationProblem(exception);
         }
+        if (result.Status == BookingActionStatus.Completed
+            && result.BookingStatus == BookingStatuses.Cancelled)
+            logger.LogInformation("Booking {BookingId} cancelled.", bookingId);
+
         return result.Status switch
         {
             BookingActionStatus.NotFound => NotFound(),
