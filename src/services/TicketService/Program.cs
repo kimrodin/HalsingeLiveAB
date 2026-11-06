@@ -7,8 +7,11 @@ using QuestPDF.Infrastructure;
 using TicketService.Data;
 using TicketService.Features.Tickets.DownloadTicket;
 using TicketService.Features.Tickets.IssueTickets;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog((_, loggerConfiguration) =>
+    loggerConfiguration.Enrich.FromLogContext().WriteTo.Console());
 
 QuestPDF.Settings.License = LicenseType.Community;
 
@@ -53,6 +56,7 @@ builder.Services.AddAuthorization(options => options.AddPolicy("AdminOnly", poli
 }));
 
 var app = builder.Build();
+app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("InitializeDatabase"))
 {

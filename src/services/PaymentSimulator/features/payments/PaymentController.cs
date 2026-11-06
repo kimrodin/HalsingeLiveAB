@@ -10,7 +10,8 @@ namespace PaymentSimulator.Features.Payments;
 public sealed class PaymentsController(
     GetPaymentHandler getPaymentHandler,
     ProcessPaymentHandler processPaymentHandler,
-    RefundPaymentHandler refundPaymentHandler) : ControllerBase
+    RefundPaymentHandler refundPaymentHandler,
+    ILogger<PaymentsController> logger) : ControllerBase
 {
     [HttpGet("by-booking/{bookingId:guid}")]
     public async Task<ActionResult<GetPaymentResponse>> GetByBooking(Guid bookingId,
@@ -27,6 +28,9 @@ public sealed class PaymentsController(
     {
         if (paymentId == Guid.Empty) return BadRequest();
         var response = await refundPaymentHandler.Handle(paymentId, cancellationToken);
+        if (response?.RefundedAt is not null)
+            logger.LogInformation("Refunded payment {PaymentId} for booking {BookingId}.",
+                response.PaymentId, response.BookingId);
         return response is null ? NotFound() : Ok(response);
     }
 
