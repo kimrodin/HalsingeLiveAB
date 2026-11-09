@@ -77,6 +77,33 @@ at request time and attributed to the original sale date; there is no distribute
 snapshot. A payment or refund committed during a report can become visible on the
 next refresh. Admin cards and the API client contract remain unchanged.
 
+## Live dashboard updates
+
+Booking exposes an authenticated SignalR hub at `/hubs/sales`. Admin-web connects
+through API Gateway at `/booking-api/hubs/sales`. The hub requires the existing
+`AdminOnly` policy and uses the admin's Keycloak access token. For browser
+WebSocket connections, Booking accepts the SignalR `access_token` query parameter
+only on this hub path.
+
+After Booking processes a successful sale or refund, it broadcasts the event
+`SalesUpdated` to connected admin clients. The event has no arguments and contains
+no booking, payment, ticket, customer, or sales data. Clients use it only as an
+invalidation signal; the dashboard reloads the active period from the existing
+authenticated `GetSalesStatistics` endpoint. That endpoint remains the source of
+truth and retains its existing response contract.
+
+The SignalR client attempts to reconnect when an established connection drops;
+initial connection failures are retried every five seconds. The dashboard keeps
+the existing 60-second polling as a fallback, so updates recover if a notification
+is missed or SignalR is temporarily unavailable. The admin-web Nginx proxy
+forwards WebSocket upgrade headers for `/booking-api/`; API Gateway routes that
+path to Booking.
+
+The current deployment runs Booking as a single service instance. If Booking is
+scaled to multiple instances, configure a SignalR backplane or managed SignalR
+service so a notification from one instance can reach admin clients connected to
+another instance.
+
 ## Admin frontend
 
 `DashboardPage` owns the applied `DashboardPeriod` (`from`, `to`). The default is
@@ -92,11 +119,13 @@ dates; occupancy and event counts use event start dates. The upcoming-event list
 retains its independent query.
 
 `SalesStatisticsSection` fetches totals and daily values for its `period` prop.
-Each range has its own query cache entry. Superseded requests can be aborted and
-the active range is refreshed every minute. `SalesMetricCard` formats totals and
-changes. Cards show the title, total, percentage change and the comparison date range beneath
-the percentage, using the previous period returned by the API. When the preceding
-value is zero and a percentage cannot be calculated, the percentage is omitted.
+Each range has its own query cache entry. Superseded requests can be aborted.
+`SalesUpdated` invalidates sales-statistics queries so the active range is fetched
+promptly; a 60-second interval remains as a fallback. `SalesMetricCard` formats
+totals and changes. Cards show the title, total, percentage change and the
+comparison date range beneath the percentage, using the previous period returned
+by the API. When the preceding value is zero and a percentage cannot be
+calculated, the percentage is omitted.
 
 `TicketSalesChart` uses MUI X Charts `LineChart`, loaded on demand, with the admin
 theme's primary color and an accessible summary. Each day has a vertical grid line

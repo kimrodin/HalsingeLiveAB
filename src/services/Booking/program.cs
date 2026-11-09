@@ -109,6 +109,7 @@ builder.Services.AddScoped<SeedInventoryHandler>();
 builder.Services.AddScoped<DeleteSeedInventoryHandler>();
 builder.Services.AddScoped<ClearBookingDatabaseHandler>();
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -125,6 +126,17 @@ builder.Services
             ValidIssuer = options.Authority.TrimEnd('/'),
             NameClaimType = "preferred_username",
             RoleClaimType = "roles"
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken)
+                    && context.HttpContext.Request.Path.StartsWithSegments("/hubs/sales"))
+                    context.Token = accessToken;
+                return Task.CompletedTask;
+            }
         };
     });
 builder.Services.AddAuthorization(options =>
@@ -151,6 +163,8 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<Booking.Features.Statistics.SalesUpdatesHub>("/hubs/sales")
+    .RequireAuthorization("AdminOnly");
 
 var readinessOptions = new HealthCheckOptions
 {

@@ -7,6 +7,7 @@ builder.Services
 var app = builder.Build();
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
+app.UseWebSockets();
 app.MapReverseProxy();
 
 app.Run();

@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { Alert, Box, Button, Paper, Skeleton, Typography } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
+import keycloak from '../../../app/auth/keycloak';
 import { ApiError } from '../../../shared/api/http';
 import { getSalesStatistics } from '../api/salesStatistics';
 import { formatPeriod } from '../utils/dashboardPeriod';
@@ -11,6 +14,51 @@ import TicketSalesChart from './TicketSalesChart';
 const money = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const number = new Intl.NumberFormat('sv-SE');
 export default function SalesStatisticsSection({ period, children }: { period: DashboardPeriod; children: ReactNode }) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    let active = true;
+    let starting = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const connection = new HubConnectionBuilder()
+      .withUrl('/booking-api/hubs/sales', {
+        accessTokenFactory: async () => {
+          await keycloak.updateToken(30);
+          return keycloak.token ?? '';
+        },
+      })
+      .withAutomaticReconnect()
+      .configureLogging(LogLevel.Warning)
+      .build();
+
+    const refresh = () => void queryClient.invalidateQueries({ queryKey: ['sales-statistics'] });
+    connection.on('SalesUpdated', refresh);
+    connection.onreconnected(refresh);
+
+    const connect = async () => {
+      starting = true;
+      try {
+        await connection.start();
+        if (!active) await connection.stop();
+      } catch (error) {
+        if (active) {
+          console.warn('Sales updates connection failed to start; retrying.', error);
+          retryTimer = setTimeout(() => void connect(), 5000);
+        }
+      } finally {
+        starting = false;
+      }
+    };
+    void connect();
+
+    return () => {
+      active = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      connection.off('SalesUpdated', refresh);
+      if (!starting) void connection.stop();
+    };
+  }, [queryClient]);
+
   const statistics = useQuery({
     queryKey: ['sales-statistics', period.from, period.to],
     queryFn: ({ signal }) => getSalesStatistics(period, signal),
