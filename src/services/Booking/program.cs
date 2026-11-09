@@ -15,10 +15,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((_, loggerConfiguration) =>
-    loggerConfiguration.Enrich.FromLogContext().WriteTo.Console());
+    loggerConfiguration
+        .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .WriteTo.Console());
 
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Booking")));
@@ -112,6 +116,7 @@ builder.Services.AddScoped<SeedInventoryHandler>();
 builder.Services.AddScoped<DeleteSeedInventoryHandler>();
 builder.Services.AddScoped<ClearBookingDatabaseHandler>();
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -128,6 +133,17 @@ builder.Services
             ValidIssuer = options.Authority.TrimEnd('/'),
             NameClaimType = "preferred_username",
             RoleClaimType = "roles"
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken)
+                    && context.HttpContext.Request.Path.StartsWithSegments("/hubs/sales"))
+                    context.Token = accessToken;
+                return Task.CompletedTask;
+            }
         };
     });
 builder.Services.AddAuthorization(options =>
@@ -155,6 +171,8 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<Booking.Features.Statistics.SalesUpdatesHub>("/hubs/sales")
+    .RequireAuthorization("AdminOnly");
 
 var readinessOptions = new HealthCheckOptions
 {

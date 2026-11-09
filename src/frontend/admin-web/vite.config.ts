@@ -26,6 +26,7 @@ export default defineConfig(({ mode }) => {
         '/booking-api': {
           target: API_GATEWAY_PROXY_TARGET,
           changeOrigin: true,
+          ws: true,
         },
         '/ticket-api': {
           target: API_GATEWAY_PROXY_TARGET,
