@@ -35,6 +35,9 @@ env
 .env
 .env.*
 
+# Isolated quickstart verification checkout and private configuration
+.quickstart-verification/
+
 # Logs and OS files
 *.log
 logs/

@@ -7,11 +7,11 @@ Administrative React application for Hälsinge Live. The app uses Vite, TypeScri
 From this directory, install dependencies and start Vite:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Vite uses port `5173` by default and may choose another port if it is occupied. The local Keycloak client is configured for `http://localhost:8180`. To run Keycloak, APIs, and both web apps with Docker, follow [the repository's local development guide](../../../docs/README.MD#frontend-appar-utveckla-frontend-med-docker-compose).
+Vite uses port `5173` by default and may choose another port if it is occupied. The local Keycloak client is configured for `http://localhost:8180`. To run Keycloak, APIs, and both web apps with Docker, follow [the repository's local development guide](../../../README.md).
 
 Available scripts:
 
@@ -39,7 +39,7 @@ API_GATEWAY_PROXY_TARGET=http://localhost:5212
 
 The previous service-specific `*_API_PROXY_TARGET` variables are no longer used. When Vite runs in Docker, set `API_GATEWAY_PROXY_TARGET` to a gateway address reachable from that container. The gateway must also use backend addresses reachable from its own environment.
 
-The Vite proxy only applies to the development server. Production hosting must route these API prefixes to ApiGateway separately.
+The Vite proxy applies to the development server. The base Compose configuration serves the built app with Nginx, which forwards the same prefixes to API_GATEWAY_PROXY_TARGET. Other hosting must configure equivalent routing.
 
 ## Code layout and API contracts
 

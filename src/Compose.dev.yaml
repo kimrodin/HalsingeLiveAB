@@ -1,6 +1,5 @@
 services:
   admin-web:
-    image: halsingelive-admin-web-dev
     build:
       context: ./frontend/admin-web
       dockerfile: Dockerfile.dev
@@ -15,10 +14,10 @@ services:
       - admin-web-node-modules:/app/node_modules
 
   customer-web:
-    image: halsingelive-customer-web-dev
     build:
       context: ./frontend/customer-web
       dockerfile: Dockerfile.dev
+    command: ["sh", "-c", "npm ci && exec npm run dev -- --host 0.0.0.0"]
     environment:
       API_GATEWAY_PROXY_TARGET: "${API_GATEWAY_PROXY_TARGET:?Set API_GATEWAY_PROXY_TARGET}"
     ports: !override
