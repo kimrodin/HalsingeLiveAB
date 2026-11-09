@@ -1,8 +1,13 @@
 using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((_, loggerConfiguration) =>
-    loggerConfiguration.Enrich.FromLogContext().WriteTo.Console());
+    loggerConfiguration
+        .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning)
+        .MinimumLevel.Override("Yarp.ReverseProxy.Forwarder.HttpForwarder", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .WriteTo.Console());
 
 builder.Services
     .AddReverseProxy()

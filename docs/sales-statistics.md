@@ -83,7 +83,9 @@ Booking exposes an authenticated SignalR hub at `/hubs/sales`. Admin-web connect
 through API Gateway at `/booking-api/hubs/sales`. The hub requires the existing
 `AdminOnly` policy and uses the admin's Keycloak access token. For browser
 WebSocket connections, Booking accepts the SignalR `access_token` query parameter
-only on this hub path.
+only on this hub path. Nginx disables access logging for the hub requests, and
+Gateway/Booking suppress detailed request and proxy logs that could include the
+query string.
 
 After Booking processes a successful sale or refund, it broadcasts the event
 `SalesUpdated` to connected admin clients. The event has no arguments and contains
