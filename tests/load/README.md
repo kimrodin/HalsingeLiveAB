@@ -1,116 +1,131 @@
-# Checkout and ticket-release load tests
+# Lasttester för köpflöde och biljettsläpp
 
-Requires Docker Desktop running with Linux containers. Run from the repository root;
-no k6 installation, `.env` changes, or admin login is needed.
+Kräver att Docker Desktop körs med Linux-containrar. Kör från repots rotkatalog;
+du behöver varken installera k6, ändra `.env` eller logga in som administratör.
 
-Recorded validation: [local release and regression results, 2026-11-09](validation-2026-11-09.md).
+Dokumenterad validering: [resultat för köpflöde, kort biljettsläpp, tävling om sista biljetten
+och regressionstester, 2026-11-09](validation-2026-11-09.md). Alla tre dokumenterade
+lasttestkörningar klarade sina korrekthetskontroller. Rapporten innehåller kommandon,
+miljö, uppmätta tider och återstående arbete för
+[ärende #126](https://github.com/kimrodin/HalsingeLiveAB/issues/126).
+Dessa små lokala körningar fastställer inte kapaciteten i produktion.
 
-1. Run the small test:
+1. Kör det lilla testet:
 
    ```powershell
    .\tests\load\run.ps1
    ```
 
-2. Watch the four printed steps: start a fresh stack, run the test, verify, then clean up.
-   The first run downloads k6 and builds the services, so it takes longer.
+2. Följ de fyra stegen som skrivs ut: starta en ny testmiljö, kör testet, verifiera
+   och städa sedan upp. Första körningen hämtar k6 och bygger tjänsterna och tar därför längre tid.
 
-3. Read the terminal summary or open `tests/load/results/<run>/summary.json`.
-   Try a little more traffic with:
+3. Läs sammanfattningen i terminalen eller öppna `tests/load/results/<run>/summary.json`.
+   Prova lite mer trafik med:
 
    ```powershell
    .\tests\load\run.ps1 -Vus 5 -Iterations 25
    ```
 
-The default `Checkout` scenario is **10 purchases across 2 virtual users**, plus one warm-up purchase.
-Each purchase reserves one ticket, starts payment, and polls every 500 ms until
-the booking is confirmed and exactly one valid ticket exists. A journey times out
-after 30 seconds of polling. All purchases must succeed; interrupted or missing
-iterations also fail the test. Initial thresholds check correctness; this first
-version measures latency without setting an arbitrary latency target.
+Standardscenariot `Checkout` kör **10 köp fördelade på 2 virtuella användare**,
+plus ett uppvärmningsköp. Varje köp reserverar en biljett, startar betalning och
+hämtar status var 500:e ms tills bokningen är bekräftad och exakt en giltig biljett
+finns. Köpflödet avbryts efter 30 sekunders statuskontroller. Alla köp måste lyckas;
+även avbrutna eller uteblivna iterationer gör att testet underkänns. De inledande
+tröskelvärdena kontrollerar korrekthet. Den här första versionen mäter svarstider
+utan att sätta ett godtyckligt prestandamål.
 
-Look at `checkout_succeeded` (must be 100%), `completed_checkouts` (must equal the
-requested purchases), and `checkout_duration` (time from reservation to tickets,
-including polling). HTTP timings alone do not measure the asynchronous checkout.
-Warm-up HTTP calls appear in built-in HTTP metrics; custom checkout metrics include
-only the measured purchases. `run.json` records the commit and workload, and
-`images.json` records the service images used. Runs also save `services.log`.
-`outcome.json` is the overall verdict: both k6 and the final verification must pass.
-`verification.json` contains the last database, Redis, and queue snapshots and any
-failed consistency checks. A successful k6 summary alone is not an overall pass.
+Titta på `checkout_succeeded` (måste vara 100%), `completed_checkouts` (måste
+motsvara det begärda antalet köp) och `checkout_duration` (tid från reservation till
+biljetter, inklusive statuskontroller). Enbart HTTP-tider mäter inte det asynkrona
+köpflödet. Uppvärmningens HTTP-anrop ingår i de inbyggda HTTP-mätvärdena; de egna
+köpmätvärdena omfattar bara de uppmätta köpen. `run.json` registrerar commit och
+belastning, och `images.json` registrerar vilka containeravbilder för tjänsterna som
+användes. Körningarna sparar också `services.log`.
+`outcome.json` visar det samlade resultatet: både k6 och slutverifieringen måste
+godkännas. `verification.json` innehåller de senast avlästa tillstånden för
+databaser, Redis och köer samt eventuella misslyckade konsistenskontroller.
+En godkänd k6-sammanfattning räcker alltså inte för ett godkänt helhetsresultat.
 
-`checkout.js` contains the three HTTP steps. `fixture.sql` creates a measured event
-with configurable capacity (1,000 by default for Checkout) and a separate warm-up event
-directly in the disposable databases after the real migrations run;
-all measured purchases use the normal APIs, Redis, outboxes, RabbitMQ, and consumers.
-The event is always one year in the future. By default, payments succeed after a
-planned 500 ms delay; worker intervals add to the observed checkout time.
+`checkout.js` innehåller de tre HTTP-stegen. `fixture.sql` skapar ett evenemang för
+mätningen med konfigurerbar kapacitet (1 000 som standard för Checkout) och ett
+separat uppvärmningsevenemang direkt i de tillfälliga databaserna efter att de
+ordinarie migreringarna har körts. Alla uppmätta köp använder de vanliga API:erna,
+Redis, outboxar, RabbitMQ och meddelandekonsumenter.
+Evenemanget ligger alltid ett år framåt i tiden. Som standard lyckas betalningarna
+efter en planerad fördröjning på 500 ms; bakgrundsarbetarnas körintervall bidrar
+också till den uppmätta köptiden.
 
-Every run gets a unique Compose project with fresh PostgreSQL, Redis, and RabbitMQ.
-Their data uses isolated disk-backed volumes; Redis has AOF enabled. Cleanup removes
-these volumes. This differs from the older memory-backed baseline, so its timings
-must not be compared directly with these runs.
-Only RabbitMQ's management UI is published, on a free port bound to `127.0.0.1`;
-no development volumes are mounted. The script removes
-only that run's containers and volumes, even if the test fails. Results stay on disk.
+Varje körning får ett unikt Compose-projekt med nya instanser av PostgreSQL, Redis
+och RabbitMQ. Deras data lagras på isolerade diskbaserade volymer; Redis har AOF
+aktiverat. Volymerna tas bort vid städningen. Detta skiljer sig från den äldre
+minnesbaserade referensmiljön, så dess tider ska inte jämföras direkt med dessa
+körningar.
+Bara RabbitMQ:s administrationsgränssnitt exponeras, på en ledig port bunden till
+`127.0.0.1`. Inga utvecklingsvolymer monteras. Skriptet tar bara bort den aktuella
+körningens containrar och volymer, även om testet misslyckas. Resultaten finns kvar på disk.
 
-## Ticket-release scenario
+## Scenario för biljettsläpp
 
 ```powershell
 .\tests\load\run.ps1 -Scenario Release
 ```
 
-The defaults deliberately oversubscribe **100 tickets with 1,000 purchase attempts**:
+Standardinställningarna låter avsiktligt **1 000 köpförsök konkurrera om 100 biljetter**:
 
-| Phase | Workload |
+| Fas | Belastning |
 | --- | --- |
-| First 30 seconds | Five browsing journeys/second, each reading the event list, event and inventory. |
-| Next 20 seconds | 30 new purchase journeys/second, plus browsing. |
-| Next 40 seconds | 10 new purchase journeys/second, plus browsing. |
-| Settlement | Wait for bookings, payments, tickets, SQL/Redis stock, and queues to reconcile. |
+| Första 30 sekunderna | Fem bläddringsflöden/sekund, där varje flöde läser evenemangslistan, evenemanget och biljettlagret. |
+| Nästa 20 sekunder | 30 nya köpflöden/sekund, plus bläddring. |
+| Nästa 40 sekunder | 10 nya köpflöden/sekund, plus bläddring. |
+| Slutavstämning | Vänta tills bokningar, betalningar, biljetter, SQL-/Redis-lager och köer stämmer överens. |
 
-Each purchase journey starts by trying to reserve 1–3 tickets. Of the offered
-journeys, deterministic buckets assign 10% to abandon a reservation, 10% to cancel,
-and 80% to pay after 0–3 seconds of thinking. Under contention, the accepted cohort
-percentages can differ. All measured HTTP traffic uses the gateway's client-facing
-paths; SQL is used only for fixture setup, simulation policy and final observation.
-Warm-up purchases use a different event and always succeed before the selected
-payment policy is applied. They are saved separately in `warmup.json`.
+Varje köpflöde börjar med ett försök att reservera 1–3 biljetter. Av de planerade
+flödena tilldelas deterministiskt 10% att överge reservationen, 10% att avboka och
+80% att betala efter 0–3 sekunders betänketid. När kunder konkurrerar om biljetterna
+kan andelarna bland de accepterade reservationerna skilja sig från denna fördelning.
+All uppmätt HTTP-trafik använder gatewayens kundvända API-vägar. SQL används bara
+för testdata, simuleringsinställningar och slutavläsning.
+Uppvärmningsköpen använder ett annat evenemang och lyckas alltid innan de valda
+betalningsinställningarna tillämpas. De sparas separat i `warmup.json`.
 
-**Allow about 11–13 minutes for the default run after startup.** Abandoned holds
-keep the application's real ten-minute lifetime. The verifier waits for expiry;
-it does not shorten, delete, or manually release them. It checks at five-second
-intervals and requires two consecutive passing observations. The default settlement
-timeout is 720 seconds after k6 ends. Progress is printed every 30 seconds.
+**Räkna med cirka 11–13 minuter för standardkörningen efter uppstart.** Övergivna
+reservationer behåller applikationens verkliga giltighetstid på tio minuter.
+Verifieringen väntar tills de löper ut; den förkortar, raderar eller frigör dem inte
+manuellt. Kontroller görs var femte sekund och två godkända avläsningar i följd
+krävs. Standardgränsen för slutavstämningen är 720 sekunder efter att k6 har
+avslutats. Förloppet skrivs ut var 30:e sekund.
 
-`burst` and `tail` use `constant-arrival-rate`: new journeys start independently
-of previous journeys finishing. A journey contains multiple HTTP requests, so
-journeys/second is not requests/second. Each phase preallocates 128 VUs (browsing
-uses 16 more). Increase `-PreAllocatedVus` if needed. Any `dropped_iterations`, missing
-purchase attempts, unexpected error, or interrupted journey fails the test.
+`burst` och `tail` använder `constant-arrival-rate`: nya flöden startar oberoende av
+om tidigare flöden har avslutats. Ett flöde innehåller flera HTTP-anrop, så
+flöden/sekund är inte samma sak som anrop/sekund. Varje fas förallokerar 128
+virtuella användare, VU (bläddringen använder ytterligare 16). Öka
+`-PreAllocatedVus` vid behov. Alla `dropped_iterations`, uteblivna köpförsök,
+oväntade fel eller avbrutna flöden gör att testet underkänns.
 
-A `CreateBooking` HTTP 409 counts as expected stock rejection only when its problem
-title is `Not enough tickets are available.` Other conflicts still fail. Release
-requires at least one stock rejection and at least one completed payment outcome;
-it does not require every visitor to buy a ticket.
+Ett HTTP 409-svar från `CreateBooking` räknas som ett förväntat lageravslag bara om
+dess problemrubrik är `Not enough tickets are available.` Andra konflikter gör
+fortfarande att testet underkänns. Release kräver minst ett lageravslag och minst
+ett slutfört betalningsutfall; varje besökare behöver inte köpa en biljett.
 
-Look at these metrics separately:
+Läs dessa mätvärden var för sig:
 
-- `release_reservation_duration`: HTTP duration of the reservation request, including stock rejections.
-- `release_paid_duration`: reservation through thinking/payment/polling to valid tickets,
-  only for completed purchases. Stock rejections do not dilute this distribution.
+- `release_reservation_duration`: HTTP-tid för reservationsanropet, inklusive lageravslag.
+- `release_paid_duration`: tid från reservation via betänketid, betalning och
+  statuskontroller till giltiga biljetter, bara för slutförda köp. Lageravslag påverkar inte denna fördelning.
 - `release_reserved`, `release_sold_out`, `release_abandoned`, `release_cancelled`,
-  `release_paid`, `release_payment_rejected`: journey outcome counts.
-- `release_unexpected_error`: must be zero; `release_attempts` must match the planned workload.
+  `release_paid`, `release_payment_rejected`: antal flöden per utfall.
+- `release_unexpected_error`: måste vara noll; `release_attempts` måste motsvara den planerade belastningen.
 
-Final verification cross-checks the measured counters against database rows. It
-rejects overselling, wrong/missing/duplicate tickets, orphan payments or tickets,
-unexpected charges, nonterminal bookings, unreturned stock, active Redis holds,
-pending outbox/inbox work, rejected inbox messages, missing queues and nonempty
-queues (including dead-letter queues). Snapshots exclude the separate warm-up
-event when reconciling measured capacity. Successful completion also requires
-the k6 process to exit successfully.
+Slutverifieringen jämför de uppmätta räknarna med databasraderna. Den underkänner
+överförsäljning, felaktiga, saknade eller dubbla biljetter, betalningar eller
+biljetter utan tillhörande bokning, oväntade debiteringar, bokningar utan slutstatus,
+lager som inte har återställts, aktiva Redis-reservationer, väntande arbete i
+outbox/inbox, avvisade inbox-meddelanden, saknade köer och köer som inte är tomma
+(inklusive dead-letter-köer). Det separata uppvärmningsevenemanget utesluts vid
+avstämningen av den uppmätta kapaciteten. För ett godkänt resultat krävs också att
+k6-processen avslutas utan fel.
 
-For a shorter development check without abandoned holds:
+För en kortare utvecklingskontroll utan övergivna reservationer:
 
 ```powershell
 .\tests\load\run.ps1 -Scenario Release -Capacity 10 `
@@ -119,23 +134,45 @@ For a shorter development check without abandoned holds:
   -CancelPercent 20 -MaxQuantity 2 -ThinkMaxSeconds 1
 ```
 
-Exercise planned payment failure and timeout in separate runs:
+Testa planerat betalningsfel och överskriden tidsgräns i separata körningar:
 
 ```powershell
 .\tests\load\run.ps1 -Scenario Release -PaymentOutcome Failed -AbandonPercent 0
 .\tests\load\run.ps1 -Scenario Release -PaymentOutcome TimedOut -AbandonPercent 0
 ```
 
-These policies apply to all paying customers in that run. The test expects cancelled
-bookings, no tickets, and returned inventory for these customers. It fails if a
-payment succeeds unexpectedly. Weighted payment mixtures and variable provider
-latencies are not implemented; the existing `Random` mode's equal thirds are not
-used. `-PaymentDelayMs` and `-PaymentTimeoutMs` configure the existing simulator.
+Dessa inställningar gäller alla betalande kunder i körningen. Testet förväntar sig
+avbokade bokningar, inga biljetter och återställt lager för dessa kunder. Det
+underkänns om en betalning oväntat lyckas. Viktade blandningar av betalningsutfall
+och varierande svarstider hos betalningsleverantören är inte implementerade.
+Det befintliga läget `Random` med tre lika stora andelar används inte.
+`-PaymentDelayMs` och `-PaymentTimeoutMs` konfigurerar den befintliga simulatorn.
 
-## Sustained checkout traffic
+## Tävling om sista biljetten
 
-A release may sell out quickly and then mainly exercise rejection responses.
-Use `Sustained` to keep the complete payment/ticket path busy with ample inventory:
+Kör 50 köpförsök mot ett separat evenemang med kapacitet ett. Varje försök begär en
+biljett och försöker betala, utan övergivna reservationer eller kundavbokningar:
+
+```powershell
+.\tests\load\run.ps1 -Scenario Release -Capacity 1 `
+  -BurstRate 20 -BurstSeconds 2 -TailRate 5 -TailSeconds 2 `
+  -PreSaleSeconds 2 -PreAllocatedVus 32 -AbandonPercent 0 `
+  -CancelPercent 0 -MaxQuantity 1 -ThinkMaxSeconds 0
+```
+
+Kräv `release_attempts = 50`, `release_reserved = 1`, `release_paid = 1` och
+`release_sold_out = 49`. Slutverifieringen ska visa en bekräftad bokning, en lyckad
+betalning, en giltig biljett, noll tillgängliga biljetter i SQL/Redis och inga
+aktiva reservationer eller väntande köjobb för det uppmätta evenemanget.
+Det separata uppvärmningsköpet utesluts. Detta testar konkurrens om den sista
+enheten i lagret. Unik försäljning av numrerade stolar kan verifieras först när
+flödet för stolval finns.
+
+## Ihållande trafik genom köpflödet
+
+Ett biljettsläpp kan sälja slut snabbt och därefter främst testa avslagssvar.
+Använd `Sustained` för att belasta hela betalnings- och biljettflödet med gott om
+biljetter i lagret:
 
 ```powershell
 .\tests\load\run.ps1 -Scenario Sustained -Capacity 100000 `
@@ -143,17 +180,19 @@ Use `Sustained` to keep the complete payment/ticket path busy with ample invento
   -AbandonPercent 0 -CancelPercent 0 -PreAllocatedVus 256
 ```
 
-It uses the same journey logic but **fails on any stock rejection**. Its default
-capacity is 100,000; other rate/timing/cohort defaults match Release. Rates and
-customer distributions are test assumptions, not a demand forecast. Both scenarios
-report latency without an arbitrary p95 target; agreed performance targets should
-be added once the intended hardware and service objectives are defined.
+Scenariot använder samma flödeslogik men **underkänns vid varje lageravslag**.
+Standardkapaciteten är 100 000; övriga standardvärden för takt, tider och
+kundgrupper är samma som för Release. Trafiktakter och kundfördelningar är
+testantaganden, inte en efterfrågeprognos. Båda scenarierna redovisar svarstider utan
+ett godtyckligt p95-mål. Överenskomna prestandamål bör läggas till när avsedd
+hårdvara och tjänstemål har definierats.
 
-## Compose commands and verification
+## Compose-kommandon och verifiering
 
-`run.ps1` supplies a unique project name, fixture parameters, environment and results
-mount. The underlying command sequence is shown below; placeholders denote the
-values constructed by the runner, not commands to paste without preparing them:
+`run.ps1` anger ett unikt projektnamn, parametrar för testdata, miljövariabler och
+montering av resultatkatalogen. Nedan visas den underliggande kommandosekvensen.
+Platshållarna representerar värden som skriptet skapar; förbered dem innan du
+klistrar in kommandona:
 
 ```text
 docker compose -p <run-project> -f tests/load/compose.yaml up -d --build --wait --wait-timeout 180
@@ -164,12 +203,13 @@ docker compose -p <run-project> -f tests/load/compose.yaml run --rm --no-deps --
 docker compose -p <run-project> -f tests/load/compose.yaml down --volumes --remove-orphans
 ```
 
-The runner also waits for the gateway before warm-up and runs `verify.ps1` before
-cleanup. Do not stop after the k6 command when assessing the result. `-SkipBuild`
-reuses existing local application images for development; omit it to test current
-source. `run.json` records the working tree; `images.json` records image IDs.
+Skriptet väntar också på gatewayen före uppvärmningen och kör `verify.ps1` före
+städningen. Bedöm inte resultatet enbart utifrån k6-kommandot. `-SkipBuild`
+återanvänder befintliga lokala applikationsavbilder under utveckling; utelämna
+flaggan för att testa aktuell källkod. `run.json` registrerar arbetskopians
+tillstånd och `images.json` registrerar avbildernas ID:n.
 
-Validation without a load run:
+Validering utan lasttestkörning:
 
 ```powershell
 docker compose -f tests/load/compose.yaml config --quiet
@@ -177,62 +217,81 @@ powershell -NoProfile -File tests/load/verify.tests.ps1
 node --experimental-vm-modules --test tests/load/release.tests.cjs
 ```
 
-## Watch RabbitMQ while the test runs
+Dessa kommandon validerar Compose och regressionsfallen. Kör scenarierna ovan för
+att samla underlag från verkliga köpflöden och avstämningar. Fullständiga
+körningsartefakter finns kvar i den Git-ignorerade katalogen
+`tests/load/results/<run>/`. För att bevara underlaget för andra utvecklare, lägg
+en rapport utanför `results/` i versionshanteringen med revision, exakta kommandon,
+hårdvara/Docker-resurser, avbilds-ID:n, testdata, belastning, svarstidspercentiler,
+genomströmning, fel och slutliga avstämningsantal, som i den dokumenterade
+valideringen.
 
-Run a slightly longer test to give yourself time to open the UI:
+De nuvarande sammanfattningarna innehåller median (p50) och p95, men exporterar
+inte p99. Lägg till p99 i `summaryTrendStats` innan den fullständiga
+percentilrapporten för #126 tas fram. Konfigurerbar upptrappning och tröskelvärden
+för svarstider/felandel återstår också. Nuvarande skript tillämpar fasta
+korrekthetskrav och mäter svarstider.
+
+## Följ RabbitMQ medan testet körs
+
+Kör ett lite längre test för att hinna öppna gränssnittet:
 
 ```powershell
 .\tests\load\run.ps1 -Vus 5 -Iterations 100
 ```
 
-After startup, the script prints **RabbitMQ UI: http://127.0.0.1:<port>/#/queues**.
-Open that address and log in with username **loadtest** and password **loadtest**.
-Each run uses a free port, so copy the URL printed for that run. The UI is removed
-when the test finishes and cleanup runs.
+Efter uppstart skriver skriptet ut **RabbitMQ UI: http://127.0.0.1:<port>/#/queues**.
+Öppna adressen och logga in med användarnamnet **loadtest** och lösenordet
+**loadtest**. Varje körning använder en ledig port, så kopiera den URL som skrivs ut
+för just den körningen. Gränssnittet tas bort när testet avslutas och städningen körs.
 
-On **Queues and Streams**, inspect:
+Under **Queues and Streams**, granska:
 
-- `payments.payment-requested.v1`: Booking to PaymentSimulator.
-- `booking.payment-results.v1`: PaymentSimulator to Booking.
-- `tickets.booking-confirmed.v1`: Booking to TicketService.
+- `payments.payment-requested.v1`: Booking till PaymentSimulator.
+- `booking.payment-results.v1`: PaymentSimulator till Booking.
+- `tickets.booking-confirmed.v1`: Booking till TicketService.
 
-**Ready** counts messages waiting for delivery; **Unacked** counts delivered messages
-awaiting acknowledgement. Watch publish, delivery, and acknowledgement rates as well:
-messages may be consumed too quickly to see a backlog. In this project, PaymentSimulator
-acknowledges requests after saving the attempt, then completes payments in the background,
-so an empty request queue can still mean payments are in progress.
-See the [RabbitMQ management guide](https://www.rabbitmq.com/docs/management).
+**Ready** räknar meddelanden som väntar på leverans; **Unacked** räknar levererade
+meddelanden som väntar på kvittering. Följ även takterna för publicering, leverans
+och kvittering. Meddelanden kan konsumeras så snabbt att ingen köbildning syns.
+I det här projektet kvitterar PaymentSimulator begäran efter att försöket har
+sparats och slutför därefter betalningen i bakgrunden. En tom begärandekö kan
+därför fortfarande innebära att betalningar pågår.
+Se [RabbitMQ:s administrationsguide](https://www.rabbitmq.com/docs/management).
 
-## Database connections at higher loads
+## Databasanslutningar vid högre belastning
 
-All four service databases share one PostgreSQL server in this small test stack.
-The server permits 100 connections, and each service pool is capped at 20, allowing
-at most 80 pooled connections in total. The remaining slots provide headroom for
-administration and diagnostics. More virtual users can share these connections;
-one virtual user does not require its own permanently open database connection.
-The limits are recorded in `run.json`, and connections are labelled by service
-using `Application Name`.
+Alla fyra tjänstedatabaser delar en PostgreSQL-server i den här lilla testmiljön.
+Servern tillåter 100 anslutningar och varje tjänsts anslutningspool är begränsad
+till 20, vilket ger högst 80 poolade anslutningar totalt. Resterande platser ger
+utrymme för administration och felsökning. Fler virtuella användare kan dela på
+dessa anslutningar; en virtuell användare behöver inte en egen permanent öppen
+databasanslutning.
+Gränserna registreras i `run.json` och anslutningarna märks per tjänst med
+`Application Name`.
 
-Without explicit pool limits, Npgsql permits up to 100 connections per pool.
-Four services can then exhaust the shared server and produce PostgreSQL error
-`53300: sorry, too many clients already`. Those defaults were unsuitable for this
-shared test server. The regular application Compose stack uses separate database
-servers; these pool limits apply only to the load-test stack. Higher loads can still
-fail on latency or other limits; the test's success criteria remain the same.
-See [PostgreSQL connection limits](https://www.postgresql.org/docs/18/runtime-config-connection.html)
-and [Npgsql pooling settings](https://www.npgsql.org/doc/connection-string-parameters.html#pooling).
+Utan uttryckliga poolgränser tillåter Npgsql upp till 100 anslutningar per pool.
+Fyra tjänster kan då förbruka den delade serverns alla anslutningar och ge
+PostgreSQL-felet `53300: sorry, too many clients already`. Dessa standardvärden
+passade inte den delade testservern. Applikationens ordinarie Compose-miljö
+använder separata databasservrar; poolgränserna här gäller bara lasttestmiljön.
+Högre belastning kan fortfarande ge problem med svarstider eller andra gränser;
+kraven för ett godkänt test är desamma.
+Se [PostgreSQL:s anslutningsgränser](https://www.postgresql.org/docs/18/runtime-config-connection.html)
+och [Npgsqls poolinställningar](https://www.npgsql.org/doc/connection-string-parameters.html#pooling).
 
-For comparable runs, use the same machine, Docker resources, image versions, and
-background workload. k6 is pinned; infrastructure uses the application's major-version
-image tags, so compare `images.json` if those tags are updated. This small stack
-shares one PostgreSQL container across four databases. k6 shares the Docker host
-with the services; CPU/RAM budgets, instance counts, production ingress/TLS and
-network latency are not modeled. Before estimating production capacity, use the
-intended database topology and resource limits, and run k6 on a separate machine.
-The scenarios exercise guest checkout; Keycloak login, browser rendering, PDF
-generation and real payment providers are outside these tests. Browsing precedes
-the purchase phases, but the fixture event is already on sale: server-side
-enforcement of `OnSaleFrom` is not implemented or verified by this test change.
+För jämförbara körningar, använd samma maskin, Docker-resurser, avbildsversioner
+och bakgrundsbelastning. k6 är låst till en viss version; infrastrukturen använder
+applikationens avbildstaggar för huvudversioner, så jämför `images.json` om dessa
+taggar uppdateras. Den här lilla miljön delar en PostgreSQL-container mellan fyra
+databaser. k6 delar Docker-värd med tjänsterna. CPU-/RAM-budgetar, antal instanser,
+produktionens ingress/TLS och nätverksfördröjning modelleras inte. Innan
+produktionskapaciteten uppskattas behöver avsedd databastopologi och resursgränser
+användas, och k6 köras på en separat maskin.
+Scenarierna testar gästköp; Keycloak-inloggning, rendering i webbläsare,
+PDF-generering och riktiga betalningsleverantörer ingår inte. Bläddring sker före
+köpfaserna, men testevenemangets försäljning är redan öppen. Serverns kontroll av
+`OnSaleFrom` implementeras eller verifieras inte av denna teständring.
 
-References: [k6 shared iterations](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/shared-iterations/)
-and [thresholds](https://grafana.com/docs/k6/latest/using-k6/thresholds/).
+Referenser: [k6:s delade iterationer](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/shared-iterations/)
+och [tröskelvärden](https://grafana.com/docs/k6/latest/using-k6/thresholds/).
