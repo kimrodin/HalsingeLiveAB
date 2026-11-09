@@ -81,6 +81,12 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
                 else await inbox.ReceiveAsync((PaymentFailedV1)message, token);
                 // The committed inbox owns retries, including refunds, after this acknowledgement.
                 await channel.BasicAckAsync(delivery.DeliveryTag, false, token);
+                if (message is PaymentSucceededV1 succeededMessage)
+                    logger.LogInformation("Received successful payment {PaymentId} for booking {BookingId} (message {MessageId}).",
+                        succeededMessage.PaymentId, succeededMessage.BookingId, succeededMessage.MessageId);
+                else if (message is PaymentFailedV1 failed)
+                    logger.LogWarning("Received failed payment {PaymentId} for booking {BookingId}; reason {FailureCode} (message {MessageId}).",
+                        failed.PaymentId, failed.BookingId, failed.FailureCode, failed.MessageId);
                 return;
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }

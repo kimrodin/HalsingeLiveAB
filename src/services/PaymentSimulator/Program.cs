@@ -9,8 +9,11 @@ using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
 using PaymentSimulator.Messaging;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog((_, loggerConfiguration) =>
+    loggerConfiguration.Enrich.FromLogContext().WriteTo.Console());
 
 var connectionString = builder.Configuration.GetConnectionString("PaymentSimulator")
     ?? throw new InvalidOperationException(
@@ -44,6 +47,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddAdminAuthentication(builder.Configuration, builder.Environment.IsDevelopment());
 
 var app = builder.Build();
+app.UseSerilogRequestLogging();
 
 {
     await using var scope = app.Services.CreateAsyncScope();

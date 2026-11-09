@@ -23,7 +23,11 @@ using EventCatalog.Features.Seed;
 using EventCatalog.Features.Seed.SeedEvents;
 using EventCatalog.Features.Seed.SeedVenues;
 
+using Serilog;
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog((_, loggerConfiguration) =>
+    loggerConfiguration.Enrich.FromLogContext().WriteTo.Console());
 
 builder.Services.AddDbContext<EventCatalogDbContext>(options =>
     options.UseNpgsql(
@@ -104,6 +108,7 @@ builder.Services.AddScoped<SeedAllHandler>();
 builder.Services.AddScoped<DeleteSeedDataHandler>();
 
 var app = builder.Build();
+app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {

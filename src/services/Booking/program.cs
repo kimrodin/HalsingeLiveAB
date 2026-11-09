@@ -14,8 +14,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog((_, loggerConfiguration) =>
+    loggerConfiguration.Enrich.FromLogContext().WriteTo.Console());
 
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Booking")));
@@ -149,6 +152,7 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
