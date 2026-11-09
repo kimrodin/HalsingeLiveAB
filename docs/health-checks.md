@@ -66,6 +66,17 @@ migrationer före HTTP-serverns start, så ett databasfel under uppstart kan hin
 
 ## Docker Compose
 
+Följ [snabbstarten](../README.md) och ange miljön enligt
+[konfigurationsguiden](configuration.md). Gatewayens egen `GET /health` på
+`http://localhost:5212/health` kontrollerar bara gatewayen. Kontrollera även de
+fyra readiness-adresserna nedan. API-portarna publiceras inte direkt av Compose.
+
+Keycloak har en intern readiness-kontroll på managementport 9000. EventCatalog
+och gatewayen väntar på frisk Keycloak; gatewayen väntar även på de fyra API:erna.
+`docker compose ps` visar containerstatus. För loggar, använd
+`docker compose logs --tail=100`. Webbappar i Vite-läge kan installera beroenden
+efter att `up -d --build` har avslutats; kontrollera även deras HTTP-svar.
+
 De fyra API-tjänsterna har en gemensam `healthcheck` i `src/Compose.yaml` som anropar
 `/health/ready` var femtonde sekund. Docker tillåter tre misslyckade kontroller och
 har en startperiod på trettio sekunder. Runtime-avbildningarna installerar `curl`
@@ -79,14 +90,14 @@ status startar inte automatiskt om containern.
 Bygg om API-containrarna för att aktivera ändringen i den lokala Docker-miljön:
 
 ```powershell
-docker compose -f src/Compose.yaml -f src/Compose.dev.yaml up -d --build booking eventcatalog payment-simulator ticketservice
+docker compose up -d --build
 ```
 
 | Tjänst | Readiness i lokal Compose |
 | --- | --- |
-| EventCatalog | `http://localhost:8080/health/ready` |
-| Booking | `http://localhost:8081/health/ready` |
-| TicketService | `http://localhost:8082/health/ready` |
-| PaymentSimulator | `http://localhost:5111/health/ready` |
+| EventCatalog | `http://localhost:5212/api/health/ready` |
+| Booking | `http://localhost:5212/booking-api/health/ready` |
+| TicketService | `http://localhost:5212/ticket-api/health/ready` |
+| PaymentSimulator | `http://localhost:5212/payment-api/health/ready` |
 
 Se även [Microsofts dokumentation om health checks](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks?view=aspnetcore-10.0).

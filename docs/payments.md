@@ -35,25 +35,30 @@ Betalningsbegäran och betalningsresultat går via RabbitMQ med outbox och inbox
 Kör från repositoryts rot med Docker Desktop igång:
 
 ```powershell
-docker compose -f src/Compose.yaml up -d --build booking payment-simulator
-docker compose -f src/Compose.yaml ps
+docker compose up -d --build
+docker compose ps
 ```
 
 Beroenden, inklusive PostgreSQL, Redis och RabbitMQ, startas också. Ange `TICKET_SERVICE_INTERNAL_API_KEY` för Booking och TicketService innan Compose-kommandot körs. Tjänsterna initierar sina databaser vid uppstart i utvecklingsmiljön. Kontrollera loggarna om databasen eller API:t ännu inte är redo:
 
 ```powershell
-docker compose -f src/Compose.yaml logs booking payment-simulator
+docker compose logs booking payment-simulator
 ```
 
 | Anslutning | Från värddatorn | Mellan containrar |
 | --- | --- | --- |
-| Booking API | `http://localhost:8081` | `http://booking:8080` |
-| PaymentSimulator API | `http://localhost:5111` | `http://payment-simulator:8080` |
+| Booking API via gateway | `http://localhost:5212/booking-api` | `http://booking:8080` |
+| PaymentSimulator API via gateway | `http://localhost:5212/payment-api` | `http://payment-simulator:8080` |
 | Booking PostgreSQL | `localhost:5433` | `booking-db:5432` |
 | PaymentSimulator PostgreSQL | `localhost:5434` | `payment-simulator-db:5432` |
 | Redis | `localhost:6379` | `booking-redis:6379` |
 
-Booking använder `PaymentSimulator:BaseUrl` och `PaymentSimulator:TimeoutSeconds`. Compose sätter basadressen till `http://payment-simulator:8080/` och HTTP-timeout till 5 sekunder. Vid körning från IDE är standardadressen `http://localhost:5111/`. Inuti containrarna används databasport 5432 för båda databaserna; värdportarna är separata.
+Skapa först rotens lokala `.env` enligt [konfigurationsguiden](configuration.md).
+Tabellens värdportar följer den guidens värden; API-portarna publiceras inte direkt.
+Compose läser `PAYMENT_SIMULATOR_BASE_URL` och `PAYMENT_SIMULATOR_TIMEOUT_SECONDS`
+för Bookings interna HTTP-uppslag. Databaserna använder port 5432 internt.
+Frontendens `/payment-api/api/payments/...` går genom gatewayen, som tar bort
+`/payment-api` men behåller simulatorns eget `/api`.
 
 ### Befintlig PaymentSimulator-databas
 
@@ -61,25 +66,39 @@ Tidigare versioner använde `EnsureCreated`. En sådan databas kan sakna `__EFMi
 
 ## Testa en lyckad betalning
 
-Skapa testlager med Booking-tjänstens befintliga utvecklingsendpoint. Seeden ska köras före det första biljettköpet; efter köp kan den rapportera konflikt eftersom lagret förändrats.
+Logga först in i adminappen och kör **Skapa seeddata** enligt [snabbstarten](../README.md).
+Det skapar även katalogdata och matchande lager. Exemplet nedan gör ett vanligt
+kundköp via gatewayen i PowerShell och hämtar bokningens status med gästtoken:
 
 ```powershell
-$bookingApi = 'http://localhost:8081'
-Invoke-RestMethod -Method Post -Uri "$bookingApi/SeedInventory"
-$inventory = (Invoke-RestMethod -Uri "$bookingApi/ListEventInventory/10000000-0000-0000-0000-000000000001")[0]
+$gateway = 'http://localhost:5212'
+$bookingApi = "$gateway/booking-api"
+$events = (Invoke-RestMethod -Uri "$gateway/api/ListEvents?PageSize=100").events
+$event = $events | Where-Object {
+    [DateTimeOffset]$_.startDate -gt [DateTimeOffset]::UtcNow -and
+    [DateTimeOffset]$_.onSaleFrom -le [DateTimeOffset]::UtcNow
+} | Select-Object -First 1
+if (-not $event) { throw 'Skapa ett framtida evenemang som är till försäljning i adminappen.' }
+$inventory = Invoke-RestMethod -Uri "$bookingApi/ListEventInventory/$($event.eventId)"
+$inventory = $inventory | Where-Object { $_.availableQuantity -gt 0 } | Select-Object -First 1
+if (-not $inventory) { throw 'Välj ett annat evenemang med lediga biljetter.' }
 $request = @{
     inventoryId = $inventory.inventoryId
     quantity = 1
     customerName = 'Betalningstest'
-    customerEmail = 'betalningstest@example.com'
+    customerEmail = 'betalningstest@example.test'
 } | ConvertTo-Json
 $reservation = Invoke-RestMethod -Method Post -Uri "$bookingApi/CreateBooking" -ContentType 'application/json' -Body $request
 $bookingId = $reservation.bookingId
 $guestHeaders = @{ 'X-Guest-Access-Token' = $reservation.guestAccessToken }
 Invoke-RestMethod -Method Post -Uri "$bookingApi/StartPayment/$bookingId" -Headers $guestHeaders
 Invoke-RestMethod -Uri "$bookingApi/GetBooking/$bookingId" -Headers $guestHeaders
-Invoke-RestMethod -Uri "http://localhost:5111/api/payments/by-booking/$bookingId"
+# När status har blivit Confirmed, hämta biljetterna (upprepa vid pågående utfärdande):
+Invoke-RestMethod -Uri "$bookingApi/GetTicketsForBooking/$bookingId/tickets" -Headers $guestHeaders
 ```
+
+Spara gästtoken privat för testet; lägg den inte i verifieringsrapporten.
+Betalningsuppslag i admin görs genom adminappen med dess Bearer-token.
 
 Med standardinställningarna ska betalningen efter bakgrundsbehandlingen bli `Succeeded` och bokningen `Confirmed`. Läs `GetBooking` igen om status fortfarande är väntande; det första startsvarvet väntar inte på betalningen. Ett upprepat `StartPayment` för samma bokning får inte skapa en extra betalning eller minska lagret igen. För att kontrollera spärren för direkt bekräftelse: skapa en ny reservation och anropa `POST /ConfirmBooking/{bookingId}` före betalningen. Bokningen ska förbli obetald och obekräftad.
 
@@ -96,7 +115,7 @@ Compose läser följande miljövariabler när simulatorcontainern skapas. Instä
 $env:PAYMENT_SIMULATION_OUTCOME = 'Failed'
 $env:PAYMENT_SIMULATION_DELAY_MS = '500'
 $env:PAYMENT_SIMULATION_TIMEOUT_MS = '5000'
-docker compose -f src/Compose.yaml up -d --no-deps --force-recreate payment-simulator
+docker compose up -d --no-deps --force-recreate payment-simulator
 ```
 
 Skapa en ny reservation och kör `StartPayment` igen. Vid `Failed` ska Booking avbryta bokningen och frigöra reservationen. För simulatorns terminala timeout, ändra `PAYMENT_SIMULATION_OUTCOME` till `TimedOut`, återskapa simulatorcontainern och använd en ny bokning. Bokningen ska inte bekräftas.
@@ -111,7 +130,7 @@ Reservationens ursprungliga `ExpiresAt` gäller hela tiden. Betalningsfel, polli
 Remove-Item Env:PAYMENT_SIMULATION_OUTCOME -ErrorAction SilentlyContinue
 Remove-Item Env:PAYMENT_SIMULATION_DELAY_MS -ErrorAction SilentlyContinue
 Remove-Item Env:PAYMENT_SIMULATION_TIMEOUT_MS -ErrorAction SilentlyContinue
-docker compose -f src/Compose.yaml up -d --no-deps --force-recreate payment-simulator
+docker compose up -d --no-deps --force-recreate payment-simulator
 ```
 
 ## Status, idempotens och kompensation
@@ -141,10 +160,10 @@ dotnet test tests/Booking.UnitTests/Booking.UnitTests.csproj
 Integrationstesterna använder riktiga PostgreSQL-databaser och Redis. Starta Compose-databaserna, sätt anslutningarna och kör projekten:
 
 ```powershell
-docker compose -f src/Compose.yaml up -d booking-db booking-redis payment-simulator-db
-$env:BOOKING_TEST_POSTGRES = 'Host=localhost;Port=5433;Database=postgres;Username=postgres;Password=postgres'
+docker compose up -d booking-db booking-redis payment-simulator-db
+$env:BOOKING_TEST_POSTGRES = 'Host=localhost;Port=5433;Database=postgres;Username=postgres;Password=<BOOKING_DB_PASSWORD från din .env>'
 $env:BOOKING_TEST_REDIS = 'localhost:6379'
-$env:PAYMENT_TEST_DB = 'Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=postgres'
+$env:PAYMENT_TEST_DB = 'Host=localhost;Port=5434;Database=postgres;Username=postgres;Password=<PAYMENT_SIMULATOR_DB_PASSWORD från din .env>'
 dotnet test tests/Booking.IntegrationTests/Booking.IntegrationTests.csproj
 dotnet test tests/PaymentSimulator.IntegrationTests/PaymentSimulator.IntegrationTests.csproj
 ```
