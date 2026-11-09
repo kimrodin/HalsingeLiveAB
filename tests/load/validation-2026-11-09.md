@@ -1,5 +1,9 @@
 # Lokal validering av lasttester - 2026-11-09
 
+Historisk mätning före införandet av konfigurerbar rampning, prestandatrösklar
+och p99-export. Se [den kompletterande rapporten](validation-2026-11-09-performance.md)
+för validering av dessa ändringar. Slutsatserna nedan gäller den angivna revisionen.
+
 Nya körningar av köpflödet, ett kort biljettsläpp och en tävling om sista biljetten
 klarade sina k6-tröskelvärden och slutavstämningar. Den här rapporten bevarar
 mätresultaten och regressionsresultaten för

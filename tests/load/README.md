@@ -4,7 +4,8 @@ Kräver att Docker Desktop körs med Linux-containrar. Kör från repots rotkata
 du behöver varken installera k6, ändra `.env` eller logga in som administratör.
 
 Dokumenterad validering: [resultat för köpflöde, kort biljettsläpp, tävling om sista biljetten
-och regressionstester, 2026-11-09](validation-2026-11-09.md). Alla tre dokumenterade
+och regressionstester, 2026-11-09](validation-2026-11-09.md), samt
+[kompletteringen med rampning, trösklar och p99](validation-2026-11-09-performance.md). Alla tre ursprungliga
 lasttestkörningar klarade sina korrekthetskontroller. Rapporten innehåller kommandon,
 miljö, uppmätta tider och återstående arbete för
 [ärende #126](https://github.com/kimrodin/HalsingeLiveAB/issues/126).
@@ -30,9 +31,8 @@ Standardscenariot `Checkout` kör **10 köp fördelade på 2 virtuella användar
 plus ett uppvärmningsköp. Varje köp reserverar en biljett, startar betalning och
 hämtar status var 500:e ms tills bokningen är bekräftad och exakt en giltig biljett
 finns. Köpflödet avbryts efter 30 sekunders statuskontroller. Alla köp måste lyckas;
-även avbrutna eller uteblivna iterationer gör att testet underkänns. De inledande
-tröskelvärdena kontrollerar korrekthet. Den här första versionen mäter svarstider
-utan att sätta ett godtyckligt prestandamål.
+även avbrutna eller uteblivna iterationer gör att testet underkänns. Utöver
+korrekthetskraven används konfigurerbara svarstids- och feltrösklar, se nedan.
 
 Titta på `checkout_succeeded` (måste vara 100%), `completed_checkouts` (måste
 motsvara det begärda antalet köp) och `checkout_duration` (tid från reservation till
@@ -40,7 +40,8 @@ biljetter, inklusive statuskontroller). Enbart HTTP-tider mäter inte det asynkr
 köpflödet. Uppvärmningens HTTP-anrop ingår i de inbyggda HTTP-mätvärdena; de egna
 köpmätvärdena omfattar bara de uppmätta köpen. `run.json` registrerar commit och
 belastning, och `images.json` registrerar vilka containeravbilder för tjänsterna som
-användes. Körningarna sparar också `services.log`.
+användes. `run.json` innehåller också trösklarna, rampningen och SHA-256 för
+körskript, k6-skript, Compose, testdata och avstämningskod. Körningarna sparar också `services.log`.
 `outcome.json` visar det samlade resultatet: både k6 och slutverifieringen måste
 godkännas. `verification.json` innehåller de senast avlästa tillstånden för
 databaser, Redis och köer samt eventuella misslyckade konsistenskontroller.
@@ -75,6 +76,7 @@ Standardinställningarna låter avsiktligt **1 000 köpförsök konkurrera om 10
 | Fas | Belastning |
 | --- | --- |
 | Första 30 sekunderna | Fem bläddringsflöden/sekund, där varje flöde läser evenemangslistan, evenemanget och biljettlagret. |
+| Valbar upptrappning, `-RampSeconds` | Linjär ökning från 0 till `-BurstRate` nya köpflöden/sekund, plus bläddring. Standard är 0 sekunder. |
 | Nästa 20 sekunder | 30 nya köpflöden/sekund, plus bläddring. |
 | Nästa 40 sekunder | 10 nya köpflöden/sekund, plus bläddring. |
 | Slutavstämning | Vänta tills bokningar, betalningar, biljetter, SQL-/Redis-lager och köer stämmer överens. |
@@ -95,12 +97,21 @@ manuellt. Kontroller görs var femte sekund och två godkända avläsningar i f�
 krävs. Standardgränsen för slutavstämningen är 720 sekunder efter att k6 har
 avslutats. Förloppet skrivs ut var 30:e sekund.
 
-`burst` och `tail` använder `constant-arrival-rate`: nya flöden startar oberoende av
+`ramp` använder `ramping-arrival-rate`, medan `burst` och `tail` använder
+`constant-arrival-rate`: nya flöden startar oberoende av
 om tidigare flöden har avslutats. Ett flöde innehåller flera HTTP-anrop, så
 flöden/sekund är inte samma sak som anrop/sekund. Varje fas förallokerar 128
 virtuella användare, VU (bläddringen använder ytterligare 16). Öka
 `-PreAllocatedVus` vid behov. Alla `dropped_iterations`, uteblivna köpförsök,
 oväntade fel eller avbrutna flöden gör att testet underkänns.
+
+Rampningen förskjuter båda köpfaserna och förlänger bläddringen. Varje aktiv köpfas
+förallokerar egna VU, även medan föregående fas avslutar köp. Med rampning blir det
+högst `3 * PreAllocatedVus + 16` VU; utan rampning `2 * PreAllocatedVus + 16`.
+Förväntade försök i rampen är `max(0, ceil(BurstRate * RampSeconds / 2) - 1)`.
+Endast starter strikt före fasens slut räknas. En iteration exakt vid slutgränsen
+kan schemaläggas olika av k6 och stoppas därför före HTTP-anrop. Platåernas antal
+är fortfarande `BurstRate * BurstSeconds + TailRate * TailSeconds`.
 
 Ett HTTP 409-svar från `CreateBooking` räknas som ett förväntat lageravslag bara om
 dess problemrubrik är `Not enough tickets are available.` Andra konflikter gör
@@ -130,7 +141,7 @@ För en kortare utvecklingskontroll utan övergivna reservationer:
 ```powershell
 .\tests\load\run.ps1 -Scenario Release -Capacity 10 `
   -BurstRate 5 -BurstSeconds 4 -TailRate 2 -TailSeconds 4 `
-  -PreSaleSeconds 2 -PreAllocatedVus 32 -AbandonPercent 0 `
+  -PreSaleSeconds 2 -RampSeconds 3 -PreAllocatedVus 32 -AbandonPercent 0 `
   -CancelPercent 20 -MaxQuantity 2 -ThinkMaxSeconds 1
 ```
 
@@ -156,7 +167,7 @@ biljett och försöker betala, utan övergivna reservationer eller kundavbokning
 ```powershell
 .\tests\load\run.ps1 -Scenario Release -Capacity 1 `
   -BurstRate 20 -BurstSeconds 2 -TailRate 5 -TailSeconds 2 `
-  -PreSaleSeconds 2 -PreAllocatedVus 32 -AbandonPercent 0 `
+  -PreSaleSeconds 2 -RampSeconds 0 -PreAllocatedVus 32 -AbandonPercent 0 `
   -CancelPercent 0 -MaxQuantity 1 -ThinkMaxSeconds 0
 ```
 
@@ -177,15 +188,57 @@ biljetter i lagret:
 ```powershell
 .\tests\load\run.ps1 -Scenario Sustained -Capacity 100000 `
   -BurstRate 10 -BurstSeconds 60 -TailRate 10 -TailSeconds 240 `
-  -AbandonPercent 0 -CancelPercent 0 -PreAllocatedVus 256
+  -RampSeconds 10 -AbandonPercent 0 -CancelPercent 0 -PreAllocatedVus 256
 ```
 
 Scenariot använder samma flödeslogik men **underkänns vid varje lageravslag**.
 Standardkapaciteten är 100 000; övriga standardvärden för takt, tider och
 kundgrupper är samma som för Release. Trafiktakter och kundfördelningar är
-testantaganden, inte en efterfrågeprognos. Båda scenarierna redovisar svarstider utan
-ett godtyckligt p95-mål. Överenskomna prestandamål bör läggas till när avsedd
-hårdvara och tjänstemål har definierats.
+testantaganden, inte en efterfrågeprognos. Överenskomna mål för produktion behöver
+väljas när avsedd hårdvara och tjänstemål har definierats.
+
+## Rampning och trösklar före körningen
+
+Alla värden nedan anges före körningen och sparas i `run.json`. `config.js` används
+av båda k6-skripten och exporterar p50 (`med`), p95, p99 och antal mätvärden.
+
+| Parameter i `run.ps1` | Miljövariabel till k6 | Standard |
+| --- | --- | ---: |
+| `-RampSeconds` (Release/Sustained) | `RAMP_SECONDS` | 0 s |
+| `-HttpP95Ms` | `HTTP_P95_MS` | 500 ms |
+| `-HttpP99Ms` | `HTTP_P99_MS` | 1000 ms |
+| `-CheckoutP95Ms` | `CHECKOUT_P95_MS` | 15000 ms |
+| `-CheckoutP99Ms` | `CHECKOUT_P99_MS` | 20000 ms |
+| `-MaxHttpErrorRate` | `MAX_HTTP_ERROR_RATE` | 0 (andel 0–1) |
+
+Svarstidsgränserna är budgetar för lokal validering, valda med marginal till den
+tidigare lokala mätningen. De är inte ett avtalat produktions-SLA. Ett värde över
+gränsen ger misslyckad k6-körning och därmed misslyckat helhetsresultat, även när
+databasavstämningen lyckas. p99-gränsen måste vara minst lika stor som p95-gränsen.
+
+HTTP-gränserna gäller `http_req_duration` för hela den uppmätta k6-processen,
+inklusive bläddring och lageravslag. Köptidsgränserna gäller `checkout_duration`
+i Checkout och `release_paid_duration` i Release/Sustained; de inkluderar
+betänketid, betalning och statuskontroller fram till giltiga biljetter.
+För betalningsutfallen Failed/TimedOut finns inga lyckade köp att mäta köptid på.
+Den separata uppvärmningen i Release/Sustained har `WARMUP_ONLY=true`: den
+exporterar tider men kontrollerar bara korrekthet. Checkout behåller sitt
+inbyggda uppvärmningsköp, vars HTTP-tider ingår i dess HTTP-fördelning.
+
+Exempel med egna budgetar och upptrappning:
+
+```powershell
+.\tests\load\run.ps1 -Scenario Sustained -RampSeconds 10 `
+  -BurstRate 5 -BurstSeconds 10 -TailRate 3 -TailSeconds 20 `
+  -AbandonPercent 0 -CancelPercent 0 -PreAllocatedVus 64 `
+  -HttpP95Ms 400 -HttpP99Ms 800 `
+  -CheckoutP95Ms 12000 -CheckoutP99Ms 18000 -MaxHttpErrorRate 0.01
+```
+
+`0.01` betyder högst 1% HTTP-fel. Förväntade lagerkonflikter ingår inte i dessa
+HTTP-fel. Korrekthetskraven gäller fortfarande: en oväntad konflikt, trasigt
+köpflöde, utebliven iteration eller felaktig slutavstämning underkänner testet
+även om HTTP-felandelen ligger under sin gräns.
 
 ## Compose-kommandon och verifiering
 
@@ -197,7 +250,7 @@ klistrar in kommandona:
 ```text
 docker compose -p <run-project> -f tests/load/compose.yaml up -d --build --wait --wait-timeout 180
 docker compose -p <run-project> -f tests/load/compose.yaml exec -T postgres psql -U loadtest -d loadtest -v ON_ERROR_STOP=1 -v capacity=<capacity> -f /fixture.sql
-docker compose -p <run-project> -f tests/load/compose.yaml run --rm --no-deps --volume <absolute-results-path>:/results --env VUS=1 --env ITERATIONS=1 --env SKIP_SETUP_WARMUP=true --env INVENTORY_ID=74000000-0000-0000-0000-000000000002 k6 run --summary-export=/results/warmup.json /scripts/checkout.js
+docker compose -p <run-project> -f tests/load/compose.yaml run --rm --no-deps --volume <absolute-results-path>:/results --env VUS=1 --env ITERATIONS=1 --env SKIP_SETUP_WARMUP=true --env WARMUP_ONLY=true --env INVENTORY_ID=74000000-0000-0000-0000-000000000002 k6 run --summary-export=/results/warmup.json /scripts/checkout.js
 docker compose -p <run-project> -f tests/load/compose.yaml exec -T postgres psql -U loadtest -d payments -v ON_ERROR_STOP=1 -v payment_outcome=Succeeded -v payment_delay=500 -v payment_timeout=5000 -f /payment-policy.sql
 docker compose -p <run-project> -f tests/load/compose.yaml run --rm --no-deps --volume <absolute-results-path>:/results <workload-env-arguments> k6 run --summary-export=/results/summary.json /scripts/release.js
 docker compose -p <run-project> -f tests/load/compose.yaml down --volumes --remove-orphans
@@ -226,11 +279,9 @@ hårdvara/Docker-resurser, avbilds-ID:n, testdata, belastning, svarstidspercenti
 genomströmning, fel och slutliga avstämningsantal, som i den dokumenterade
 valideringen.
 
-De nuvarande sammanfattningarna innehåller median (p50) och p95, men exporterar
-inte p99. Lägg till p99 i `summaryTrendStats` innan den fullständiga
-percentilrapporten för #126 tas fram. Konfigurerbar upptrappning och tröskelvärden
-för svarstider/felandel återstår också. Nuvarande skript tillämpar fasta
-korrekthetskrav och mäter svarstider.
+Den ursprungliga rapporten saknar p99 eftersom den kördes före kompletteringen.
+Värdet kan inte räknas fram från äldre sammanfattningar. Nya körningar exporterar
+p99 direkt och redovisas i [den kompletterande rapporten](validation-2026-11-09-performance.md).
 
 ## Följ RabbitMQ medan testet körs
 
@@ -294,4 +345,6 @@ köpfaserna, men testevenemangets försäljning är redan öppen. Serverns kontr
 `OnSaleFrom` implementeras eller verifieras inte av denna teständring.
 
 Referenser: [k6:s delade iterationer](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/shared-iterations/)
-och [tröskelvärden](https://grafana.com/docs/k6/latest/using-k6/thresholds/).
+och [tröskelvärden](https://grafana.com/docs/k6/latest/using-k6/thresholds/),
+[ramping arrival rate](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/ramping-arrival-rate/)
+och [summaryTrendStats](https://grafana.com/docs/k6/latest/using-k6/k6-options/reference/#summary-trend-stats).

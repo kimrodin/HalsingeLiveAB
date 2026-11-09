@@ -158,6 +158,7 @@ services:
     volumes:
       - ./checkout.js:/scripts/checkout.js:ro
       - ./release.js:/scripts/release.js:ro
+      - ./config.js:/scripts/config.js:ro
     # The runner mounts a separate results directory for each run.
 
 # Unique Compose project names keep these disk-backed volumes isolated per run.

@@ -2,6 +2,7 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import execution from 'k6/execution';
 import { Counter, Rate, Trend } from 'k6/metrics';
+import { performanceThresholds, summaryTrendStats } from './config.js';
 
 const baseUrl = 'http://api-gateway:8080/booking-api';
 const inventoryId = __ENV.INVENTORY_ID || '74000000-0000-0000-0000-000000000001';
@@ -13,12 +14,13 @@ const completedCheckouts = new Counter('completed_checkouts');
 const checkoutDuration = new Trend('checkout_duration', true);
 
 export const options = {
+  summaryTrendStats,
   scenarios: {
     checkout: { executor: 'shared-iterations', vus, iterations, maxDuration: '10m' },
   },
   thresholds: {
     checks: ['rate==1'],
-    http_req_failed: ['rate==0'],
+    ...performanceThresholds('checkout_duration'),
     checkout_succeeded: ['rate==1'],
     completed_checkouts: [`count==${iterations}`],
   },

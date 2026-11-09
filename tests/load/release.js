@@ -2,6 +2,7 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import execution from 'k6/execution';
 import { Counter, Rate, Trend } from 'k6/metrics';
+import { numberSetting, performanceThresholds, summaryTrendStats } from './config.js';
 
 const gateway = 'http://api-gateway:8080';
 const baseUrl = `${gateway}/booking-api`;
@@ -12,6 +13,10 @@ const burstSeconds = Number(__ENV.BURST_SECONDS || 20);
 const tailSeconds = Number(__ENV.TAIL_SECONDS || 40);
 const burstRate = Number(__ENV.BURST_RATE || 30);
 const tailRate = Number(__ENV.TAIL_RATE || 10);
+const rampSeconds = numberSetting('RAMP_SECONDS', 0, 0, 3600);
+// Only arrivals strictly before the phase ends count. k6 can race its deadline
+// against an arrival exactly on the boundary; cap that one before business I/O.
+const rampAttempts = Math.max(0, Math.ceil(burstRate * rampSeconds / 2) - 1);
 const allocatedVus = Number(__ENV.PREALLOCATED_VUS || 128);
 const abandonPercent = Number(__ENV.ABANDON_PERCENT ?? 10);
 const cancelPercent = Number(__ENV.CANCEL_PERCENT ?? 10);
@@ -20,7 +25,8 @@ const thinkMaxSeconds = Number(__ENV.THINK_MAX_SECONDS ?? 3);
 const checkoutTimeoutSeconds = Number(__ENV.CHECKOUT_TIMEOUT_SECONDS || 60);
 const paymentOutcome = __ENV.PAYMENT_OUTCOME || 'Succeeded';
 const expectSoldOut = __ENV.EXPECT_SOLD_OUT !== 'false';
-const plannedAttempts = burstRate * burstSeconds + tailRate * tailSeconds;
+const plannedAttempts = rampAttempts + burstRate * burstSeconds + tailRate * tailSeconds;
+const phaseAttempts = { ramp: rampAttempts, burst: burstRate * burstSeconds, tail: tailRate * tailSeconds };
 
 const attempts = new Counter('release_attempts');
 const accepted = new Counter('release_reserved');
@@ -42,15 +48,22 @@ function arrivals(rate, duration, startTime, exec, vus) {
 }
 
 export const options = {
+  summaryTrendStats,
   scenarios: {
-    browse: arrivals(Number(__ENV.BROWSE_RATE || 5), preSaleSeconds + burstSeconds + tailSeconds,
+    browse: arrivals(Number(__ENV.BROWSE_RATE || 5), preSaleSeconds + rampSeconds + burstSeconds + tailSeconds,
       0, 'browse', 16),
-    burst: arrivals(burstRate, burstSeconds, preSaleSeconds, 'attempt', allocatedVus),
-    tail: arrivals(tailRate, tailSeconds, preSaleSeconds + burstSeconds, 'attempt', allocatedVus),
+    ...(rampSeconds > 0 ? { ramp: {
+      executor: 'ramping-arrival-rate', exec: 'attempt', startRate: 0, timeUnit: '1s',
+      stages: [{ target: burstRate, duration: `${rampSeconds}s` }],
+      startTime: `${preSaleSeconds}s`, preAllocatedVUs: allocatedVus,
+      gracefulStop: `${Math.ceil(thinkMaxSeconds + checkoutTimeoutSeconds + 10)}s`,
+    } } : {}),
+    burst: arrivals(burstRate, burstSeconds, preSaleSeconds + rampSeconds, 'attempt', allocatedVus),
+    tail: arrivals(tailRate, tailSeconds, preSaleSeconds + rampSeconds + burstSeconds, 'attempt', allocatedVus),
   },
   thresholds: {
     checks: ['rate==1'],
-    http_req_failed: ['rate==0'],
+    ...performanceThresholds('release_paid_duration'),
     dropped_iterations: ['count==0'],
     release_unexpected_error: ['rate==0'],
     release_attempts: [`count==${plannedAttempts}`],
@@ -90,7 +103,7 @@ export function setup() {
   // Sales open at the scenario boundary; this does not test the server's sale-date enforcement.
   readInventory();
   for (const metric of [attempts, accepted, soldOut, abandoned, cancelled, paid, paymentRejected]) metric.add(0);
-  console.log(`Release: ${plannedAttempts} attempts; ${burstRate}/s then ${tailRate}/s; payment ${paymentOutcome}.`);
+  console.log(`Release: ${plannedAttempts} attempts; ramp ${rampSeconds}s to ${burstRate}/s, then ${tailRate}/s; payment ${paymentOutcome}.`);
 }
 
 export function browse() {
@@ -146,8 +159,7 @@ function waitForPayment(bookingId, token, quantity, started) {
 export function attempt() {
   const iteration = execution.scenario.iterationInTest;
   // k6 1.3 can schedule one extra boundary iteration; never issue extra business requests.
-  const phaseAttempts = execution.scenario.name === 'burst' ? burstRate * burstSeconds : tailRate * tailSeconds;
-  if (iteration >= phaseAttempts) return;
+  if (iteration >= phaseAttempts[execution.scenario.name]) return;
   // Deterministic variation makes reruns comparable. Accepted cohorts may differ under contention.
   const bucket = (iteration * 37) % 100;
   const cohort = bucket < abandonPercent ? 'abandon'
