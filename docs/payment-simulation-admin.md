@@ -17,12 +17,14 @@ the sidebar. The dialog loads current settings and lets an admin save an outcome
 delay, and timeout. It is hidden in production builds, like the seed controls.
 The dialog explains that only new payment attempts are affected.
 
-The Vite development proxy routes `/payment-api` to PaymentSimulator, retaining
-the backend's `/api` prefix. Its default target is `http://localhost:5111`;
-override with `PAYMENT_API_PROXY_TARGET` when needed. `Compose.dev.yaml` sets
-`http://payment-simulator:8080` for the AdminWeb container. Restart Vite or recreate
-the development container after changing proxy configuration. Production Nginx
-does not expose this proxy.
+Both Vite and the base Compose Nginx configuration forward `/payment-api` to
+ApiGateway using `API_GATEWAY_PROXY_TARGET` (in Compose: `http://api-gateway:8080`).
+The gateway removes `/payment-api`, retaining the backend's `/api` prefix.
+From the host, use `http://localhost:5212/payment-api/api/admin/payment-simulation`,
+or the same path on the admin app's origin. For separate host-side Vite, the
+gateway target defaults to `http://localhost:5212`. Restart Vite or recreate the
+container after changing proxy configuration. The dialog is available in Vite
+development mode; the base Nginx build still proxies these API paths.
 
 Authentication uses audience `eventcatalog` and the top-level `roles` claim, matching
 Booking and TicketService. The default authority is

@@ -260,13 +260,12 @@ Registrering av anslutningar, publicerare och bakgrundstjänster finns i [Bookin
 | AMQP från värddatorn | `localhost:5672` |
 | AMQP mellan Compose-tjänster | `rabbitmq:5672` |
 
-Standardvärdena för lokal utveckling är användare `guest`, lösenord `guest` och virtual host `/`. Compose tillåter utvecklingskontot från sitt interna nätverk. Använd separata konton och vanliga åtkomstregler utanför lokal utveckling.
+Ange `RABBITMQ_USER` och ett genererat `RABBITMQ_PASSWORD` enligt [konfigurationsguiden](configuration.md). Compose använder samma värden för klienterna och för att skapa kontot i en tom broker. Virtual host är `/`. Befintliga brokerkonton uppdateras inte genom att ändra dessa bootstrap-värden.
 
-Ange en gemensam intern nyckel för Booking och TicketService och kör från repots rot:
+Skapa rotens lokala `.env`, inklusive gemensam intern nyckel för Booking och TicketService, och kör från repots rot:
 
 ```powershell
-$env:TICKET_SERVICE_INTERNAL_API_KEY = '<gemensam intern nyckel>'
-docker compose -f src/Compose.yaml up -d --build rabbitmq booking ticketservice payment-simulator
+docker compose up -d --build
 ```
 
 När tjänsterna körs från IDE:n används normalt `localhost:5672`. Följande inställningar kan anges som miljövariabler:
@@ -354,5 +353,5 @@ Börja med att följa samma `BookingId` genom tjänsterna. `CorrelationId` har n
 Tjänsternas loggar kan följas med:
 
 ```powershell
-docker compose -f src/Compose.yaml logs -f booking payment-simulator ticketservice rabbitmq
+docker compose logs -f booking payment-simulator ticketservice rabbitmq
 ```
