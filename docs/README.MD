@@ -2,6 +2,9 @@
 
 Börja med [snabbstarten](../README.md).
 
+Compose-kommandon körs från projektroten med rotens `.env`. Testguider använder
+egna `-p` och `-f` för isolerade testmiljöer.
+
 - **Installation:** [Konfiguration](configuration.md), [Keycloak](keycloak.md),
   [health](health-checks.md), [verifiering](quickstart-verification.md).
 - **Frontend:** [Utvecklarguide](frontend-guide.md), [arkitektur och kontrakt](frontend-architecture.md).
