@@ -25,11 +25,14 @@ services:
     environment:
       POSTGRES_USER: loadtest
       POSTGRES_PASSWORD: loadtest
-    tmpfs:
-      - /var/lib/postgresql
     volumes:
+      - load-postgres:/var/lib/postgresql
       - ./databases.sql:/docker-entrypoint-initdb.d/databases.sql:ro
       - ./fixture.sql:/fixture.sql:ro
+      - ./payment-policy.sql:/payment-policy.sql:ro
+      - ./audit-booking.sql:/audit-booking.sql:ro
+      - ./audit-payments.sql:/audit-payments.sql:ro
+      - ./audit-tickets.sql:/audit-tickets.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U loadtest -d loadtest"]
       interval: 2s
@@ -38,8 +41,9 @@ services:
 
   redis:
     image: redis:7-alpine
-    tmpfs:
-      - /data
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - load-redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 2s
@@ -53,10 +57,11 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: loadtest
       RABBITMQ_DEFAULT_PASS: loadtest
-    tmpfs:
-      - /var/lib/rabbitmq
+    volumes:
+      - load-rabbitmq:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # Use the broker's user so an early probe cannot create a root-owned Erlang cookie.
+      test: ["CMD", "su-exec", "rabbitmq", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 3s
       timeout: 10s
       retries: 30
@@ -152,4 +157,11 @@ services:
     profiles: [load]
     volumes:
       - ./checkout.js:/scripts/checkout.js:ro
+      - ./release.js:/scripts/release.js:ro
     # The runner mounts a separate results directory for each run.
+
+# Unique Compose project names keep these disk-backed volumes isolated per run.
+volumes:
+  load-postgres:
+  load-redis:
+  load-rabbitmq:

@@ -4,7 +4,8 @@ import execution from 'k6/execution';
 import { Counter, Rate, Trend } from 'k6/metrics';
 
 const baseUrl = 'http://api-gateway:8080/booking-api';
-const inventoryId = '74000000-0000-0000-0000-000000000001';
+const inventoryId = __ENV.INVENTORY_ID || '74000000-0000-0000-0000-000000000001';
+const skipSetupWarmup = __ENV.SKIP_SETUP_WARMUP === 'true';
 const iterations = Number(__ENV.ITERATIONS || 10);
 const vus = Number(__ENV.VUS || 2);
 const checkoutSucceeded = new Rate('checkout_succeeded');
@@ -87,9 +88,11 @@ export function setup() {
   // Verify the gateway and fixture, then warm the complete messaging path once.
   const inventory = http.get(`${baseUrl}/GetEventInventory/${inventoryId}`, requestOptions('GetEventInventory'));
   requireStatus(inventory, 200, 'fixture available');
-  if (inventory.json('availableQuantity') < iterations + 1) throw new Error('Not enough fixture inventory.');
-  checkout('warmup');
-  console.log(`Warm-up passed. Starting ${iterations} checkouts with ${vus} virtual users.`);
+  if (inventory.json('availableQuantity') < iterations + (skipSetupWarmup ? 0 : 1)) {
+    throw new Error('Not enough fixture inventory.');
+  }
+  if (!skipSetupWarmup) checkout('warmup');
+  console.log(`Starting ${iterations} checkouts with ${vus} virtual users.`);
 }
 
 export default function () {

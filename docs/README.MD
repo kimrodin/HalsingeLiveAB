@@ -9,7 +9,7 @@ Repositoryt innehåller EventCatalog API:t, Booking-tjänsten, PaymentSimulator 
 Health-endpoints för de fyra API-tjänsterna och Docker Compose beskrivs i
 [health-checks.md](health-checks.md).
 
-Repeatable k6 checkout test with one PowerShell command: [load test guide](../tests/load/README.md).
+Repeatable k6 checkout, ticket-release and sustained tests: [load test guide](../tests/load/README.md).
 
 ## Enkel start för lokal utveckling
 
