@@ -42,9 +42,14 @@ export default function SalesStatisticsSection({ period, children }: { period: D
         try {
           while (active && refreshQueued) {
             refreshQueued = false;
+            const queryFilter = { queryKey: ['sales-statistics'] };
+            if (queryClient.isFetching(queryFilter) > 0) {
+              await queryClient.refetchQueries(queryFilter, { cancelRefetch: false });
+              if (!active) break;
+              refreshQueued = false;
+            }
             await queryClient.invalidateQueries(
-              { queryKey: ['sales-statistics'] },
-              { cancelRefetch: false },
+              queryFilter,
             );
           }
         } catch (error) {
@@ -78,6 +83,7 @@ export default function SalesStatisticsSection({ period, children }: { period: D
       try {
         await connection.start();
         if (!active) await connection.stop();
+        else refresh();
       } catch (error) {
         if (active) {
           console.warn('Sales updates connection failed to start; retrying.', error);
