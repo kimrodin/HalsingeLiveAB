@@ -7,6 +7,9 @@ TestResults/
 *.suo
 *.cache
 
+# Load test results
+/tests/load/results/
+
 # Visual Studio / IDE
 .vs/
 .idea/
