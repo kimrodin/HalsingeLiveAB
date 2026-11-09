@@ -19,6 +19,8 @@ export default function SalesStatisticsSection({ period, children }: { period: D
   useEffect(() => {
     let active = true;
     let starting = false;
+    let refreshQueued = false;
+    let refreshing = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const connection = new HubConnectionBuilder()
       .withUrl('/booking-api/hubs/sales', {
@@ -31,11 +33,47 @@ export default function SalesStatisticsSection({ period, children }: { period: D
       .configureLogging(LogLevel.Warning)
       .build();
 
-    const refresh = () => void queryClient.invalidateQueries({ queryKey: ['sales-statistics'] });
+    const refresh = () => {
+      refreshQueued = true;
+      if (refreshing) return;
+
+      refreshing = true;
+      void (async () => {
+        try {
+          while (active && refreshQueued) {
+            refreshQueued = false;
+            await queryClient.invalidateQueries(
+              { queryKey: ['sales-statistics'] },
+              { cancelRefetch: false },
+            );
+          }
+        } catch (error) {
+          console.warn('Could not refresh sales statistics after a live update.', error);
+        } finally {
+          refreshing = false;
+          if (active && refreshQueued) refresh();
+        }
+      })();
+    };
+
+    const scheduleRetry = () => {
+      if (!active || retryTimer) return;
+      retryTimer = setTimeout(() => {
+        retryTimer = undefined;
+        void connect();
+      }, 5000);
+    };
+
     connection.on('SalesUpdated', refresh);
-    connection.onreconnected(refresh);
+    connection.onreconnected(() => {
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = undefined;
+      refresh();
+    });
+    connection.onclose(scheduleRetry);
 
     const connect = async () => {
+      if (!active) return;
       starting = true;
       try {
         await connection.start();
@@ -43,7 +81,7 @@ export default function SalesStatisticsSection({ period, children }: { period: D
       } catch (error) {
         if (active) {
           console.warn('Sales updates connection failed to start; retrying.', error);
-          retryTimer = setTimeout(() => void connect(), 5000);
+          scheduleRetry();
         }
       } finally {
         starting = false;
