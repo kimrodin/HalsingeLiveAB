@@ -202,9 +202,12 @@ public sealed class BookingsController(
         {
             var result = await bookingService.CreateReservationAsync(request, cancellationToken);
             if (result.Status == ReservationStatus.Reserved)
+            {
+                Response.Headers["X-Correlation-ID"] = result.BookingId!.Value.ToString("D");
                 logger.LogInformation(
                     "Reserved booking {BookingId}, correlation {CorrelationId} for inventory {InventoryId}; quantity {Quantity}.",
                     result.BookingId, result.BookingId, request.InventoryId, request.Quantity);
+            }
             else if (result.Status == ReservationStatus.InsufficientInventory)
                 logger.LogWarning("Could not reserve booking for inventory {InventoryId}; requested quantity {Quantity} is unavailable.",
                     request.InventoryId, request.Quantity);
@@ -278,11 +281,14 @@ public sealed class BookingsController(
             cancellationToken))
             return NotFound();
 
+        Response.Headers["X-Correlation-ID"] = bookingId.ToString("D");
         try
         {
             var result = await bookingService.StartPaymentAsync(bookingId, cancellationToken);
             if (result.BookingStatus == BookingStatuses.Confirmed)
-                logger.LogInformation("Booking {BookingId} confirmed after payment verification.", bookingId);
+                logger.LogInformation(
+                    "Booking {BookingId}, correlation {CorrelationId} confirmed after payment verification.",
+                    bookingId, bookingId);
             if (result.BookingStatus == "NotFound")
                 return NotFound(result);
             if (result.PaymentStatus == "Invalid")

@@ -41,7 +41,9 @@ public sealed class PaymentResultInboxDispatcher(BookingDbContext db, BookingSer
                 await db.PaymentResultInboxMessages.Where(row => row.MessageId == message.MessageId && row.ProcessedAtUtc == null)
                     .ExecuteUpdateAsync(update => update.SetProperty(row => row.RejectedAtUtc, clock.GetUtcNow())
                         .SetProperty(row => row.LastError, error), token);
-                logger.LogError(exception, "Quarantined payment result {MessageId} for booking {BookingId}.", message.MessageId, message.BookingId);
+                logger.LogError(exception,
+                    "Quarantined payment result {MessageId} for booking {BookingId}, correlation {CorrelationId}.",
+                    message.MessageId, message.BookingId, message.CorrelationId);
             }
             catch (Exception exception) when (!token.IsCancellationRequested)
             {
@@ -51,7 +53,9 @@ public sealed class PaymentResultInboxDispatcher(BookingDbContext db, BookingSer
                         && row.ProcessedAtUtc == null && row.RejectedAtUtc == null)
                     .ExecuteUpdateAsync(update => update.SetProperty(row => row.AttemptCount, row => row.AttemptCount + 1)
                         .SetProperty(row => row.NextAttemptAtUtc, retry).SetProperty(row => row.LastError, error), token);
-                logger.LogError(exception, "Payment result {MessageId} remains pending; retry scheduled.", message.MessageId);
+                logger.LogError(exception,
+                    "Payment result {MessageId} for booking {BookingId}, correlation {CorrelationId} remains pending; retry scheduled.",
+                    message.MessageId, message.BookingId, message.CorrelationId);
             }
             finally
             {

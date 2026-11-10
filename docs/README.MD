@@ -9,7 +9,8 @@ egna `-p` och `-f` för isolerade testmiljöer.
   [health](health-checks.md), [verifiering](quickstart-verification.md).
 - **Frontend:** [Utvecklarguide](frontend-guide.md), [arkitektur och kontrakt](frontend-architecture.md).
 - **Bokning:** [Betalningar](payments.md), [betalningssimulering](payment-simulation-admin.md),
-  [testdata](seed-purchases.md), [RabbitMQ](messaging.md), [Redis](redis.md).
+  [testdata](seed-purchases.md), [RabbitMQ](messaging.md), [Redis](redis.md),
+  [Seq-loggar](seq.md).
 - **Biljetter:** [TicketService](ticketservice-guide.md), [entréskanner](entreskanner-guide.md).
 - **Administration:** [Evenemangsbilder](event-images.md),
   [försäljningsstatistik](sales-statistics.md), [beläggning](dashboard-occupancy.md).

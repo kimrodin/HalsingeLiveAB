@@ -17,7 +17,17 @@ builder.Services
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, context) =>
+    {
+        if (Guid.TryParse(context.Response.Headers["X-Correlation-ID"].ToString(), out var correlationId))
+        {
+            diagnosticContext.Set("CorrelationId", correlationId);
+            diagnosticContext.Set("BookingId", correlationId);
+        }
+    };
+});
 
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 app.UseWebSockets();

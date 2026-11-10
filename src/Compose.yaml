@@ -28,6 +28,8 @@ services:
     ports:
       - "${API_GATEWAY_PUBLISHED_PORT:?Set API_GATEWAY_PUBLISHED_PORT}:8080"
     depends_on:
+      seq:
+        condition: service_started
       eventcatalog:
         condition: service_healthy
       booking:
@@ -70,6 +72,8 @@ services:
       retries: 3
       start_period: 30s
     depends_on:
+      seq:
+        condition: service_started
       booking-db:
         condition: service_healthy
       booking-redis:
@@ -100,6 +104,8 @@ services:
       RabbitMq__Password: "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}"
     healthcheck: *api-healthcheck
     depends_on:
+      seq:
+        condition: service_started
       ticketservice-db:
         condition: service_healthy
       rabbitmq:
@@ -157,6 +163,8 @@ services:
       - "venue-maps-data:${VENUE_MAP_STORAGE_ROOT_PATH:?Set VENUE_MAP_STORAGE_ROOT_PATH}"
       - "event-images-data:${EVENT_IMAGE_STORAGE_ROOT_PATH:?Set EVENT_IMAGE_STORAGE_ROOT_PATH}"
     depends_on:
+      seq:
+        condition: service_started
       eventcatalog-db:
         condition: service_healthy
       keycloak:
@@ -248,6 +256,8 @@ services:
       RabbitMq__Password: "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}"
     healthcheck: *api-healthcheck
     depends_on:
+      seq:
+        condition: service_started
       payment-simulator-db:
         condition: service_healthy
       rabbitmq:

@@ -62,7 +62,8 @@ public sealed class TicketIssueOutboxDispatcher(
             message.DeliveredAtUtc = timeProvider.GetUtcNow();
             message.LastError = null;
             logger.LogInformation(
-                "Delivered ticket issuance for booking {BookingId}, item {BookingItemId}.",
+                "Delivered ticket issuance for booking {BookingId}, correlation {CorrelationId}, item {BookingItemId}.",
+                message.BookingId,
                 message.BookingId,
                 message.BookingItemId);
         }
@@ -74,7 +75,8 @@ public sealed class TicketIssueOutboxDispatcher(
             message.LastError = Truncate(exception.Message);
             logger.LogError(
                 exception,
-                "Could not issue tickets for booking {BookingId}, item {BookingItemId}; retry scheduled for {NextAttemptAtUtc}.",
+                "Could not issue tickets for booking {BookingId}, correlation {CorrelationId}, item {BookingItemId}; retry scheduled for {NextAttemptAtUtc}.",
+                message.BookingId,
                 message.BookingId,
                 message.BookingItemId,
                 message.NextAttemptAtUtc);
