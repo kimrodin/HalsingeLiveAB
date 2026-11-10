@@ -86,7 +86,7 @@ Dokumentationen innehåller flera kvarvarande uppgifter från tidigare implement
 - README säger att EventCatalog normalt kräver manuell migration och föreslår att lägga till migrationskod. Compose sätter redan `InitializeDatabase=true`, och API:t har motsvarande migrationskod.
 - README hänvisar till `seed-seating-maps.sql`, som saknas.
 - README säger att platskartor måste placeras manuellt tills fillagring finns. Uppladdning och lokal fillagring finns redan.
-- [Beläggningsdokumentationen](dashboard-occupancy.md) beskriver `.env` under `src`, medan README beskriver projektroten.
+- Beläggningsdokumentationen beskrev vid granskningen `.env` under `src`, medan README beskrev projektroten. Dokumentationen har sedan dess samlats och uppdaterats i [Admin-dashboarden](admin_dashboard.md#utvecklingsmiljö-och-integrationshistorik).
 - [Betalningssimulatorns guide](payment-simulation-admin.md) säger att produktions-Nginx saknar betalningsproxy, men adminwebbens Dockerfile innehåller den.
 - IDE-fliken `docs/redis.md` som nämndes i frågan motsvarar ingen fil i aktuell arbetskopia.
 
