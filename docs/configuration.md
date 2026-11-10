@@ -1,80 +1,124 @@
-# Compose configuration
+# Lokal Compose-konfiguration
 
-Docker Compose reads configuration from `.env` in the repository root. A fresh
-checkout needs a complete local development `.env`, provisioned separately from
-Git. Required variable names are listed in `src/Compose.yaml` and summarized
-below. Set `TICKET_SERVICE_INTERNAL_API_KEY` to a generated key, for example with
-`openssl rand -hex 32`. `.env` is ignored by Git and excluded from the backend
-Docker build context.
+Skapa en Git-ignorerad `.env` i projektroten med `NAMN=värde` för varje variabel
+nedan. Ingen miljömall ingår. Värdena avser lokal utveckling med loopback-portar.
 
-Run Compose from the repository root:
+## Generera hemligheter
 
-```sh
-docker compose up -d
+Generera ett separat värde för varje `*_PASSWORD` och för
+`TICKET_SERVICE_INTERNAL_API_KEY`. Ersätt **eget genererat värde** i tabellen.
+Den interna nyckeln delas automatiskt av Booking och TicketService.
+
+PowerShell (även version 5):
+
+```powershell
+$bytes = New-Object byte[] 32
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+$rng.Dispose()
+[BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
 ```
 
-To select both Compose files portably, set `COMPOSE_PATH_SEPARATOR=,` and
-`COMPOSE_FILE=src/Compose.yaml,src/Compose.dev.yaml` in `.env`. Existing files that
-use the platform's default separator also work without `COMPOSE_PATH_SEPARATOR`:
-semicolon on Windows, colon on Unix.
-
-To select the base configuration explicitly, including from another directory:
+macOS/Linux:
 
 ```sh
-docker compose --env-file /path/to/repository/.env -f /path/to/repository/src/Compose.yaml up -d
+openssl rand -hex 32
 ```
 
-## Settings
+Behåll hemligheterna mellan starter och håll dem utanför Git och delade loggar.
+Hexvärden behöver ingen extra escapning i anslutningssträngarna.
 
-| Variables | Configure |
+## Variabler
+
+| Variabel | Värde för lokal utveckling |
 | --- | --- |
-| `TICKET_SERVICE_INTERNAL_API_KEY` | Shared key used by Booking and TicketService. |
-| `ASPNETCORE_ENVIRONMENT`, `API_GATEWAY_HTTP_PORTS`, `INITIALIZE_DATABASE` | Current application environment, gateway listener, and development initialization flag. |
-| `POSTGRES_IMAGE`, `REDIS_IMAGE`, `RABBITMQ_IMAGE`, `KEYCLOAK_IMAGE` | Existing dependency image versions. |
-| `*_BASE_URL`, `API_GATEWAY_PROXY_TARGET`, `*_TIMEOUT_SECONDS` | Container-to-container HTTP addresses and request timeouts. |
-| `*_PUBLISHED_PORT` | Published host port, optionally prefixed by a bind address such as `127.0.0.1:`. Frontend values apply to both Compose files. |
-| `BOOKING_DB_*`, `TICKETSERVICE_DB_*`, `EVENTCATALOG_DB_*`, `PAYMENT_SIMULATOR_DB_*` | Database hosts, internal ports, names, users, passwords, and published ports. Each database's name, user, and password feed both its PostgreSQL container and application connection string. |
-| `REDIS_CONNECTION_STRING` | Booking's Redis connection. |
-| `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_VIRTUAL_HOST`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` | RabbitMQ client connections. |
-| `RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS` | Existing broker runtime arguments. |
-| `AUTHENTICATION_AUTHORITY`, `AUTHENTICATION_METADATA_ADDRESS` | Token issuer and authentication discovery address. |
-| `KC_BOOTSTRAP_ADMIN_USERNAME`, `KC_BOOTSTRAP_ADMIN_PASSWORD` | Keycloak console bootstrap account. |
-| `KEYCLOAK_APP_ADMIN_PASSWORD` | Password for the existing `testadmin` application account when importing a new realm. |
-| `KC_HOSTNAME`, `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` | Keycloak hostname settings. |
-| `VENUE_MAP_STORAGE_ROOT_PATH`, `EVENT_IMAGE_STORAGE_ROOT_PATH` | Service storage paths and corresponding volume mount targets. |
-| `PAYMENT_SIMULATION_*` | Existing payment simulation outcome and timing controls. |
+| `COMPOSE_PATH_SEPARATOR` | `,` |
+| `COMPOSE_FILE` | `src/Compose.yaml,src/Compose.dev.yaml` (Vite/hot reload); enbart `src/Compose.yaml` för Nginx |
+| `ASPNETCORE_ENVIRONMENT` | `Development` |
+| `INITIALIZE_DATABASE` | `true` (aktiverar migrationer i EventCatalog, Booking och TicketService; PaymentSimulator migrerar alltid) |
+| `API_GATEWAY_HTTP_PORTS` | `8080` (intern containerport; ändra inte till värdporten) |
+| `POSTGRES_IMAGE` | `postgres:18-alpine` |
+| `REDIS_IMAGE` | `redis:7-alpine` |
+| `RABBITMQ_IMAGE` | `rabbitmq:4-management-alpine` |
+| `KEYCLOAK_IMAGE` | `quay.io/keycloak/keycloak:26.8.2` |
+| `EVENTCATALOG_BASE_URL` | `http://eventcatalog:8080/` |
+| `BOOKING_BASE_URL` | `http://booking:8080/` |
+| `TICKET_SERVICE_BASE_URL` | `http://ticketservice:8080/` |
+| `PAYMENT_SIMULATOR_BASE_URL` | `http://payment-simulator:8080/` |
+| `API_GATEWAY_PROXY_TARGET` | `http://api-gateway:8080` |
+| `EVENTCATALOG_TIMEOUT_SECONDS` | `5` |
+| `BOOKING_TIMEOUT_SECONDS` | `5` |
+| `TICKET_SERVICE_TIMEOUT_SECONDS` | `5` |
+| `PAYMENT_SIMULATOR_TIMEOUT_SECONDS` | `5` |
+| `TICKET_SERVICE_INTERNAL_API_KEY` | **eget genererat värde** |
+| `API_GATEWAY_PUBLISHED_PORT` | `127.0.0.1:5212` |
+| `ADMIN_WEB_PUBLISHED_PORT` | `127.0.0.1:5173` |
+| `CUSTOMER_WEB_PUBLISHED_PORT` | `127.0.0.1:5174` |
+| `KEYCLOAK_PUBLISHED_PORT` | `127.0.0.1:8180` |
+| `BOOKING_DB_HOST` | `booking-db` |
+| `BOOKING_DB_PORT` | `5432` |
+| `BOOKING_DB_NAME` | `booking_dev` |
+| `BOOKING_DB_USER` | `postgres` |
+| `BOOKING_DB_PASSWORD` | **eget genererat värde** |
+| `BOOKING_DB_PUBLISHED_PORT` | `127.0.0.1:5433` |
+| `TICKETSERVICE_DB_HOST` | `ticketservice-db` |
+| `TICKETSERVICE_DB_PORT` | `5432` |
+| `TICKETSERVICE_DB_NAME` | `ticketservice_dev` |
+| `TICKETSERVICE_DB_USER` | `postgres` |
+| `TICKETSERVICE_DB_PASSWORD` | **eget genererat värde** |
+| `TICKETSERVICE_DB_PUBLISHED_PORT` | `127.0.0.1:5435` |
+| `EVENTCATALOG_DB_HOST` | `eventcatalog-db` |
+| `EVENTCATALOG_DB_PORT` | `5432` |
+| `EVENTCATALOG_DB_NAME` | `eventcatalog_dev` |
+| `EVENTCATALOG_DB_USER` | `postgres` |
+| `EVENTCATALOG_DB_PASSWORD` | **eget genererat värde** |
+| `EVENTCATALOG_DB_PUBLISHED_PORT` | `127.0.0.1:5432` |
+| `PAYMENT_SIMULATOR_DB_HOST` | `payment-simulator-db` |
+| `PAYMENT_SIMULATOR_DB_PORT` | `5432` |
+| `PAYMENT_SIMULATOR_DB_NAME` | `payment_simulator_dev` |
+| `PAYMENT_SIMULATOR_DB_USER` | `postgres` |
+| `PAYMENT_SIMULATOR_DB_PASSWORD` | **eget genererat värde** |
+| `PAYMENT_SIMULATOR_DB_PUBLISHED_PORT` | `127.0.0.1:5434` |
+| `REDIS_CONNECTION_STRING` | `booking-redis:6379` |
+| `REDIS_PUBLISHED_PORT` | `127.0.0.1:6379` |
+| `RABBITMQ_HOST` | `rabbitmq` |
+| `RABBITMQ_PORT` | `5672` |
+| `RABBITMQ_VIRTUAL_HOST` | `/` |
+| `RABBITMQ_USER` | `halsingelive` (skapas automatiskt i en tom broker) |
+| `RABBITMQ_PASSWORD` | **eget genererat värde** |
+| `RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS` | `+S 2:2` |
+| `RABBITMQ_PUBLISHED_PORT` | `127.0.0.1:5672` |
+| `RABBITMQ_MANAGEMENT_PUBLISHED_PORT` | `127.0.0.1:15672` |
+| `AUTHENTICATION_AUTHORITY` | `http://localhost:8180/realms/halsingelive` |
+| `AUTHENTICATION_METADATA_ADDRESS` | `http://keycloak:8080/realms/halsingelive/.well-known/openid-configuration` |
+| `KC_BOOTSTRAP_ADMIN_USERNAME` | `keycloak-admin` |
+| `KC_BOOTSTRAP_ADMIN_PASSWORD` | **eget genererat värde** |
+| `KEYCLOAK_APP_ADMIN_PASSWORD` | **eget genererat värde** (för appkontot `testadmin`) |
+| `KC_HOSTNAME` | `http://localhost:8180` |
+| `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` | `true` |
+| `VENUE_MAP_STORAGE_ROOT_PATH` | `/app/uploads/venue-maps` |
+| `EVENT_IMAGE_STORAGE_ROOT_PATH` | `/app/uploads/event-images` |
+| `PAYMENT_SIMULATION_OUTCOME` | `Succeeded` |
+| `PAYMENT_SIMULATION_DELAY_MS` | `500` |
+| `PAYMENT_SIMULATION_TIMEOUT_MS` | `5000` |
 
-Compose passes only the settings listed for each service, rather than the whole
-`.env` file. Shell environment variables still take precedence. Required values
-use `${VARIABLE:?Set VARIABLE}` so a missing configuration fails before startup.
-CI checks the Compose structure using `config --no-interpolate --no-normalize
---quiet`, without needing local environment values. To validate the resolved
-values in your own `.env`, run `docker compose config --quiet` from the repository
-root. This local check includes interpolation and normalization.
+## Filval och kontroll
 
-## Existing behavior and scope
+`COMPOSE_PATH_SEPARATOR=,` låter samma `COMPOSE_FILE` användas på alla OS.
+Utan den används `;` på Windows och `:` på macOS/Linux. Filvalet är relativt
+projektroten; YAML-filernas byggkontexter är relativa till `src`.
+Vite-läget har seedknapp och hot reload; enbart `src/Compose.yaml` kör Nginx.
 
-The initial `.env` values preserve the previous development setup: database
-credentials, API key, host bindings, image versions, login accounts, startup
-commands, volume names, and initialization behavior stay the same.
+Validera vid behov med `docker compose config --quiet`. Utan `--quiet` skrivs
+hemligheter ut. Terminalens miljövariabler har företräde framför `.env`.
+Startkommandot finns i [snabbstarten](../README.md).
 
-Changing PostgreSQL initialization variables does not change users or passwords
-inside an existing data volume. RabbitMQ client variables do not create broker
-accounts; provision a matching user separately before changing them. Keycloak
-bootstrap settings do not reset existing console accounts, and realm import
-skips an existing realm. The realm JSON resolves `KEYCLOAK_APP_ADMIN_PASSWORD`
-using Keycloak's supported environment-variable placeholders during import.
+## Portar och befintlig data
 
-Application `appsettings.json`, IDE launch profiles, and the host-side migration
-scripts retain their local development defaults. Direct `dotnet run` and EF
-commands do not automatically read Compose's `.env`; supply the usual .NET
-environment variables when overriding those defaults. Build definitions,
-container ports, commands, health-check timing, and service/volume names remain
-in Compose.
-
-These are local development defaults. A production `.env` needs its own secrets
-and protected file permissions; the current development commands and settings
-still require a separate production deployment configuration.
-
-References: [Compose interpolation](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/),
-[Keycloak realm import](https://www.keycloak.org/server/importExport).
+- `*_PUBLISHED_PORT` avser värddatorn; interna adresser och portar behålls vid
+  portkonflikt. Byter du admin-/Keycloak-port, följ [Keycloak-guiden](keycloak.md).
+- Projektnamnet `services` behåller befintliga utvecklingsvolymer. Använd ett
+  unikt `COMPOSE_PROJECT_NAME` för [isolerad verifiering](quickstart-verification.md).
+- `down` behåller data. Ändrade bootstrap-lösenord uppdaterar inte befintliga
+  PostgreSQL-, RabbitMQ- eller Keycloak-konton; en befintlig realm importeras inte om.
+- Lokal `dotnet run` och Vite på värddatorn läser inte rotens `.env` automatiskt.

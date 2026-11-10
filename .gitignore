@@ -3,6 +3,7 @@
 [Oo]bj/
 [Aa]rtifacts/
 TestResults/
+tests/load/results/
 *.user
 *.suo
 *.cache
@@ -36,6 +37,9 @@ pnpm-debug.log*
 env
 .env
 .env.*
+
+# Isolated quickstart verification checkout and private configuration
+.quickstart-verification/
 
 # Logs and OS files
 *.log

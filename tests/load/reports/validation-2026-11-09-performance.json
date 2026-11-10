@@ -1,0 +1,1392 @@
+[
+    {
+        "runId":  "20261109-150313-ae5a8a63",
+        "configuration":  {
+                              "httpP95Ms":  500,
+                              "paymentDelayMs":  500,
+                              "browseRate":  5,
+                              "commit":  "c9bec15725198816c79bde9d0c62cc51d85dcd06",
+                              "warmupCheckouts":  1,
+                              "checkouts":  10,
+                              "plannedReleaseAttempts":  1000,
+                              "httpP99Ms":  1000,
+                              "sourceSha256":  {
+                                                   "compose.yaml":  "63029f0efdbc8eccf86205615e8af149cc6a81629cc098a82245dab2d3980c9d",
+                                                   "audit-tickets.sql":  "5a5da56b86d579545de091578402a42356aa52e80fe56d3567ab066834c73397",
+                                                   "verify.tests.ps1":  "b56cdb8096f876f12fbae86e2a7ee104b90b8de582a0a762d20d9983b412dc46",
+                                                   "audit-booking.sql":  "5636c54be19704135441c359dbaba1ad8408e0d00e728815f726390e945dc97f",
+                                                   "fixture.sql":  "7ac1bfe64c23dbf32f0e80d9289ed021bdfd4dd7d0d744135a79634a623f884c",
+                                                   "verify.ps1":  "fb918baee980952241c259a905d44a85b9ecc6bb15bc8b07a0de20bc0f2997c7",
+                                                   "assert-state.ps1":  "5a8daf4db2d083a10bd254a03ecdc4d99293aaa98a4a02653c2b9a77d1c55642",
+                                                   "audit-payments.sql":  "9ea619c2b2f7752074b1b5249aa49b88f732205e52887bd4ebae7d00af0d37d6",
+                                                   "run.ps1":  "45bd0393c645d193ca571d70e1a04288a8f6190e8baa1408b3dc8df58daeebaf",
+                                                   "config.js":  "c36632f522db2a69a7a2db8d0e78a6e63018d26dd2126b010b3795296ba59afe",
+                                                   "release.js":  "99061249a51e7b827c72ded819b9bfa6bc866bd20534af04fe97fa4b65e3d324",
+                                                   "payment-policy.sql":  "09d6d5393ad2424c60272e136bd15270b783ae8f817ed81691faa2476151cc59",
+                                                   "databases.sql":  "084a2022acb81e7a56d7b0e5bf840914f96e55986faafae5fea59b7b4a39cac9",
+                                                   "checkout.js":  "28f1a49ab88b05cb1efc55ef30b7ddf7c0126df45d4746f9d4bd5ea599aa87a2"
+                                               },
+                              "cancelPercent":  10,
+                              "paymentOutcome":  "Succeeded",
+                              "preSaleSeconds":  30,
+                              "checkoutTimeoutSeconds":  60,
+                              "databaseMaxConnections":  100,
+                              "composeProject":  "halsingelive-load-ae5a8a63",
+                              "checkoutP95Ms":  15000,
+                              "scenario":  "Checkout",
+                              "tailSeconds":  40,
+                              "maxQuantity":  3,
+                              "maxHttpErrorRate":  0,
+                              "plannedRampAttempts":  0,
+                              "virtualUsers":  2,
+                              "workingTreeDirty":  true,
+                              "verificationTimeoutSeconds":  720,
+                              "startedAtUtc":  "2026-11-09T14:03:14.2397289Z",
+                              "preAllocatedVusPerPhase":  128,
+                              "burstRate":  30,
+                              "paymentTimeoutMs":  5000,
+                              "k6Image":  "grafana/k6:1.3.0",
+                              "capacity":  1000,
+                              "warmupUsesSeparateEvent":  false,
+                              "tailRate":  10,
+                              "serviceMaxPoolSize":  20,
+                              "checkoutP99Ms":  20000,
+                              "storage":  "disk-backed isolated volumes (Redis AOF enabled)",
+                              "thinkMaxSeconds":  3,
+                              "rampSeconds":  0,
+                              "burstSeconds":  20,
+                              "abandonPercent":  10
+                          },
+        "outcome":  {
+                        "k6ExitCode":  0,
+                        "passed":  true,
+                        "verificationFailure":  null,
+                        "verificationPassed":  true
+                    },
+        "metrics":  {
+                        "checkout_duration":  {
+                                                  "min":  3684,
+                                                  "med":  3800.5,
+                                                  "max":  4208,
+                                                  "p(90)":  4195.4,
+                                                  "p(95)":  4201.7,
+                                                  "p(99)":  4206.74,
+                                                  "count":  10,
+                                                  "avg":  3932.6,
+                                                  "thresholds":  {
+                                                                     "p(99)\u003c=20000":  false,
+                                                                     "p(95)\u003c=15000":  false
+                                                                 }
+                                              },
+                        "checkout_succeeded":  {
+                                                   "passes":  10,
+                                                   "fails":  0,
+                                                   "thresholds":  {
+                                                                      "rate==1":  false
+                                                                  },
+                                                   "value":  1
+                                               },
+                        "checks":  {
+                                       "passes":  159,
+                                       "fails":  0,
+                                       "thresholds":  {
+                                                          "rate==1":  false
+                                                      },
+                                       "value":  1
+                                   },
+                        "completed_checkouts":  {
+                                                    "count":  10,
+                                                    "rate":  0.35172466186809553,
+                                                    "thresholds":  {
+                                                                       "count==10":  false
+                                                                   }
+                                                },
+                        "http_req_duration":  {
+                                                  "count":  148,
+                                                  "avg":  49.9830237972973,
+                                                  "min":  5.622175,
+                                                  "med":  12.7878545,
+                                                  "max":  2826.725746,
+                                                  "p(90)":  33.613188000000065,
+                                                  "p(95)":  61.67427420000007,
+                                                  "p(99)":  772.7618780800003,
+                                                  "thresholds":  {
+                                                                     "p(95)\u003c=500":  false,
+                                                                     "p(99)\u003c=1000":  false
+                                                                 }
+                                              },
+                        "http_req_failed":  {
+                                                "passes":  0,
+                                                "fails":  148,
+                                                "thresholds":  {
+                                                                   "rate\u003c=0":  false
+                                                               },
+                                                "value":  0
+                                            },
+                        "http_reqs":  {
+                                          "count":  148,
+                                          "rate":  5.2055249956478145
+                                      },
+                        "iterations":  {
+                                           "count":  10,
+                                           "rate":  0.35172466186809553
+                                       }
+                    },
+        "databaseVerification":  {
+                                     "checkedAtUtc":  "2026-11-09T14:04:33.2331079Z",
+                                     "passed":  true,
+                                     "consecutivePasses":  2,
+                                     "issues":  [
+
+                                                ],
+                                     "recheckedIssues":  [
+
+                                                         ],
+                                     "capacity":  1000,
+                                     "bookings":  11,
+                                     "confirmedBookings":  11,
+                                     "confirmedQuantity":  11,
+                                     "cancelledBookings":  0,
+                                     "expiredBookings":  0,
+                                     "validTickets":  11,
+                                     "succeededPayments":  11,
+                                     "sqlAvailable":  989,
+                                     "redisAvailable":  989,
+                                     "redisHolds":  0,
+                                     "pendingBookingOutbox":  0,
+                                     "pendingBookingInbox":  0,
+                                     "rejectedBookingInbox":  0,
+                                     "pendingPaymentOutbox":  0,
+                                     "queues":  [
+                                                    {
+                                                        "name":  "booking.payment-results.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "booking.payment-results.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    }
+                                                ]
+                                 },
+        "images":  [
+                       {
+                           "Repository":  "halsingelive-load-api-gateway",
+                           "Tag":  "local",
+                           "ID":  "sha256:8b60db3def61d0d84b01909e990a470b8824d75810f7e5b4819d3234dd22bc34",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-booking",
+                           "Tag":  "local",
+                           "ID":  "sha256:efa365cd3de3796afd0cbd6be0599ac7b3bc5c091e4da86695edee888898dc01",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-eventcatalog",
+                           "Tag":  "local",
+                           "ID":  "sha256:884104dc3b9993d770d533c87252e45cf39a0c64937b69f54755c5f20a138506",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-payment-simulator",
+                           "Tag":  "local",
+                           "ID":  "sha256:55e1115af2f50de9a3e199f4bf3c6768ec6de5961d637ae3d6edd43ab6a98aa7",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-ticketservice",
+                           "Tag":  "local",
+                           "ID":  "sha256:92080a5c7285d4036821ec2b41036e2e644412f2a4e1d2a33b5a25e3fe4d3c8c",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "postgres",
+                           "Tag":  "18-alpine",
+                           "ID":  "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "rabbitmq",
+                           "Tag":  "4-management-alpine",
+                           "ID":  "sha256:b768d2e09a809b48458d6c3c32fc2894643a6bfafd76264c120373eff0ee6532",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "redis",
+                           "Tag":  "7-alpine",
+                           "ID":  "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+                           "Platform":  "linux/amd64"
+                       }
+                   ]
+    },
+    {
+        "runId":  "20261109-150458-fcd37f29",
+        "configuration":  {
+                              "httpP95Ms":  500,
+                              "paymentDelayMs":  500,
+                              "browseRate":  5,
+                              "commit":  "c9bec15725198816c79bde9d0c62cc51d85dcd06",
+                              "warmupCheckouts":  1,
+                              "checkouts":  10,
+                              "plannedReleaseAttempts":  35,
+                              "httpP99Ms":  1000,
+                              "sourceSha256":  {
+                                                   "compose.yaml":  "63029f0efdbc8eccf86205615e8af149cc6a81629cc098a82245dab2d3980c9d",
+                                                   "audit-tickets.sql":  "5a5da56b86d579545de091578402a42356aa52e80fe56d3567ab066834c73397",
+                                                   "verify.tests.ps1":  "b56cdb8096f876f12fbae86e2a7ee104b90b8de582a0a762d20d9983b412dc46",
+                                                   "audit-booking.sql":  "5636c54be19704135441c359dbaba1ad8408e0d00e728815f726390e945dc97f",
+                                                   "fixture.sql":  "7ac1bfe64c23dbf32f0e80d9289ed021bdfd4dd7d0d744135a79634a623f884c",
+                                                   "verify.ps1":  "fb918baee980952241c259a905d44a85b9ecc6bb15bc8b07a0de20bc0f2997c7",
+                                                   "assert-state.ps1":  "5a8daf4db2d083a10bd254a03ecdc4d99293aaa98a4a02653c2b9a77d1c55642",
+                                                   "audit-payments.sql":  "9ea619c2b2f7752074b1b5249aa49b88f732205e52887bd4ebae7d00af0d37d6",
+                                                   "run.ps1":  "45bd0393c645d193ca571d70e1a04288a8f6190e8baa1408b3dc8df58daeebaf",
+                                                   "config.js":  "c36632f522db2a69a7a2db8d0e78a6e63018d26dd2126b010b3795296ba59afe",
+                                                   "release.js":  "99061249a51e7b827c72ded819b9bfa6bc866bd20534af04fe97fa4b65e3d324",
+                                                   "payment-policy.sql":  "09d6d5393ad2424c60272e136bd15270b783ae8f817ed81691faa2476151cc59",
+                                                   "databases.sql":  "084a2022acb81e7a56d7b0e5bf840914f96e55986faafae5fea59b7b4a39cac9",
+                                                   "checkout.js":  "28f1a49ab88b05cb1efc55ef30b7ddf7c0126df45d4746f9d4bd5ea599aa87a2"
+                                               },
+                              "cancelPercent":  20,
+                              "paymentOutcome":  "Succeeded",
+                              "preSaleSeconds":  2,
+                              "checkoutTimeoutSeconds":  60,
+                              "databaseMaxConnections":  100,
+                              "composeProject":  "halsingelive-load-fcd37f29",
+                              "checkoutP95Ms":  15000,
+                              "scenario":  "Release",
+                              "tailSeconds":  4,
+                              "maxQuantity":  2,
+                              "maxHttpErrorRate":  0,
+                              "plannedRampAttempts":  7,
+                              "virtualUsers":  2,
+                              "workingTreeDirty":  true,
+                              "verificationTimeoutSeconds":  720,
+                              "startedAtUtc":  "2026-11-09T14:04:58.5445744Z",
+                              "preAllocatedVusPerPhase":  32,
+                              "burstRate":  5,
+                              "paymentTimeoutMs":  5000,
+                              "k6Image":  "grafana/k6:1.3.0",
+                              "capacity":  10,
+                              "warmupUsesSeparateEvent":  true,
+                              "tailRate":  2,
+                              "serviceMaxPoolSize":  20,
+                              "checkoutP99Ms":  20000,
+                              "storage":  "disk-backed isolated volumes (Redis AOF enabled)",
+                              "thinkMaxSeconds":  1,
+                              "rampSeconds":  3,
+                              "burstSeconds":  4,
+                              "abandonPercent":  0
+                          },
+        "outcome":  {
+                        "k6ExitCode":  0,
+                        "passed":  true,
+                        "verificationFailure":  null,
+                        "verificationPassed":  true
+                    },
+        "metrics":  {
+                        "checks":  {
+                                       "passes":  392,
+                                       "fails":  0,
+                                       "thresholds":  {
+                                                          "rate==1":  false
+                                                      },
+                                       "value":  1
+                                   },
+                        "dropped_iterations":  {
+                                                   "count":  0,
+                                                   "rate":  0,
+                                                   "thresholds":  {
+                                                                      "count==0":  false
+                                                                  }
+                                               },
+                        "http_req_duration":  {
+                                                  "avg":  53.70363838214284,
+                                                  "min":  6.412918,
+                                                  "med":  27.890844,
+                                                  "max":  527.384468,
+                                                  "p(90)":  120.18316829999998,
+                                                  "p(95)":  193.85824260000004,
+                                                  "p(99)":  398.47496570999954,
+                                                  "count":  280,
+                                                  "thresholds":  {
+                                                                     "p(95)\u003c=500":  false,
+                                                                     "p(99)\u003c=1000":  false
+                                                                 }
+                                              },
+                        "http_req_failed":  {
+                                                "passes":  0,
+                                                "fails":  280,
+                                                "thresholds":  {
+                                                                   "rate\u003c=0":  false
+                                                               },
+                                                "value":  0
+                                            },
+                        "http_reqs":  {
+                                          "count":  280,
+                                          "rate":  21.44162219354386
+                                      },
+                        "iterations":  {
+                                           "count":  103,
+                                           "rate":  7.887453878339349
+                                       },
+                        "release_abandoned":  {
+                                                  "count":  0,
+                                                  "rate":  0
+                                              },
+                        "release_attempts":  {
+                                                 "count":  35,
+                                                 "rate":  2.6802027741929826,
+                                                 "thresholds":  {
+                                                                    "count==35":  false
+                                                                }
+                                             },
+                        "release_cancelled":  {
+                                                  "count":  3,
+                                                  "rate":  0.2297316663593985
+                                              },
+                        "release_paid":  {
+                                             "count":  7,
+                                             "rate":  0.5360405548385966,
+                                             "thresholds":  {
+                                                                "count\u003e0":  false
+                                                            }
+                                         },
+                        "release_paid_duration":  {
+                                                      "med":  6188,
+                                                      "max":  7173,
+                                                      "p(90)":  6853.2,
+                                                      "p(95)":  7013.099999999999,
+                                                      "p(99)":  7141.0199999999995,
+                                                      "count":  7,
+                                                      "avg":  5898.714285714285,
+                                                      "min":  4710,
+                                                      "thresholds":  {
+                                                                         "p(95)\u003c=15000":  false,
+                                                                         "p(99)\u003c=20000":  false
+                                                                     }
+                                                  },
+                        "release_payment_rejected":  {
+                                                         "count":  0,
+                                                         "rate":  0
+                                                     },
+                        "release_reservation_duration":  {
+                                                             "count":  35,
+                                                             "avg":  135.74823265714284,
+                                                             "min":  23.146164,
+                                                             "med":  98.352575,
+                                                             "max":  431.255001,
+                                                             "p(90)":  297.46150960000006,
+                                                             "p(95)":  400.40548829999994,
+                                                             "p(99)":  425.87132641999995
+                                                         },
+                        "release_reserved":  {
+                                                 "count":  10,
+                                                 "rate":  0.765772221197995,
+                                                 "thresholds":  {
+                                                                    "count\u003e0":  false
+                                                                }
+                                             },
+                        "release_sold_out":  {
+                                                 "count":  25,
+                                                 "rate":  1.9144305529949877,
+                                                 "thresholds":  {
+                                                                    "count\u003e0":  false
+                                                                }
+                                             },
+                        "release_unexpected_error":  {
+                                                         "passes":  0,
+                                                         "fails":  101,
+                                                         "thresholds":  {
+                                                                            "rate==0":  false
+                                                                        },
+                                                         "value":  0
+                                                     }
+                    },
+        "databaseVerification":  {
+                                     "checkedAtUtc":  "2026-11-09T14:06:05.9755179Z",
+                                     "passed":  true,
+                                     "consecutivePasses":  2,
+                                     "issues":  [
+
+                                                ],
+                                     "recheckedIssues":  [
+
+                                                         ],
+                                     "capacity":  10,
+                                     "bookings":  10,
+                                     "confirmedBookings":  7,
+                                     "confirmedQuantity":  10,
+                                     "cancelledBookings":  3,
+                                     "expiredBookings":  0,
+                                     "validTickets":  10,
+                                     "succeededPayments":  7,
+                                     "sqlAvailable":  0,
+                                     "redisAvailable":  0,
+                                     "redisHolds":  0,
+                                     "pendingBookingOutbox":  0,
+                                     "pendingBookingInbox":  0,
+                                     "rejectedBookingInbox":  0,
+                                     "pendingPaymentOutbox":  0,
+                                     "queues":  [
+                                                    {
+                                                        "name":  "booking.payment-results.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "booking.payment-results.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    }
+                                                ]
+                                 },
+        "images":  [
+                       {
+                           "Repository":  "halsingelive-load-api-gateway",
+                           "Tag":  "local",
+                           "ID":  "sha256:8b60db3def61d0d84b01909e990a470b8824d75810f7e5b4819d3234dd22bc34",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-booking",
+                           "Tag":  "local",
+                           "ID":  "sha256:efa365cd3de3796afd0cbd6be0599ac7b3bc5c091e4da86695edee888898dc01",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-eventcatalog",
+                           "Tag":  "local",
+                           "ID":  "sha256:884104dc3b9993d770d533c87252e45cf39a0c64937b69f54755c5f20a138506",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-payment-simulator",
+                           "Tag":  "local",
+                           "ID":  "sha256:55e1115af2f50de9a3e199f4bf3c6768ec6de5961d637ae3d6edd43ab6a98aa7",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-ticketservice",
+                           "Tag":  "local",
+                           "ID":  "sha256:92080a5c7285d4036821ec2b41036e2e644412f2a4e1d2a33b5a25e3fe4d3c8c",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "postgres",
+                           "Tag":  "18-alpine",
+                           "ID":  "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "rabbitmq",
+                           "Tag":  "4-management-alpine",
+                           "ID":  "sha256:b768d2e09a809b48458d6c3c32fc2894643a6bfafd76264c120373eff0ee6532",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "redis",
+                           "Tag":  "7-alpine",
+                           "ID":  "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+                           "Platform":  "linux/amd64"
+                       }
+                   ]
+    },
+    {
+        "runId":  "20261109-150626-a0dd1931",
+        "configuration":  {
+                              "httpP95Ms":  500,
+                              "paymentDelayMs":  500,
+                              "browseRate":  5,
+                              "commit":  "c9bec15725198816c79bde9d0c62cc51d85dcd06",
+                              "warmupCheckouts":  1,
+                              "checkouts":  10,
+                              "plannedReleaseAttempts":  50,
+                              "httpP99Ms":  1000,
+                              "sourceSha256":  {
+                                                   "compose.yaml":  "63029f0efdbc8eccf86205615e8af149cc6a81629cc098a82245dab2d3980c9d",
+                                                   "audit-tickets.sql":  "5a5da56b86d579545de091578402a42356aa52e80fe56d3567ab066834c73397",
+                                                   "verify.tests.ps1":  "b56cdb8096f876f12fbae86e2a7ee104b90b8de582a0a762d20d9983b412dc46",
+                                                   "audit-booking.sql":  "5636c54be19704135441c359dbaba1ad8408e0d00e728815f726390e945dc97f",
+                                                   "fixture.sql":  "7ac1bfe64c23dbf32f0e80d9289ed021bdfd4dd7d0d744135a79634a623f884c",
+                                                   "verify.ps1":  "fb918baee980952241c259a905d44a85b9ecc6bb15bc8b07a0de20bc0f2997c7",
+                                                   "assert-state.ps1":  "5a8daf4db2d083a10bd254a03ecdc4d99293aaa98a4a02653c2b9a77d1c55642",
+                                                   "audit-payments.sql":  "9ea619c2b2f7752074b1b5249aa49b88f732205e52887bd4ebae7d00af0d37d6",
+                                                   "run.ps1":  "45bd0393c645d193ca571d70e1a04288a8f6190e8baa1408b3dc8df58daeebaf",
+                                                   "config.js":  "c36632f522db2a69a7a2db8d0e78a6e63018d26dd2126b010b3795296ba59afe",
+                                                   "release.js":  "99061249a51e7b827c72ded819b9bfa6bc866bd20534af04fe97fa4b65e3d324",
+                                                   "payment-policy.sql":  "09d6d5393ad2424c60272e136bd15270b783ae8f817ed81691faa2476151cc59",
+                                                   "databases.sql":  "084a2022acb81e7a56d7b0e5bf840914f96e55986faafae5fea59b7b4a39cac9",
+                                                   "checkout.js":  "28f1a49ab88b05cb1efc55ef30b7ddf7c0126df45d4746f9d4bd5ea599aa87a2"
+                                               },
+                              "cancelPercent":  0,
+                              "paymentOutcome":  "Succeeded",
+                              "preSaleSeconds":  2,
+                              "checkoutTimeoutSeconds":  60,
+                              "databaseMaxConnections":  100,
+                              "composeProject":  "halsingelive-load-a0dd1931",
+                              "checkoutP95Ms":  15000,
+                              "scenario":  "Release",
+                              "tailSeconds":  2,
+                              "maxQuantity":  1,
+                              "maxHttpErrorRate":  0,
+                              "plannedRampAttempts":  0,
+                              "virtualUsers":  2,
+                              "workingTreeDirty":  true,
+                              "verificationTimeoutSeconds":  720,
+                              "startedAtUtc":  "2026-11-09T14:06:26.3885709Z",
+                              "preAllocatedVusPerPhase":  32,
+                              "burstRate":  20,
+                              "paymentTimeoutMs":  5000,
+                              "k6Image":  "grafana/k6:1.3.0",
+                              "capacity":  1,
+                              "warmupUsesSeparateEvent":  true,
+                              "tailRate":  5,
+                              "serviceMaxPoolSize":  20,
+                              "checkoutP99Ms":  20000,
+                              "storage":  "disk-backed isolated volumes (Redis AOF enabled)",
+                              "thinkMaxSeconds":  0,
+                              "rampSeconds":  0,
+                              "burstSeconds":  2,
+                              "abandonPercent":  0
+                          },
+        "outcome":  {
+                        "k6ExitCode":  0,
+                        "passed":  true,
+                        "verificationFailure":  null,
+                        "verificationPassed":  true
+                    },
+        "metrics":  {
+                        "checks":  {
+                                       "passes":  189,
+                                       "fails":  0,
+                                       "thresholds":  {
+                                                          "rate==1":  false
+                                                      },
+                                       "value":  1
+                                   },
+                        "dropped_iterations":  {
+                                                   "count":  0,
+                                                   "rate":  0,
+                                                   "thresholds":  {
+                                                                      "count==0":  false
+                                                                  }
+                                               },
+                        "http_req_duration":  {
+                                                  "p(95)":  196.0364995,
+                                                  "p(99)":  357.37712250000004,
+                                                  "count":  151,
+                                                  "avg":  57.542956821192035,
+                                                  "min":  9.37312,
+                                                  "med":  31.575395,
+                                                  "max":  403.597951,
+                                                  "p(90)":  122.375124,
+                                                  "thresholds":  {
+                                                                     "p(95)\u003c=500":  false,
+                                                                     "p(99)\u003c=1000":  false
+                                                                 }
+                                              },
+                        "http_req_failed":  {
+                                                "passes":  0,
+                                                "fails":  151,
+                                                "thresholds":  {
+                                                                   "rate\u003c=0":  false
+                                                               },
+                                                "value":  0
+                                            },
+                        "http_reqs":  {
+                                          "count":  151,
+                                          "rate":  19.34356885554416
+                                      },
+                        "iterations":  {
+                                           "count":  82,
+                                           "rate":  10.504454610295504
+                                       },
+                        "release_abandoned":  {
+                                                  "count":  0,
+                                                  "rate":  0
+                                              },
+                        "release_attempts":  {
+                                                 "count":  50,
+                                                 "rate":  6.405155250180186,
+                                                 "thresholds":  {
+                                                                    "count==50":  false
+                                                                }
+                                             },
+                        "release_cancelled":  {
+                                                  "count":  0,
+                                                  "rate":  0
+                                              },
+                        "release_paid":  {
+                                             "count":  1,
+                                             "rate":  0.12810310500360372,
+                                             "thresholds":  {
+                                                                "count\u003e0":  false
+                                                            }
+                                         },
+                        "release_paid_duration":  {
+                                                      "count":  1,
+                                                      "avg":  5776,
+                                                      "min":  5776,
+                                                      "med":  5776,
+                                                      "max":  5776,
+                                                      "p(90)":  5776,
+                                                      "p(95)":  5776,
+                                                      "p(99)":  5776,
+                                                      "thresholds":  {
+                                                                         "p(95)\u003c=15000":  false,
+                                                                         "p(99)\u003c=20000":  false
+                                                                     }
+                                                  },
+                        "release_payment_rejected":  {
+                                                         "count":  0,
+                                                         "rate":  0
+                                                     },
+                        "release_reservation_duration":  {
+                                                             "p(95)":  316.70770254999974,
+                                                             "p(99)":  382.35645736999993,
+                                                             "count":  50,
+                                                             "avg":  108.62925706000001,
+                                                             "min":  34.399739,
+                                                             "med":  73.780422,
+                                                             "max":  403.597951,
+                                                             "p(90)":  216.24843720000007
+                                                         },
+                        "release_reserved":  {
+                                                 "count":  1,
+                                                 "rate":  0.12810310500360372,
+                                                 "thresholds":  {
+                                                                    "count\u003e0":  false
+                                                                }
+                                             },
+                        "release_sold_out":  {
+                                                 "count":  49,
+                                                 "rate":  6.277052145176582,
+                                                 "thresholds":  {
+                                                                    "count\u003e0":  false
+                                                                }
+                                             },
+                        "release_unexpected_error":  {
+                                                         "passes":  0,
+                                                         "fails":  81,
+                                                         "thresholds":  {
+                                                                            "rate==0":  false
+                                                                        },
+                                                         "value":  0
+                                                     }
+                    },
+        "databaseVerification":  {
+                                     "checkedAtUtc":  "2026-11-09T14:07:23.3262003Z",
+                                     "passed":  true,
+                                     "consecutivePasses":  2,
+                                     "issues":  [
+
+                                                ],
+                                     "recheckedIssues":  [
+
+                                                         ],
+                                     "capacity":  1,
+                                     "bookings":  1,
+                                     "confirmedBookings":  1,
+                                     "confirmedQuantity":  1,
+                                     "cancelledBookings":  0,
+                                     "expiredBookings":  0,
+                                     "validTickets":  1,
+                                     "succeededPayments":  1,
+                                     "sqlAvailable":  0,
+                                     "redisAvailable":  0,
+                                     "redisHolds":  0,
+                                     "pendingBookingOutbox":  0,
+                                     "pendingBookingInbox":  0,
+                                     "rejectedBookingInbox":  0,
+                                     "pendingPaymentOutbox":  0,
+                                     "queues":  [
+                                                    {
+                                                        "name":  "booking.payment-results.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "booking.payment-results.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    }
+                                                ]
+                                 },
+        "images":  [
+                       {
+                           "Repository":  "halsingelive-load-api-gateway",
+                           "Tag":  "local",
+                           "ID":  "sha256:8b60db3def61d0d84b01909e990a470b8824d75810f7e5b4819d3234dd22bc34",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-booking",
+                           "Tag":  "local",
+                           "ID":  "sha256:efa365cd3de3796afd0cbd6be0599ac7b3bc5c091e4da86695edee888898dc01",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-eventcatalog",
+                           "Tag":  "local",
+                           "ID":  "sha256:884104dc3b9993d770d533c87252e45cf39a0c64937b69f54755c5f20a138506",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-payment-simulator",
+                           "Tag":  "local",
+                           "ID":  "sha256:55e1115af2f50de9a3e199f4bf3c6768ec6de5961d637ae3d6edd43ab6a98aa7",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-ticketservice",
+                           "Tag":  "local",
+                           "ID":  "sha256:92080a5c7285d4036821ec2b41036e2e644412f2a4e1d2a33b5a25e3fe4d3c8c",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "postgres",
+                           "Tag":  "18-alpine",
+                           "ID":  "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "rabbitmq",
+                           "Tag":  "4-management-alpine",
+                           "ID":  "sha256:b768d2e09a809b48458d6c3c32fc2894643a6bfafd76264c120373eff0ee6532",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "redis",
+                           "Tag":  "7-alpine",
+                           "ID":  "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+                           "Platform":  "linux/amd64"
+                       }
+                   ]
+    },
+    {
+        "runId":  "20261109-150916-03a45326",
+        "configuration":  {
+                              "httpP95Ms":  400,
+                              "paymentDelayMs":  500,
+                              "browseRate":  5,
+                              "commit":  "c9bec15725198816c79bde9d0c62cc51d85dcd06",
+                              "warmupCheckouts":  1,
+                              "checkouts":  10,
+                              "plannedReleaseAttempts":  119,
+                              "httpP99Ms":  800,
+                              "sourceSha256":  {
+                                                   "compose.yaml":  "63029f0efdbc8eccf86205615e8af149cc6a81629cc098a82245dab2d3980c9d",
+                                                   "audit-tickets.sql":  "5a5da56b86d579545de091578402a42356aa52e80fe56d3567ab066834c73397",
+                                                   "verify.tests.ps1":  "b56cdb8096f876f12fbae86e2a7ee104b90b8de582a0a762d20d9983b412dc46",
+                                                   "audit-booking.sql":  "5636c54be19704135441c359dbaba1ad8408e0d00e728815f726390e945dc97f",
+                                                   "fixture.sql":  "7ac1bfe64c23dbf32f0e80d9289ed021bdfd4dd7d0d744135a79634a623f884c",
+                                                   "verify.ps1":  "fb918baee980952241c259a905d44a85b9ecc6bb15bc8b07a0de20bc0f2997c7",
+                                                   "assert-state.ps1":  "5a8daf4db2d083a10bd254a03ecdc4d99293aaa98a4a02653c2b9a77d1c55642",
+                                                   "audit-payments.sql":  "9ea619c2b2f7752074b1b5249aa49b88f732205e52887bd4ebae7d00af0d37d6",
+                                                   "run.ps1":  "45bd0393c645d193ca571d70e1a04288a8f6190e8baa1408b3dc8df58daeebaf",
+                                                   "config.js":  "c36632f522db2a69a7a2db8d0e78a6e63018d26dd2126b010b3795296ba59afe",
+                                                   "release.js":  "99061249a51e7b827c72ded819b9bfa6bc866bd20534af04fe97fa4b65e3d324",
+                                                   "payment-policy.sql":  "09d6d5393ad2424c60272e136bd15270b783ae8f817ed81691faa2476151cc59",
+                                                   "databases.sql":  "084a2022acb81e7a56d7b0e5bf840914f96e55986faafae5fea59b7b4a39cac9",
+                                                   "checkout.js":  "28f1a49ab88b05cb1efc55ef30b7ddf7c0126df45d4746f9d4bd5ea599aa87a2"
+                                               },
+                              "cancelPercent":  0,
+                              "paymentOutcome":  "Succeeded",
+                              "preSaleSeconds":  2,
+                              "checkoutTimeoutSeconds":  60,
+                              "databaseMaxConnections":  100,
+                              "composeProject":  "halsingelive-load-03a45326",
+                              "checkoutP95Ms":  12000,
+                              "scenario":  "Sustained",
+                              "tailSeconds":  20,
+                              "maxQuantity":  1,
+                              "maxHttpErrorRate":  0.01,
+                              "plannedRampAttempts":  9,
+                              "virtualUsers":  2,
+                              "workingTreeDirty":  true,
+                              "verificationTimeoutSeconds":  720,
+                              "startedAtUtc":  "2026-11-09T14:09:16.7853911Z",
+                              "preAllocatedVusPerPhase":  64,
+                              "burstRate":  5,
+                              "paymentTimeoutMs":  5000,
+                              "k6Image":  "grafana/k6:1.3.0",
+                              "capacity":  100000,
+                              "warmupUsesSeparateEvent":  true,
+                              "tailRate":  3,
+                              "serviceMaxPoolSize":  20,
+                              "checkoutP99Ms":  18000,
+                              "storage":  "disk-backed isolated volumes (Redis AOF enabled)",
+                              "thinkMaxSeconds":  0,
+                              "rampSeconds":  4,
+                              "burstSeconds":  10,
+                              "abandonPercent":  0
+                          },
+        "outcome":  {
+                        "k6ExitCode":  0,
+                        "passed":  true,
+                        "verificationFailure":  null,
+                        "verificationPassed":  true
+                    },
+        "metrics":  {
+                        "checks":  {
+                                       "passes":  2432,
+                                       "fails":  0,
+                                       "thresholds":  {
+                                                          "rate==1":  false
+                                                      },
+                                       "value":  1
+                                   },
+                        "dropped_iterations":  {
+                                                   "count":  0,
+                                                   "rate":  0,
+                                                   "thresholds":  {
+                                                                      "count==0":  false
+                                                                  }
+                                               },
+                        "http_req_duration":  {
+                                                  "avg":  69.8209014370027,
+                                                  "min":  3.443124,
+                                                  "med":  34.316017,
+                                                  "max":  897.385713,
+                                                  "p(90)":  171.02695969999996,
+                                                  "p(95)":  270.27044999999913,
+                                                  "p(99)":  492.14341563000045,
+                                                  "count":  1508,
+                                                  "thresholds":  {
+                                                                     "p(95)\u003c=400":  false,
+                                                                     "p(99)\u003c=800":  false
+                                                                 }
+                                              },
+                        "http_req_failed":  {
+                                                "fails":  1508,
+                                                "passes":  0,
+                                                "thresholds":  {
+                                                                   "rate\u003c=0.01":  false
+                                                               },
+                                                "value":  0
+                                            },
+                        "http_reqs":  {
+                                          "count":  1508,
+                                          "rate":  36.481867763976076
+                                      },
+                        "iterations":  {
+                                           "count":  301,
+                                           "rate":  7.281858220793633
+                                       },
+                        "release_abandoned":  {
+                                                  "count":  0,
+                                                  "rate":  0
+                                              },
+                        "release_attempts":  {
+                                                 "rate":  2.878874180313762,
+                                                 "count":  119,
+                                                 "thresholds":  {
+                                                                    "count==119":  false
+                                                                }
+                                             },
+                        "release_cancelled":  {
+                                                  "count":  0,
+                                                  "rate":  0
+                                              },
+                        "release_paid":  {
+                                             "count":  119,
+                                             "rate":  2.878874180313762,
+                                             "thresholds":  {
+                                                                "count\u003e0":  false
+                                                            }
+                                         },
+                        "release_paid_duration":  {
+                                                      "count":  119,
+                                                      "avg":  6772.344537815126,
+                                                      "min":  3973,
+                                                      "med":  6305,
+                                                      "max":  9515,
+                                                      "p(90)":  8831.8,
+                                                      "p(95)":  8882.3,
+                                                      "p(99)":  9459.859999999999,
+                                                      "thresholds":  {
+                                                                         "p(95)\u003c=12000":  false,
+                                                                         "p(99)\u003c=18000":  false
+                                                                     }
+                                                  },
+                        "release_payment_rejected":  {
+                                                         "count":  0,
+                                                         "rate":  0
+                                                     },
+                        "release_reservation_duration":  {
+                                                             "p(90)":  296.4420498,
+                                                             "p(95)":  476.7444464999998,
+                                                             "p(99)":  660.0897692,
+                                                             "count":  119,
+                                                             "avg":  138.87854843697482,
+                                                             "min":  13.094977,
+                                                             "med":  86.129614,
+                                                             "max":  897.385713
+                                                         },
+                        "release_reserved":  {
+                                                 "count":  119,
+                                                 "rate":  2.878874180313762,
+                                                 "thresholds":  {
+                                                                    "count\u003e0":  false
+                                                                }
+                                             },
+                        "release_sold_out":  {
+                                                 "count":  0,
+                                                 "rate":  0,
+                                                 "thresholds":  {
+                                                                    "count==0":  false
+                                                                }
+                                             },
+                        "release_unexpected_error":  {
+                                                         "passes":  0,
+                                                         "fails":  300,
+                                                         "thresholds":  {
+                                                                            "rate==0":  false
+                                                                        },
+                                                         "value":  0
+                                                     }
+                    },
+        "databaseVerification":  {
+                                     "checkedAtUtc":  "2026-11-09T14:11:02.9261008Z",
+                                     "passed":  true,
+                                     "consecutivePasses":  2,
+                                     "issues":  [
+
+                                                ],
+                                     "recheckedIssues":  [
+
+                                                         ],
+                                     "capacity":  100000,
+                                     "bookings":  119,
+                                     "confirmedBookings":  119,
+                                     "confirmedQuantity":  119,
+                                     "cancelledBookings":  0,
+                                     "expiredBookings":  0,
+                                     "validTickets":  119,
+                                     "succeededPayments":  119,
+                                     "sqlAvailable":  99881,
+                                     "redisAvailable":  99881,
+                                     "redisHolds":  0,
+                                     "pendingBookingOutbox":  0,
+                                     "pendingBookingInbox":  0,
+                                     "rejectedBookingInbox":  0,
+                                     "pendingPaymentOutbox":  0,
+                                     "queues":  [
+                                                    {
+                                                        "name":  "booking.payment-results.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "booking.payment-results.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    }
+                                                ]
+                                 },
+        "images":  [
+                       {
+                           "Repository":  "halsingelive-load-api-gateway",
+                           "Tag":  "local",
+                           "ID":  "sha256:8b60db3def61d0d84b01909e990a470b8824d75810f7e5b4819d3234dd22bc34",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-booking",
+                           "Tag":  "local",
+                           "ID":  "sha256:efa365cd3de3796afd0cbd6be0599ac7b3bc5c091e4da86695edee888898dc01",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-eventcatalog",
+                           "Tag":  "local",
+                           "ID":  "sha256:884104dc3b9993d770d533c87252e45cf39a0c64937b69f54755c5f20a138506",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-payment-simulator",
+                           "Tag":  "local",
+                           "ID":  "sha256:55e1115af2f50de9a3e199f4bf3c6768ec6de5961d637ae3d6edd43ab6a98aa7",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-ticketservice",
+                           "Tag":  "local",
+                           "ID":  "sha256:92080a5c7285d4036821ec2b41036e2e644412f2a4e1d2a33b5a25e3fe4d3c8c",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "postgres",
+                           "Tag":  "18-alpine",
+                           "ID":  "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "rabbitmq",
+                           "Tag":  "4-management-alpine",
+                           "ID":  "sha256:b768d2e09a809b48458d6c3c32fc2894643a6bfafd76264c120373eff0ee6532",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "redis",
+                           "Tag":  "7-alpine",
+                           "ID":  "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+                           "Platform":  "linux/amd64"
+                       }
+                   ]
+    },
+    {
+        "runId":  "20261109-151128-6d5f083c",
+        "configuration":  {
+                              "httpP95Ms":  1,
+                              "paymentDelayMs":  500,
+                              "browseRate":  5,
+                              "commit":  "c9bec15725198816c79bde9d0c62cc51d85dcd06",
+                              "warmupCheckouts":  1,
+                              "checkouts":  2,
+                              "plannedReleaseAttempts":  1000,
+                              "httpP99Ms":  1,
+                              "sourceSha256":  {
+                                                   "compose.yaml":  "63029f0efdbc8eccf86205615e8af149cc6a81629cc098a82245dab2d3980c9d",
+                                                   "audit-tickets.sql":  "5a5da56b86d579545de091578402a42356aa52e80fe56d3567ab066834c73397",
+                                                   "verify.tests.ps1":  "b56cdb8096f876f12fbae86e2a7ee104b90b8de582a0a762d20d9983b412dc46",
+                                                   "audit-booking.sql":  "5636c54be19704135441c359dbaba1ad8408e0d00e728815f726390e945dc97f",
+                                                   "fixture.sql":  "7ac1bfe64c23dbf32f0e80d9289ed021bdfd4dd7d0d744135a79634a623f884c",
+                                                   "verify.ps1":  "fb918baee980952241c259a905d44a85b9ecc6bb15bc8b07a0de20bc0f2997c7",
+                                                   "assert-state.ps1":  "5a8daf4db2d083a10bd254a03ecdc4d99293aaa98a4a02653c2b9a77d1c55642",
+                                                   "audit-payments.sql":  "9ea619c2b2f7752074b1b5249aa49b88f732205e52887bd4ebae7d00af0d37d6",
+                                                   "run.ps1":  "45bd0393c645d193ca571d70e1a04288a8f6190e8baa1408b3dc8df58daeebaf",
+                                                   "config.js":  "c36632f522db2a69a7a2db8d0e78a6e63018d26dd2126b010b3795296ba59afe",
+                                                   "release.js":  "99061249a51e7b827c72ded819b9bfa6bc866bd20534af04fe97fa4b65e3d324",
+                                                   "payment-policy.sql":  "09d6d5393ad2424c60272e136bd15270b783ae8f817ed81691faa2476151cc59",
+                                                   "databases.sql":  "084a2022acb81e7a56d7b0e5bf840914f96e55986faafae5fea59b7b4a39cac9",
+                                                   "checkout.js":  "28f1a49ab88b05cb1efc55ef30b7ddf7c0126df45d4746f9d4bd5ea599aa87a2"
+                                               },
+                              "cancelPercent":  10,
+                              "paymentOutcome":  "Succeeded",
+                              "preSaleSeconds":  30,
+                              "checkoutTimeoutSeconds":  60,
+                              "databaseMaxConnections":  100,
+                              "composeProject":  "halsingelive-load-6d5f083c",
+                              "checkoutP95Ms":  15000,
+                              "scenario":  "Checkout",
+                              "tailSeconds":  40,
+                              "maxQuantity":  3,
+                              "maxHttpErrorRate":  0,
+                              "plannedRampAttempts":  0,
+                              "virtualUsers":  1,
+                              "workingTreeDirty":  true,
+                              "verificationTimeoutSeconds":  720,
+                              "startedAtUtc":  "2026-11-09T14:11:28.7201318Z",
+                              "preAllocatedVusPerPhase":  128,
+                              "burstRate":  30,
+                              "paymentTimeoutMs":  5000,
+                              "k6Image":  "grafana/k6:1.3.0",
+                              "capacity":  1000,
+                              "warmupUsesSeparateEvent":  false,
+                              "tailRate":  10,
+                              "serviceMaxPoolSize":  20,
+                              "checkoutP99Ms":  20000,
+                              "storage":  "disk-backed isolated volumes (Redis AOF enabled)",
+                              "thinkMaxSeconds":  3,
+                              "rampSeconds":  0,
+                              "burstSeconds":  20,
+                              "abandonPercent":  10
+                          },
+        "outcome":  {
+                        "k6ExitCode":  99,
+                        "passed":  false,
+                        "verificationFailure":  null,
+                        "verificationPassed":  true
+                    },
+        "metrics":  {
+                        "checkout_duration":  {
+                                                  "med":  3965.5,
+                                                  "max":  4216,
+                                                  "p(90)":  4165.9,
+                                                  "p(95)":  4190.95,
+                                                  "p(99)":  4210.99,
+                                                  "count":  2,
+                                                  "avg":  3965.5,
+                                                  "min":  3715,
+                                                  "thresholds":  {
+                                                                     "p(95)\u003c=15000":  false,
+                                                                     "p(99)\u003c=20000":  false
+                                                                 }
+                                              },
+                        "checkout_succeeded":  {
+                                                   "passes":  2,
+                                                   "fails":  0,
+                                                   "thresholds":  {
+                                                                      "rate==1":  false
+                                                                  },
+                                                   "value":  1
+                                               },
+                        "checks":  {
+                                       "passes":  44,
+                                       "fails":  0,
+                                       "thresholds":  {
+                                                          "rate==1":  false
+                                                      },
+                                       "value":  1
+                                   },
+                        "completed_checkouts":  {
+                                                    "count":  2,
+                                                    "rate":  0.12775932509459295,
+                                                    "thresholds":  {
+                                                                       "count==2":  false
+                                                                   }
+                                                },
+                        "http_req_duration":  {
+                                                  "max":  2200.273897,
+                                                  "p(90)":  192.46396,
+                                                  "p(95)":  564.737142,
+                                                  "p(99)":  1588.8361742000022,
+                                                  "count":  41,
+                                                  "avg":  112.75191629268292,
+                                                  "min":  9.781942,
+                                                  "med":  15.4895,
+                                                  "thresholds":  {
+                                                                     "p(95)\u003c=1":  true,
+                                                                     "p(99)\u003c=1":  true
+                                                                 }
+                                              },
+                        "http_req_failed":  {
+                                                "passes":  0,
+                                                "fails":  41,
+                                                "thresholds":  {
+                                                                   "rate\u003c=0":  false
+                                                               },
+                                                "value":  0
+                                            },
+                        "http_reqs":  {
+                                          "count":  41,
+                                          "rate":  2.6190661644391553
+                                      },
+                        "iterations":  {
+                                           "count":  2,
+                                           "rate":  0.12775932509459295
+                                       }
+                    },
+        "databaseVerification":  {
+                                     "checkedAtUtc":  "2026-11-09T14:12:25.2415844Z",
+                                     "passed":  true,
+                                     "consecutivePasses":  2,
+                                     "issues":  [
+
+                                                ],
+                                     "recheckedIssues":  [
+
+                                                         ],
+                                     "capacity":  1000,
+                                     "bookings":  3,
+                                     "confirmedBookings":  3,
+                                     "confirmedQuantity":  3,
+                                     "cancelledBookings":  0,
+                                     "expiredBookings":  0,
+                                     "validTickets":  3,
+                                     "succeededPayments":  3,
+                                     "sqlAvailable":  997,
+                                     "redisAvailable":  997,
+                                     "redisHolds":  0,
+                                     "pendingBookingOutbox":  0,
+                                     "pendingBookingInbox":  0,
+                                     "rejectedBookingInbox":  0,
+                                     "pendingPaymentOutbox":  0,
+                                     "queues":  [
+                                                    {
+                                                        "name":  "booking.payment-results.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "booking.payment-results.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "payments.payment-requested.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    },
+                                                    {
+                                                        "name":  "tickets.booking-confirmed.v1.dead",
+                                                        "messages":  0,
+                                                        "messages_ready":  0,
+                                                        "messages_unacknowledged":  0
+                                                    }
+                                                ]
+                                 },
+        "images":  [
+                       {
+                           "Repository":  "halsingelive-load-api-gateway",
+                           "Tag":  "local",
+                           "ID":  "sha256:8b60db3def61d0d84b01909e990a470b8824d75810f7e5b4819d3234dd22bc34",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-booking",
+                           "Tag":  "local",
+                           "ID":  "sha256:efa365cd3de3796afd0cbd6be0599ac7b3bc5c091e4da86695edee888898dc01",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-eventcatalog",
+                           "Tag":  "local",
+                           "ID":  "sha256:884104dc3b9993d770d533c87252e45cf39a0c64937b69f54755c5f20a138506",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-payment-simulator",
+                           "Tag":  "local",
+                           "ID":  "sha256:55e1115af2f50de9a3e199f4bf3c6768ec6de5961d637ae3d6edd43ab6a98aa7",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "halsingelive-load-ticketservice",
+                           "Tag":  "local",
+                           "ID":  "sha256:92080a5c7285d4036821ec2b41036e2e644412f2a4e1d2a33b5a25e3fe4d3c8c",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "postgres",
+                           "Tag":  "18-alpine",
+                           "ID":  "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "rabbitmq",
+                           "Tag":  "4-management-alpine",
+                           "ID":  "sha256:b768d2e09a809b48458d6c3c32fc2894643a6bfafd76264c120373eff0ee6532",
+                           "Platform":  "linux/amd64"
+                       },
+                       {
+                           "Repository":  "redis",
+                           "Tag":  "7-alpine",
+                           "ID":  "sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f",
+                           "Platform":  "linux/amd64"
+                       }
+                   ]
+    }
+]

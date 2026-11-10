@@ -1,0 +1,4 @@
+CREATE DATABASE eventcatalog;
+CREATE DATABASE booking;
+CREATE DATABASE payments;
+CREATE DATABASE tickets;

@@ -2,6 +2,11 @@
 
 Den här guiden hjälper dig att förstå frontendkoden i Hälsinge Live. Den går igenom vilka appar som finns, hur de är byggda, hur en sida hämtar data och var du börjar när du ska ändra något.
 
+För att starta hela systemet, följ [snabbstarten i projektroten](../README.md).
+Efter lokal `.env`-konfiguration räcker `docker compose up -d --build` i
+projektroten på Windows, macOS och Linux. Lokal Node-installation behövs endast
+om du väljer att köra Vite direkt på värddatorn.
+
 ## Vad menas med frontend?
 
 Frontend är den del av systemet som körs i webbläsaren och som användaren ser och använder: sidor, knappar, formulär, listor och meddelanden. Frontend pratar med backend via HTTP-anrop. Backend ansvarar för data och regler; frontend visar resultatet och skickar användarens åtgärder vidare.
@@ -134,7 +139,7 @@ När appen startar initieras Keycloak. En användare utan adminrollen får inte 
 Authorization: Bearer <token>
 ```
 
-Dashboarden använder React Query-frågor för att hämta till exempel antal aktiva evenemang, kommande evenemang och scener. Adminsidorna använder mutationer för att spara ändringar, exempelvis när ett evenemang skapas eller redigeras.
+Dashboardens flöde, statistik och uppdateringar beskrivs i [Admin-dashboarden](admin_dashboard.md). Adminsidorna använder mutationer för att spara ändringar, exempelvis när ett evenemang skapas eller redigeras.
 
 ## API-anrop och data
 
@@ -153,7 +158,7 @@ HomePage
   → HomePage visar resultatet
 ```
 
-Kundwebben använder bland annat `/api` för katalogdata och `/booking-api` för bokningar. Adminwebben använder även `/ticket-api` och `/payment-api`. Dessa prefix är proxyvägar i frontendmiljön som skickar anropen vidare till respektive backendtjänst.
+Kundwebben använder bland annat `/api` för katalogdata och `/booking-api` för bokningar. Adminwebben använder även `/ticket-api` och `/payment-api`. Vite och Nginx skickar hela sökvägen till ApiGateway genom API_GATEWAY_PROXY_TARGET. Gatewayen väljer backendtjänst och tar bort prefixet.
 
 Backendtjänsterna är källan till API-kontrakten. Frontendens TypeScript-typer beskriver de fält som respektive app använder, men ersätter inte backendens validering eller affärsregler. Se också [frontendens arkitektur- och API-konventioner](frontend-architecture.md).
 
@@ -201,7 +206,7 @@ npm install
 npm run dev
 ```
 
-För adminwebben används motsvarande kommando från `src/frontend/admin-web`. Adminwebben behöver också att den lokala Keycloak-konfigurationen och backendtjänsterna är tillgängliga. Se apparnas README-filer och [utvecklarguiden](README.MD) för Docker Compose och lokala proxyinställningar.
+För adminwebben används motsvarande kommando från `src/frontend/admin-web`. Adminwebben behöver också att den lokala Keycloak-konfigurationen och backendtjänsterna är tillgängliga. Se apparnas README-filer och [snabbstarten](../README.md) för Docker Compose och lokala proxyinställningar.
 
 Tillgängliga npm-skript i båda apparna:
 
@@ -212,7 +217,7 @@ Tillgängliga npm-skript i båda apparna:
 | `npm run lint` | Kör ESLint-kontroller. |
 | `npm run preview` | Förhandsvisar en redan byggd version. |
 
-Vites proxyinställningar finns i respektive `vite.config.ts`. Prefixen (`/api`, `/booking-api`, `/ticket-api` och `/payment-api`) tas bort innan begäran skickas till backend. Om sidan laddas men dataanrop misslyckas, kontrollera först terminalen där Vite kör, webbläsarens Network-flik och att backendtjänsten/proxy-målet är igång. Ett `401` eller `403` i adminwebben pekar ofta på inloggning eller behörighet; ett `404` kan betyda fel sökväg eller att resursen saknas. Se apparnas README-filer för proxyportar och miljövariabler.
+Vites proxyinställningar finns i respektive `vite.config.ts`. Prefixen (`/api`, `/booking-api`, `/ticket-api` och `/payment-api`) behålls av Vite och tas bort först i ApiGateway. Om sidan laddas men dataanrop misslyckas, kontrollera först terminalen där Vite kör, webbläsarens Network-flik och att backendtjänsten/proxy-målet är igång. Ett `401` eller `403` i adminwebben pekar ofta på inloggning eller behörighet; ett `404` kan betyda fel sökväg eller att resursen saknas. Se apparnas README-filer för proxyportar och miljövariabler.
 
 ## Var börjar jag när jag ska ändra något?
 

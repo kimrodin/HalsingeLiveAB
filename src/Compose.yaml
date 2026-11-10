@@ -17,10 +17,16 @@ services:
     ports:
       - "${API_GATEWAY_PUBLISHED_PORT:?Set API_GATEWAY_PUBLISHED_PORT}:8080"
     depends_on:
-      - eventcatalog
-      - booking
-      - ticketservice
-      - payment-simulator
+      eventcatalog:
+        condition: service_healthy
+      booking:
+        condition: service_healthy
+      ticketservice:
+        condition: service_healthy
+      payment-simulator:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
 
   booking:
     build:
@@ -140,7 +146,7 @@ services:
       eventcatalog-db:
         condition: service_healthy
       keycloak:
-        condition: service_started
+        condition: service_healthy
       booking:
         condition: service_healthy
 
@@ -162,7 +168,6 @@ services:
   
   booking-redis:
     image: "${REDIS_IMAGE:?Set REDIS_IMAGE}"
-    container_name: booking-redis
     ports:
       - "${REDIS_PUBLISHED_PORT:?Set REDIS_PUBLISHED_PORT}:6379"
     volumes:
@@ -178,6 +183,8 @@ services:
   rabbitmq:
     image: "${RABBITMQ_IMAGE:?Set RABBITMQ_IMAGE}"
     environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER:?Set RABBITMQ_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}"
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "${RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS:?Set RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS}"
     ports:
       - "${RABBITMQ_PUBLISHED_PORT:?Set RABBITMQ_PUBLISHED_PORT}:5672"
@@ -262,6 +269,14 @@ services:
       KEYCLOAK_APP_ADMIN_PASSWORD: "${KEYCLOAK_APP_ADMIN_PASSWORD:?Set KEYCLOAK_APP_ADMIN_PASSWORD}"
       KC_HOSTNAME: "${KC_HOSTNAME:?Set KC_HOSTNAME}"
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "${KC_HOSTNAME_BACKCHANNEL_DYNAMIC:?Set KC_HOSTNAME_BACKCHANNEL_DYNAMIC}"
+      KC_HEALTH_ENABLED: "true"
+    healthcheck:
+      # The official Keycloak image includes bash but no curl/wget.
+      test: ["CMD", "bash", "-ec", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 60s
     ports:
       - "${KEYCLOAK_PUBLISHED_PORT:?Set KEYCLOAK_PUBLISHED_PORT}:8080"
     volumes:

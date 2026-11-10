@@ -213,12 +213,12 @@ Booking väntar på Redis hälsokontroll, `redis-cli ping`, innan tjänsten star
 
 Standardadressen i [appsettings.json](../src/services/Booking/appsettings.json) och [startprofilen](../src/services/Booking/Properties/launchSettings.json) är `localhost:6379`. Compose ersätter den med `booking-redis:6379`. Den lokala Redis-tjänsten är konfigurerad utan lösenord.
 
-Ange den interna nyckel som Compose kräver för Booking och TicketService och starta Bookings datalager från repots rot:
+Skapa först rotens lokala `.env` enligt [konfigurationsguiden](configuration.md)
+och starta Bookings datalager från repots rot:
 
 ```powershell
-$env:TICKET_SERVICE_INTERNAL_API_KEY = '<gemensam intern nyckel>'
-docker compose -f src/Compose.yaml up -d booking-db booking-redis
-docker compose -f src/Compose.yaml exec booking-redis redis-cli ping
+docker compose up -d booking-db booking-redis
+docker compose exec booking-redis redis-cli ping
 ```
 
 Redis ska svara `PONG`. För hela betalningsflödet behöver även API-tjänsterna vara igång enligt [betalningsdokumentationen](payments.md).
@@ -272,18 +272,18 @@ Börja med bokningens `BookingId` och lagrets `EventId` och `SectionId`. Ta bort
 Visa status och följ loggarna med:
 
 ```powershell
-docker compose -f src/Compose.yaml ps booking booking-redis
-docker compose -f src/Compose.yaml logs -f booking booking-redis
+docker compose ps booking booking-redis
+docker compose logs -f booking booking-redis
 ```
 
 Nycklar kan inspekteras utan att ändra dem. Ersätt platshållarna med verkliga GUID utan bindestreck:
 
 ```powershell
-docker compose -f src/Compose.yaml exec booking-redis redis-cli --scan --pattern 'inventory:*'
-docker compose -f src/Compose.yaml exec booking-redis redis-cli GET 'inventory:<eventIdN>:<sectionIdN>:available'
-docker compose -f src/Compose.yaml exec booking-redis redis-cli ZRANGE 'inventory:<eventIdN>:<sectionIdN>:reservations' 0 -1 WITHSCORES
-docker compose -f src/Compose.yaml exec booking-redis redis-cli HGETALL 'reservation:<bookingIdN>'
-docker compose -f src/Compose.yaml exec booking-redis redis-cli TTL 'reservation-confirmed:<bookingIdN>'
+docker compose exec booking-redis redis-cli --scan --pattern 'inventory:*'
+docker compose exec booking-redis redis-cli GET 'inventory:<eventIdN>:<sectionIdN>:available'
+docker compose exec booking-redis redis-cli ZRANGE 'inventory:<eventIdN>:<sectionIdN>:reservations' 0 -1 WITHSCORES
+docker compose exec booking-redis redis-cli HGETALL 'reservation:<bookingIdN>'
+docker compose exec booking-redis redis-cli TTL 'reservation-confirmed:<bookingIdN>'
 ```
 
 `GET`, `ZRANGE` och `HGETALL` kör inte Bookings städlogik. En direkt läsning kan därför visa reservationer vars sluttid har passerat men som ännu inte har behandlats av ett Lua-skript eller bakgrundstjänsten.
