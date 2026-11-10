@@ -39,9 +39,10 @@ public sealed class RabbitMqPaymentRequestedPublisher(
             cancellationToken);
 
         logger.LogInformation(
-            "Published payment request {MessageId} for booking {BookingId}.",
+            "Published payment request {MessageId} for booking {BookingId}, correlation {CorrelationId}.",
             message.MessageId,
-            message.BookingId);
+            message.BookingId,
+            message.CorrelationId);
     }
 }
 

@@ -103,9 +103,10 @@ public sealed class BookingConfirmedConsumer(
                 var result = await handler.HandleAsync(message, stoppingToken);
                 await channel.BasicAckAsync(delivery.DeliveryTag, multiple: false, stoppingToken);
                 logger.LogInformation(
-                    "Processed booking confirmation {MessageId} for booking {BookingId}, item {BookingItemId}; already issued: {AlreadyIssued}.",
+                    "Processed booking confirmation {MessageId} for booking {BookingId}, correlation {CorrelationId}, item {BookingItemId}; already issued: {AlreadyIssued}.",
                     message.MessageId,
                     message.BookingId,
+                    message.CorrelationId,
                     message.BookingItemId,
                     result.AlreadyIssued);
                 return;
@@ -116,7 +117,9 @@ public sealed class BookingConfirmedConsumer(
             }
             catch (Exception exception) when (exception is TicketIssueValidationException or TicketIssueConflictException)
             {
-                logger.LogError(exception, "Rejecting an invalid or conflicting booking confirmation {MessageId}.", message.MessageId);
+                logger.LogError(exception,
+                    "Rejecting invalid or conflicting booking confirmation {MessageId} for booking {BookingId}, correlation {CorrelationId}.",
+                    message.MessageId, message.BookingId, message.CorrelationId);
                 await channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, stoppingToken);
                 return;
             }
@@ -125,9 +128,9 @@ public sealed class BookingConfirmedConsumer(
                 if (!channel.IsOpen) return;
                 var delay = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, Math.Min(attempt - 1, 5))));
                 logger.LogWarning(exception,
-                    "Ticket issuance attempt {Attempt} failed for message {MessageId}; retaining the unacknowledged delivery and retrying in {RetryDelay}.",
+                    "Ticket issuance attempt {Attempt} failed for message {MessageId}, booking {BookingId}, correlation {CorrelationId}; retaining the unacknowledged delivery and retrying in {RetryDelay}.",
                     attempt,
-                    message.MessageId, delay);
+                    message.MessageId, message.BookingId, message.CorrelationId, delay);
                 await Task.Delay(delay, stoppingToken);
             }
         }

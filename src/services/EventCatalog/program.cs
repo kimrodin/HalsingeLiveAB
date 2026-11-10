@@ -27,7 +27,12 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((_, loggerConfiguration) =>
-    loggerConfiguration.Enrich.FromLogContext().WriteTo.Console());
+    loggerConfiguration
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("ServiceName", "EventCatalog")
+        .Enrich.WithProperty("Environment", builder.Environment.EnvironmentName)
+        .WriteTo.Console()
+        .WriteTo.Seq(builder.Configuration["Serilog:SeqServerUrl"] ?? "http://localhost:5341"));
 
 builder.Services.AddDbContext<EventCatalogDbContext>(options =>
     options.UseNpgsql(

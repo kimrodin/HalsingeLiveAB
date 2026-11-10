@@ -13,7 +13,12 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((_, loggerConfiguration) =>
-    loggerConfiguration.Enrich.FromLogContext().WriteTo.Console());
+    loggerConfiguration
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("ServiceName", "PaymentSimulator")
+        .Enrich.WithProperty("Environment", builder.Environment.EnvironmentName)
+        .WriteTo.Console()
+        .WriteTo.Seq(builder.Configuration["Serilog:SeqServerUrl"] ?? "http://localhost:5341"));
 
 var connectionString = builder.Configuration.GetConnectionString("PaymentSimulator")
     ?? throw new InvalidOperationException(

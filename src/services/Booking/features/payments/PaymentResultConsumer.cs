@@ -71,6 +71,13 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
             return;
         }
 
+        var messageContext = message switch
+        {
+            PaymentSucceededV1 succeeded => (succeeded.MessageId, succeeded.BookingId, succeeded.CorrelationId),
+            PaymentFailedV1 failed => (failed.MessageId, failed.BookingId, failed.CorrelationId),
+            _ => throw new InvalidDataException("Unknown payment result.")
+        };
+
         for (var attempt = 1; !token.IsCancellationRequested; attempt++)
         {
             try
@@ -82,11 +89,14 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
                 // The committed inbox owns retries, including refunds, after this acknowledgement.
                 await channel.BasicAckAsync(delivery.DeliveryTag, false, token);
                 if (message is PaymentSucceededV1 succeededMessage)
-                    logger.LogInformation("Received successful payment {PaymentId} for booking {BookingId} (message {MessageId}).",
-                        succeededMessage.PaymentId, succeededMessage.BookingId, succeededMessage.MessageId);
+                    logger.LogInformation(
+                        "Received successful payment {PaymentId} for booking {BookingId}, correlation {CorrelationId} (message {MessageId}).",
+                        succeededMessage.PaymentId, succeededMessage.BookingId, succeededMessage.CorrelationId,
+                        succeededMessage.MessageId);
                 else if (message is PaymentFailedV1 failed)
-                    logger.LogWarning("Received failed payment {PaymentId} for booking {BookingId}; reason {FailureCode} (message {MessageId}).",
-                        failed.PaymentId, failed.BookingId, failed.FailureCode, failed.MessageId);
+                    logger.LogWarning(
+                        "Received failed payment {PaymentId} for booking {BookingId}, correlation {CorrelationId}; reason {FailureCode} (message {MessageId}).",
+                        failed.PaymentId, failed.BookingId, failed.CorrelationId, failed.FailureCode, failed.MessageId);
                 return;
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { return; }
@@ -101,8 +111,8 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
                 if (!channel.IsOpen) return;
                 var delay = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, Math.Min(attempt - 1, 5))));
                 logger.LogWarning(exception,
-                    "Could not store payment result on attempt {Attempt}; retaining the unacknowledged delivery and retrying in {RetryDelay}.",
-                    attempt, delay);
+                    "Could not store payment result {MessageId} for booking {BookingId}, correlation {CorrelationId} on attempt {Attempt}; retaining the unacknowledged delivery and retrying in {RetryDelay}.",
+                    messageContext.MessageId, messageContext.BookingId, messageContext.CorrelationId, attempt, delay);
                 await Task.Delay(delay, token);
             }
         }
