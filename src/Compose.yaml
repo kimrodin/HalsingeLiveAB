@@ -3,6 +3,16 @@ name: services
 
 services:
 
+  seq:
+    image: datalust/seq:2025.2
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTH: "true"
+    ports:
+      - "127.0.0.1:${SEQ_PUBLISHED_PORT:-5341}:80"
+    volumes:
+      - seq-data:/data
+
   api-gateway:
     build:
       context: ./ApiGateway
@@ -10,6 +20,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
       ASPNETCORE_HTTP_PORTS: "${API_GATEWAY_HTTP_PORTS:?Set API_GATEWAY_HTTP_PORTS}"
+      Serilog__SeqServerUrl: "http://seq:5341"
       ReverseProxy__Clusters__eventCatalog__Destinations__primary__Address: "${EVENTCATALOG_BASE_URL:?Set EVENTCATALOG_BASE_URL}"
       ReverseProxy__Clusters__booking__Destinations__primary__Address: "${BOOKING_BASE_URL:?Set BOOKING_BASE_URL}"
       ReverseProxy__Clusters__ticketService__Destinations__primary__Address: "${TICKET_SERVICE_BASE_URL:?Set TICKET_SERVICE_BASE_URL}"
@@ -50,6 +61,7 @@ services:
       Authentication__Authority: "${AUTHENTICATION_AUTHORITY:?Set AUTHENTICATION_AUTHORITY}"
       Authentication__MetadataAddress: "${AUTHENTICATION_METADATA_ADDRESS:?Set AUTHENTICATION_METADATA_ADDRESS}"
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      Serilog__SeqServerUrl: "http://seq:5341"
       InitializeDatabase: "${INITIALIZE_DATABASE:?Set INITIALIZE_DATABASE}"
     healthcheck: &api-healthcheck
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--max-time", "5", "http://localhost:8080/health/ready"]
@@ -75,6 +87,7 @@ services:
       dockerfile: services/TicketService/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      Serilog__SeqServerUrl: "http://seq:5341"
       InitializeDatabase: "${INITIALIZE_DATABASE:?Set INITIALIZE_DATABASE}"
       TicketService__InternalApiKey: "${TICKET_SERVICE_INTERNAL_API_KEY:?Set TICKET_SERVICE_INTERNAL_API_KEY}"
       Authentication__Authority: "${AUTHENTICATION_AUTHORITY:?Set AUTHENTICATION_AUTHORITY}"
@@ -131,6 +144,7 @@ services:
     environment:
       ConnectionStrings__EventCatalog: "Host=${EVENTCATALOG_DB_HOST:?Set EVENTCATALOG_DB_HOST};Port=${EVENTCATALOG_DB_PORT:?Set EVENTCATALOG_DB_PORT};Database=${EVENTCATALOG_DB_NAME:?Set EVENTCATALOG_DB_NAME};Username=${EVENTCATALOG_DB_USER:?Set EVENTCATALOG_DB_USER};Password=${EVENTCATALOG_DB_PASSWORD:?Set EVENTCATALOG_DB_PASSWORD}"
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      Serilog__SeqServerUrl: "http://seq:5341"
       InitializeDatabase: "${INITIALIZE_DATABASE:?Set INITIALIZE_DATABASE}"
       Booking__BaseUrl: "${BOOKING_BASE_URL:?Set BOOKING_BASE_URL}"
       Booking__TimeoutSeconds: "${BOOKING_TIMEOUT_SECONDS:?Set BOOKING_TIMEOUT_SECONDS}"
@@ -220,6 +234,7 @@ services:
       dockerfile: services/PaymentSimulator/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT}"
+      Serilog__SeqServerUrl: "http://seq:5341"
       Authentication__Authority: "${AUTHENTICATION_AUTHORITY:?Set AUTHENTICATION_AUTHORITY}"
       Authentication__MetadataAddress: "${AUTHENTICATION_METADATA_ADDRESS:?Set AUTHENTICATION_METADATA_ADDRESS}"
       ConnectionStrings__PaymentSimulator: "Host=${PAYMENT_SIMULATOR_DB_HOST:?Set PAYMENT_SIMULATOR_DB_HOST};Port=${PAYMENT_SIMULATOR_DB_PORT:?Set PAYMENT_SIMULATOR_DB_PORT};Database=${PAYMENT_SIMULATOR_DB_NAME:?Set PAYMENT_SIMULATOR_DB_NAME};Username=${PAYMENT_SIMULATOR_DB_USER:?Set PAYMENT_SIMULATOR_DB_USER};Password=${PAYMENT_SIMULATOR_DB_PASSWORD:?Set PAYMENT_SIMULATOR_DB_PASSWORD}"
@@ -284,6 +299,7 @@ services:
       - ../infrastructure/keycloak:/opt/keycloak/data/import:ro
 
 volumes:
+  seq-data:
   booking-data:
   keycloak-data:
   eventcatalog-data:

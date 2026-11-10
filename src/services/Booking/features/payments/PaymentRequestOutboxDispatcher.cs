@@ -45,8 +45,9 @@ public sealed class PaymentRequestOutboxDispatcher(BookingDbContext db, IPayment
                 message.AttemptCount++;
                 message.NextAttemptAtUtc = clock.GetUtcNow().AddSeconds(Math.Min(300, Math.Pow(2, Math.Min(8, message.AttemptCount))));
                 message.LastError = exception.Message[..Math.Min(2000, exception.Message.Length)];
-                logger.LogError(exception, "Payment request {MessageId} for booking {BookingId} remains pending; retry scheduled.",
-                    message.MessageId, message.BookingId);
+                logger.LogError(exception,
+                    "Payment request {MessageId} for booking {BookingId}, correlation {CorrelationId} remains pending; retry scheduled.",
+                    message.MessageId, message.BookingId, message.BookingId);
             }
             await db.SaveChangesAsync(token);
         }

@@ -202,8 +202,9 @@ public sealed class BookingsController(
         {
             var result = await bookingService.CreateReservationAsync(request, cancellationToken);
             if (result.Status == ReservationStatus.Reserved)
-                logger.LogInformation("Reserved booking {BookingId} for inventory {InventoryId}; quantity {Quantity}.",
-                    result.BookingId, request.InventoryId, request.Quantity);
+                logger.LogInformation(
+                    "Reserved booking {BookingId}, correlation {CorrelationId} for inventory {InventoryId}; quantity {Quantity}.",
+                    result.BookingId, result.BookingId, request.InventoryId, request.Quantity);
             else if (result.Status == ReservationStatus.InsufficientInventory)
                 logger.LogWarning("Could not reserve booking for inventory {InventoryId}; requested quantity {Quantity} is unavailable.",
                     request.InventoryId, request.Quantity);

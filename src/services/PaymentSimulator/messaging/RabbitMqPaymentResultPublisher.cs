@@ -29,6 +29,8 @@ public sealed class RabbitMqPaymentResultPublisher(
         };
         await channel.BasicPublishAsync(PaymentResultMessagingTopology.Exchange, routingKey,
             mandatory: true, properties, body, token);
-        logger.LogInformation("Published payment result {MessageId}, type {Type}.", messageId, routingKey);
+        logger.LogInformation(
+            "Published payment result {MessageId}, type {Type}, correlation {CorrelationId}.",
+            messageId, routingKey, correlationId);
     }
 }

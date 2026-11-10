@@ -22,7 +22,10 @@ builder.Host.UseSerilog((_, loggerConfiguration) =>
     loggerConfiguration
         .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning)
         .Enrich.FromLogContext()
-        .WriteTo.Console());
+        .Enrich.WithProperty("ServiceName", "Booking")
+        .Enrich.WithProperty("Environment", builder.Environment.EnvironmentName)
+        .WriteTo.Console()
+        .WriteTo.Seq(builder.Configuration["Serilog:SeqServerUrl"] ?? "http://localhost:5341"));
 
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Booking")));

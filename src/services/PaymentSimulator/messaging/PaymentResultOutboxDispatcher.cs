@@ -44,7 +44,9 @@ public sealed class PaymentResultOutboxDispatcher(PaymentDbContext db, IPaymentR
                 message.AttemptCount++;
                 message.NextAttemptAtUtc = clock.GetUtcNow().AddSeconds(Math.Min(300, Math.Pow(2, Math.Min(8, message.AttemptCount))));
                 message.LastError = exception.Message[..Math.Min(2000, exception.Message.Length)];
-                logger.LogError(exception, "Could not publish payment result {MessageId}; retry scheduled.", message.MessageId);
+                logger.LogError(exception,
+                    "Could not publish payment result {MessageId} for booking {BookingId}, correlation {CorrelationId}; retry scheduled.",
+                    message.MessageId, message.BookingId, message.BookingId);
             }
             await db.SaveChangesAsync(token);
         }

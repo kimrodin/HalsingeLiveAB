@@ -36,9 +36,10 @@ public sealed class RabbitMqBookingConfirmedPublisher(
             cancellationToken);
 
         logger.LogInformation(
-            "Published booking confirmation {MessageId} for booking {BookingId}, item {BookingItemId}.",
+            "Published booking confirmation {MessageId} for booking {BookingId}, correlation {CorrelationId}, item {BookingItemId}.",
             message.MessageId,
             message.BookingId,
+            message.CorrelationId,
             message.BookingItemId);
     }
 }
