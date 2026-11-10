@@ -7,20 +7,6 @@ namespace Booking.Features.Bookings.Occupancy;
 
 public sealed class VenueOccupancyReport(BookingDbContext db, HttpClient catalog)
 {
-    public async Task<IReadOnlyList<VenueOccupancyRow>> Get(DateTime? from, DateTime? to, CancellationToken ct)
-    {
-        var events = await GetEvents(from, to, ct);
-        return events.GroupBy(item => new { item.VenueId, item.VenueName })
-            .Select(group =>
-            {
-                var capacity = group.Sum(item => item.Capacity);
-                var sold = group.Sum(item => item.Sold);
-                return new VenueOccupancyRow(group.Key.VenueId, group.Key.VenueName,
-                    capacity, sold, capacity == 0 ? 0 : Math.Round(100m * sold / capacity, 2));
-            })
-            .OrderBy(item => item.VenueName).ToArray();
-    }
-
     public async Task<IReadOnlyList<EventOccupancyRow>> GetEvents(DateTime? from, DateTime? to, CancellationToken ct)
     {
         // The catalog accepts inclusive UTC calendar days. Fetch only days touching
@@ -78,9 +64,6 @@ public sealed class VenueOccupancyReport(BookingDbContext db, HttpClient catalog
     private sealed record GetEventsResponse(EventInfo[] Events, Guid[] MissingEventIds);
     private sealed record GetEventsRequest(Guid[] EventIds, DateTime? From, DateTime? To);
 }
-
-public sealed record VenueOccupancyRow(Guid VenueId, string VenueName, long Capacity,
-    long Sold, decimal OccupancyPercent);
 
 public sealed record EventOccupancyRow(Guid EventId, string EventName, DateTime EventStartsAt,
     Guid VenueId, string VenueName, long Capacity, long Sold, decimal OccupancyPercent);

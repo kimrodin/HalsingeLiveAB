@@ -250,7 +250,7 @@ Booking/
 │   │   └── Issuance/     # Biljett-outbox, bakgrundstjänst, dispatcher och publicerare
 │   └── bookings/         # Bokningens affärsregler, API, validering och reservationstid
 │       ├── Payments/     # Betalningsstart, tillämpning av resultat och avstämning
-│       ├── Occupancy/    # Beläggningsrapporter och tillhörande controllers
+│       ├── Occupancy/    # Beläggningsrapport per evenemang och tillhörande controller
 │       └── Models/       # Booking och BookingItem
 └── Infrastructure/
     └── Messaging/        # Gemensam RabbitMqConnectionProvider
@@ -258,7 +258,7 @@ Booking/
 
 `StartPayment.cs`, `ApplyPaymentResult.cs` och `PaymentReconciliationService.cs` ligger under `features/bookings/Payments`. De två första är delar av den partiella klassen `BookingService` och behåller namespace `Booking.Features.Bookings`. Avstämningstjänsten använder `Booking.Features.Bookings.Payments`.
 
-`VenueOccupancyController.cs`, `EventOccupancyController.cs` och `VenueOccupancyReport.cs` ligger under `features/bookings/Occupancy` med namespace `Booking.Features.Bookings.Occupancy`. `BookingExpirationService.cs` och `GuestAccessToken.cs` ligger fortsatt direkt under `features/bookings`. `ITicketServiceClient`, `HttpTicketServiceClient` och `AdminTicketsController` ligger direkt under `features/tickets`.
+`EventOccupancyController.cs` och `VenueOccupancyReport.cs` ligger under `features/bookings/Occupancy` med namespace `Booking.Features.Bookings.Occupancy`. `BookingExpirationService.cs` och `GuestAccessToken.cs` ligger fortsatt direkt under `features/bookings`. `ITicketServiceClient`, `HttpTicketServiceClient` och `AdminTicketsController` ligger direkt under `features/tickets`.
 
 ### Mappstruktur i PaymentSimulator
 
