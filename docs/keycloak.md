@@ -40,3 +40,13 @@ curl --fail http://localhost:8180/realms/halsingelive/.well-known/openid-configu
 Använd `curl.exe` i Windows PowerShell 5. Vid `401`, kontrollera issuer och
 discovery; vid `403`, adminrollen. Redirect-fel kräver att appens adress matchar
 klientinställningarna.
+
+## Kodreferenser
+
+- [Realmimport: klient, roller och tokeninställningar](../infrastructure/keycloak/halsingelive-realm.json)
+- [Keycloak-serverns start och importkonfiguration](../src/Compose.yaml)
+- [Adminappens Keycloak-klient](../src/frontend/admin-web/src/app/auth/keycloak.ts)
+- [Inloggningsstart, PKCE och kontroll av adminroll](../src/frontend/admin-web/src/main.tsx)
+- [Tokenförnyelse och autentiserade anrop](../src/frontend/admin-web/src/shared/api/http.ts)
+- [Bookings JWT-validering och adminpolicy](../src/services/Booking/program.cs)
+- [PaymentSimulators adminautentisering](../src/services/PaymentSimulator/Authentication/AdminAuthentication.cs)

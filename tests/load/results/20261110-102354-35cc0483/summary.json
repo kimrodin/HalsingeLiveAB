@@ -1,0 +1,320 @@
+{
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup": {
+                "id": "5c0f8025f7e0b6654089e5b00e950f1a",
+                "groups": {},
+                "checks": {
+                        "expected HTTP 200": {
+                            "name": "expected HTTP 200",
+                            "path": "::setup::expected HTTP 200",
+                            "id": "5e027c253302052e58ebcdfb4c665336",
+                            "passes": 1,
+                            "fails": 0
+                        },
+                        "inventory remains within capacity": {
+                            "name": "inventory remains within capacity",
+                            "path": "::setup::inventory remains within capacity",
+                            "id": "5ced24b787982d0ca6e7e76cc6f88fd9",
+                            "passes": 1,
+                            "fails": 0
+                        }
+                    },
+                "name": "setup",
+                "path": "::setup"
+            }
+        },
+        "checks": {
+            "expected HTTP 200": {
+                "name": "expected HTTP 200",
+                "path": "::expected HTTP 200",
+                "id": "78d7ce47769454cedc2a4030ee2fac77",
+                "passes": 1671,
+                "fails": 0
+            },
+            "inventory remains within capacity": {
+                "id": "260c961c736640261b6057349d66f597",
+                "passes": 450,
+                "fails": 0,
+                "name": "inventory remains within capacity",
+                "path": "::inventory remains within capacity"
+            },
+            "expected HTTP 202": {
+                "name": "expected HTTP 202",
+                "path": "::expected HTTP 202",
+                "id": "0020c363083a240f166a982fe42888d3",
+                "passes": 60,
+                "fails": 0
+            },
+            "reservation contains guest credentials": {
+                "name": "reservation contains guest credentials",
+                "path": "::reservation contains guest credentials",
+                "id": "c3d4252e27372de30f4e885ec0556543",
+                "passes": 60,
+                "fails": 0
+            },
+            "payment request accepted or reached its planned terminal outcome": {
+                "name": "payment request accepted or reached its planned terminal outcome",
+                "path": "::payment request accepted or reached its planned terminal outcome",
+                "id": "07d556185e480fd027393247c6b98868",
+                "passes": 48,
+                "fails": 0
+            },
+            "payment remains in a recoverable state": {
+                "passes": 96,
+                "fails": 0,
+                "name": "payment remains in a recoverable state",
+                "path": "::payment remains in a recoverable state",
+                "id": "d4fc2128e5e440189265e600484e8041"
+            },
+            "customer cancellation accepted": {
+                "id": "eb11a37c8cc0f2a80edaa6b0c3a2cc3e",
+                "passes": 7,
+                "fails": 0,
+                "name": "customer cancellation accepted",
+                "path": "::customer cancellation accepted"
+            },
+            "reservation rejected because stock is unavailable": {
+                "path": "::reservation rejected because stock is unavailable",
+                "id": "5a405cef3c8d251da8e14b53ad80f998",
+                "passes": 940,
+                "fails": 0,
+                "name": "reservation rejected because stock is unavailable"
+            },
+            "successful payment belongs to a confirmed booking": {
+                "passes": 109,
+                "fails": 0,
+                "name": "successful payment belongs to a confirmed booking",
+                "path": "::successful payment belongs to a confirmed booking",
+                "id": "2615d084b8eb504bae54e7b19b475f31"
+            },
+            "one valid unique ticket per purchased item": {
+                "name": "one valid unique ticket per purchased item",
+                "path": "::one valid unique ticket per purchased item",
+                "id": "fd0923f62227ca62b905461107dab11b",
+                "passes": 48,
+                "fails": 0
+            }
+        }
+    },
+    "metrics": {
+        "release_cancelled": {
+            "rate": 0.0777620537867768,
+            "count": 7
+        },
+        "release_unexpected_error": {
+            "passes": 0,
+            "fails": 1450,
+            "thresholds": {
+                "rate==0": false
+            },
+            "value": 0
+        },
+        "dropped_iterations": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "http_req_blocked": {
+            "med": 0.0059585,
+            "max": 16.038292,
+            "p(90)": 0.12100800000000017,
+            "p(95)": 0.24314789999999994,
+            "p(99)": 0.6850674999999999,
+            "count": 2720,
+            "avg": 0.05897863749999991,
+            "min": 0.000959
+        },
+        "release_sold_out": {
+            "count": 940,
+            "rate": 10.442332937081455,
+            "thresholds": {
+                "count>0": false
+            }
+        },
+        "iterations": {
+            "count": 1451,
+            "rate": 16.11896286351616
+        },
+        "release_paid_duration": {
+            "avg": 7317.770833333333,
+            "min": 5590,
+            "med": 7349,
+            "max": 9687,
+            "p(90)": 8422.6,
+            "p(95)": 8993.55,
+            "p(99)": 9646.58,
+            "count": 48,
+            "thresholds": {
+                "p(95)<=15000": false,
+                "p(99)<=20000": false
+            }
+        },
+        "vus_max": {
+            "value": 272,
+            "min": 272,
+            "max": 272
+        },
+        "release_paid": {
+            "count": 48,
+            "rate": 0.5332255116807552,
+            "thresholds": {
+                "count>0": false
+            }
+        },
+        "http_req_duration": {
+            "count": 2720,
+            "avg": 5.277190492279424,
+            "min": 0.865958,
+            "med": 3.9722915,
+            "max": 110.10425,
+            "p(90)": 10.0948206,
+            "p(95)": 13.04931875,
+            "p(99)": 20.418007209999995,
+            "thresholds": {
+                "p(95)<=500": false,
+                "p(99)<=1000": false
+            }
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 2720,
+            "thresholds": {
+                "rate<=0": false
+            },
+            "value": 0
+        },
+        "http_req_connecting": {
+            "count": 2720,
+            "avg": 0.03975782610294114,
+            "min": 0,
+            "med": 0,
+            "max": 15.957125,
+            "p(90)": 0.07729110000000015,
+            "p(95)": 0.16406814999999964,
+            "p(99)": 0.4880922299999999
+        },
+        "http_req_duration{expected_response:true}": {
+            "med": 3.9722915,
+            "max": 110.10425,
+            "p(90)": 10.0948206,
+            "p(95)": 13.04931875,
+            "p(99)": 20.418007209999995,
+            "count": 2720,
+            "avg": 5.277190492279424,
+            "min": 0.865958
+        },
+        "http_req_receiving": {
+            "count": 2720,
+            "avg": 0.1162809724264706,
+            "min": 0.009667,
+            "med": 0.067438,
+            "max": 26.941458,
+            "p(90)": 0.1826661,
+            "p(95)": 0.23377289999999995,
+            "p(99)": 0.5050397899999997
+        },
+        "vus": {
+            "value": 0,
+            "min": 0,
+            "max": 48
+        },
+        "checks": {
+            "passes": 3491,
+            "fails": 0,
+            "thresholds": {
+                "rate==1": false
+            },
+            "value": 1
+        },
+        "release_abandoned": {
+            "count": 5,
+            "rate": 0.05554432413341199
+        },
+        "release_reserved": {
+            "rate": 0.6665318896009439,
+            "count": 60,
+            "thresholds": {
+                "count>0": false
+            }
+        },
+        "http_req_sending": {
+            "p(95)": 0.10987704999999999,
+            "p(99)": 0.20443395999999991,
+            "count": 2720,
+            "avg": 0.03747859595588239,
+            "min": 0.002541,
+            "med": 0.0203125,
+            "max": 3.879,
+            "p(90)": 0.0783372
+        },
+        "http_req_waiting": {
+            "p(95)": 12.783532999999998,
+            "p(99)": 19.96029194,
+            "count": 2720,
+            "avg": 5.123430923897062,
+            "min": 0.852084,
+            "med": 3.849354,
+            "max": 102.691584,
+            "p(90)": 9.793091000000004
+        },
+        "release_payment_rejected": {
+            "count": 0,
+            "rate": 0
+        },
+        "data_sent": {
+            "count": 595829,
+            "rate": 6618.983820817347
+        },
+        "http_req_tls_handshaking": {
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "count": 2720,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0
+        },
+        "iteration_duration": {
+            "p(99)": 7739.706690499999,
+            "count": 1451,
+            "avg": 258.72524204272923,
+            "min": 0.163084,
+            "med": 7.544916,
+            "max": 9687.130712,
+            "p(90)": 18.576667,
+            "p(95)": 32.16618699999999
+        },
+        "http_reqs": {
+            "count": 2720,
+            "rate": 30.216112328576124
+        },
+        "release_reservation_duration": {
+            "med": 5.9099375,
+            "max": 78.008666,
+            "p(90)": 13.4270003,
+            "p(95)": 15.392962149999997,
+            "p(99)": 22.190679819999986,
+            "count": 1000,
+            "avg": 7.629070708999992,
+            "min": 2.705584
+        },
+        "data_received": {
+            "count": 1335388,
+            "rate": 14834.644783173755
+        },
+        "release_attempts": {
+            "count": 1000,
+            "rate": 11.108864826682398,
+            "thresholds": {
+                "count==1000": false
+            }
+        }
+    }
+}

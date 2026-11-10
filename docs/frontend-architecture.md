@@ -1,24 +1,60 @@
-# Frontend architecture and API contract conventions
+# Frontendarkitektur och regler för API-kontrakt
 
-The repository has two independent frontend applications: `src/frontend/customer-web` and `src/frontend/admin-web`. They use separate API helpers because they have different access requirements. The customer app makes public requests and uses a guest access token for booking-specific actions. The admin app authenticates with Keycloak and sends a Bearer token. Keep those transport and authentication boundaries app-local.
+Repot innehåller två fristående frontendappar: `src/frontend/customer-web` och
+`src/frontend/admin-web`. De har separata API-hjälpare eftersom de har olika
+åtkomstkrav. Kundappen gör offentliga anrop och använder en gästtoken för åtgärder
+som gäller en viss bokning. Adminappen autentiserar med Keycloak och skickar en
+Bearer-token. Håll transport- och autentiseringslogiken lokal för respektive app.
 
-## API ownership
+## Ansvar för API-kontrakt
 
-Backend services own the request and response contracts they expose. Frontend API modules should stay with the feature that uses them and map backend DTOs into app-facing models where the app needs a different shape.
+Backendtjänsterna äger de kontrakt för förfrågningar och svar som de exponerar.
+Frontendens API-moduler ska ligga tillsammans med funktionen som använder dem.
+När appen behöver en annan struktur omvandlar modulerna backendens DTO:er till
+modeller som passar gränssnittet.
 
-| Service | Contract area | Frontend use |
+| Tjänst | Kontraktsområde | Användning i frontend |
 | --- | --- | --- |
-| EventCatalog | Events, venues, venue seating maps, and event images | Both apps read catalog data; admin-web also creates, edits, uploads, and deletes catalog data. |
-| Booking | Bookings, guest booking access, inventory, admin booking details, and the authenticated admin ticket check-in/cancel proxy | customer-web creates and views guest bookings; admin-web manages bookings and calls the admin ticket actions. |
-| TicketService | Ticket records and ticket PDF endpoints | admin-web reads admin booking tickets and PDFs directly; Booking calls TicketService for guest-authorized ticket reads and PDFs. |
-| PaymentSimulator | Payments and admin payment-simulation settings | admin-web manages the simulator settings. |
+| EventCatalog | Evenemang, scener, platskartor och evenemangsbilder | Båda apparna läser katalogdata. Adminwebben skapar, redigerar, laddar upp och raderar också katalogdata. |
+| Booking | Bokningar, gäståtkomst, biljettlager, bokningsdetaljer för admin och autentiserad proxy för administrativ incheckning och makulering av biljetter | Kundwebben skapar och visar gästbokningar. Adminwebben hanterar bokningar och anropar de administrativa biljettåtgärderna. |
+| TicketService | Biljettposter och endpoints för biljett-PDF | Adminwebben läser biljetter och PDF:er direkt. Booking anropar TicketService för biljettläsning och PDF med gäståtkomst. |
+| PaymentSimulator | Betalningar och administrativa inställningar för betalningssimulering | Adminwebben hanterar simulatorns inställningar. |
 
-The URL prefixes are routing conveniences, not ownership boundaries. Vite and the Nginx frontend containers proxy `/api` to EventCatalog, `/booking-api` to Booking, `/ticket-api` to TicketService, and (for admin-web) `/payment-api` to PaymentSimulator. The proxy strips the frontend prefix before forwarding.
+URL-prefixen förenklar routningen och definierar inte vem som äger kontrakten.
+Vite och frontendcontainrarnas Nginx skickar API-anrop vidare till API Gateway.
+Gatewayen routar `/api` till EventCatalog, `/booking-api` till Booking,
+`/ticket-api` till TicketService och `/payment-api` till PaymentSimulator.
+Adminwebben använder det sistnämnda prefixet. Gatewayen tar bort respektive
+frontendprefix innan anropet skickas till backendtjänsten.
 
-## Type sharing and generation
+## Delning och generering av typer
 
-Keep request and response types next to the feature API module that consumes them while they are app-specific, serve different views, or are mapped from backend DTOs. Matching names alone do not make two types the same contract. For example, the customer and admin `BookingDetails` models have different shapes and access semantics, so they remain separate.
+Behåll typer för förfrågningar och svar nära den API-modul som använder dem så
+länge de är appspecifika, betjänar olika vyer eller omvandlas från backendens
+DTO:er. Samma namn innebär inte att två typer beskriver samma kontrakt. Kundens
+och administratörens `BookingDetails` har exempelvis olika struktur och
+åtkomstregler och hålls därför åtskilda.
 
-When the same backend contract is independently declared in both apps and repeated changes cause drift, first confirm the backend remains its source of truth. Then consider generating client types from an API schema or introducing a small, versioned contract package. Share only the contract types that are actually identical; keep each app's transport, authentication, and UI models separate.
+Om samma backendkontrakt deklareras separat i båda apparna och återkommande
+ändringar gör att typerna glider isär, bekräfta först att backend fortfarande är
+källan till kontraktet. Överväg sedan att generera klienttyper från ett API-schema
+eller införa ett litet versionshanterat kontraktspaket. Dela bara kontraktstyper
+som faktiskt är identiska. Behåll varje apps transport, autentisering och
+modeller för användargränssnittet separat.
 
-At the time of writing, both apps declare the same `VenueSeatingMap` fields. This is one known duplicate and can be consolidated if it changes independently or begins recurring; it does not by itself justify sharing the API helpers or application code. When changing a backend contract, update its owning service and all consuming app API modules in the same change, and review any mappings from DTOs to UI models.
+Vid dokumentationstillfället deklarerar båda apparna samma `VenueSeatingMap`-fält.
+Denna kända dubblering kan samlas om typerna börjar ändras oberoende av varandra
+eller fler liknande fall uppstår. Den motiverar inte i sig att API-hjälpare eller
+applikationskod delas. När ett backendkontrakt ändras ska den ansvariga tjänsten
+och alla API-moduler som använder kontraktet uppdateras i samma ändring.
+Kontrollera även omvandlingar från DTO:er till modeller för gränssnittet.
+
+## Kodreferenser
+
+- [Adminappens transport och Bearer-autentisering](../src/frontend/admin-web/src/shared/api/http.ts)
+- [Kundappens transport](../src/frontend/customer-web/src/shared/api/http.ts)
+- [Adminappens boknings-API och använda typer](../src/frontend/admin-web/src/features/bookings/api/bookings.ts)
+- [Kundappens boknings-API och använda typer](../src/frontend/customer-web/src/features/bookings/api/bookings.ts)
+- [Adminappens kontrakt för platskartor](../src/frontend/admin-web/src/features/seating-maps/types.ts)
+- [Kundappens kontrakt för platskartor](../src/frontend/customer-web/src/features/venues/api/seatingMaps.ts)
+- [Gatewayens rutter och borttagning av prefix](../src/ApiGateway/appsettings.json)

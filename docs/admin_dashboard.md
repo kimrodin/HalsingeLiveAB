@@ -221,4 +221,6 @@ utesluta filen återkallar inte nyckeln.
 - [Autentiserade API-anrop](../src/frontend/admin-web/src/shared/api/http.ts)
 - [Beräkning av försäljningsstatistik](../src/services/Booking/features/statistics/SalesStatistics.cs)
 - [API för beläggning](../src/services/Booking/features/bookings/EventOccupancyController.cs)
+- [Backendrapport för beläggning och datumfiltrering](../src/services/Booking/features/bookings/VenueOccupancyReport.cs)
+- [Tester för beläggning](../tests/Booking.UnitTests/VenueOccupancyTests.cs)
 - [Försäljningsstatistikens API och backendregler](sales-statistics.md)
