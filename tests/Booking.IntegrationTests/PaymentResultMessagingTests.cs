@@ -1,5 +1,7 @@
 using System.Text.Json;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
+using Booking.Features.Payments.Requests;
+using Booking.Features.Payments.Results;
 using HalsingeLive.Contracts.Messaging;
 using Messaging.IntegrationTests;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +13,11 @@ using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
-using PaymentSimulator.Messaging;
+using PaymentSimulator.Messaging.Requests;
+using PaymentSimulator.Messaging.Results;
 using RabbitMQ.Client;
-using BookingConnection = Booking.Features.Tickets.RabbitMqConnectionProvider;
-using PaymentConnection = PaymentSimulator.Messaging.RabbitMqConnectionProvider;
+using BookingConnection = Booking.Infrastructure.Messaging.RabbitMqConnectionProvider;
+using PaymentConnection = PaymentSimulator.Infrastructure.Messaging.RabbitMqConnectionProvider;
 
 namespace Booking.IntegrationTests;
 

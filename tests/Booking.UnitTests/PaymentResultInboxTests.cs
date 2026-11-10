@@ -1,6 +1,6 @@
 using Booking.Data;
 using Booking.Features.Bookings;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Results;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;

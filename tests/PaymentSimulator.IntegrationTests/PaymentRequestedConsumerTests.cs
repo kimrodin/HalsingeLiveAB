@@ -13,7 +13,8 @@ using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
-using PaymentSimulator.Messaging;
+using PaymentSimulator.Infrastructure.Messaging;
+using PaymentSimulator.Messaging.Requests;
 using RabbitMQ.Client;
 
 namespace PaymentSimulator.IntegrationTests;

@@ -1,4 +1,5 @@
 using Booking.Data;
+using Booking.Features.Tickets.Issuance;
 using Booking.Features.Tickets;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;

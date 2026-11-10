@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Booking.Features.Bookings;
 using Booking.Features.EventCatalog;
 using Booking.Features.Seed.SeedPurchases;
+using Booking.Features.Tickets.Issuance;
 using Booking.Features.Tickets;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;

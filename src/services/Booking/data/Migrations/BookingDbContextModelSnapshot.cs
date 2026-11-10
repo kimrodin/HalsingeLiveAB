@@ -160,7 +160,7 @@ namespace Booking.data.Migrations
                     b.ToTable("EventInventory", (string)null);
                 });
 
-            modelBuilder.Entity("Booking.Features.Payments.PaymentRequestOutboxMessage", b =>
+            modelBuilder.Entity("Booking.Features.Payments.Requests.PaymentRequestOutboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
                         .ValueGeneratedOnAdd()
@@ -207,7 +207,7 @@ namespace Booking.data.Migrations
                     b.ToTable("PaymentRequestOutboxMessages", (string)null);
                 });
 
-            modelBuilder.Entity("Booking.Features.Payments.PaymentResultInboxMessage", b =>
+            modelBuilder.Entity("Booking.Features.Payments.Results.PaymentResultInboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
                         .ValueGeneratedOnAdd()
@@ -270,7 +270,7 @@ namespace Booking.data.Migrations
                     b.ToTable("PaymentResultInboxMessages", (string)null);
                 });
 
-            modelBuilder.Entity("Booking.Features.Tickets.TicketIssueOutboxMessage", b =>
+            modelBuilder.Entity("Booking.Features.Tickets.Issuance.TicketIssueOutboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
                         .ValueGeneratedOnAdd()

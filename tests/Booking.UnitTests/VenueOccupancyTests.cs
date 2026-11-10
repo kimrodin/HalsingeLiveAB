@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Booking.Data;
-using Booking.Features.Bookings;
+using Booking.Features.Bookings.Occupancy;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Inventory = Booking.Features.EventInventory.Models.EventInventory;

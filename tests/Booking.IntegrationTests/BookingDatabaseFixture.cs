@@ -2,7 +2,7 @@ using Booking.Data;
 using Booking.Features.BookingHolds;
 using Booking.Features.Bookings;
 using Booking.Features.EventCatalog;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;

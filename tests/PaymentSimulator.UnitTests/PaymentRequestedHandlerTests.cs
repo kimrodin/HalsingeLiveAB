@@ -5,7 +5,7 @@ using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
-using PaymentSimulator.Messaging;
+using PaymentSimulator.Messaging.Requests;
 
 namespace PaymentSimulator.UnitTests;
 

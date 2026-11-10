@@ -102,7 +102,7 @@ namespace PaymentSimulator.Migrations
                         });
                 });
 
-            modelBuilder.Entity("PaymentSimulator.Messaging.PaymentResultOutboxMessage", b =>
+            modelBuilder.Entity("PaymentSimulator.Messaging.Results.PaymentResultOutboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")
                         .ValueGeneratedOnAdd()

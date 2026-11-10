@@ -8,8 +8,12 @@ using Booking.Features.EventInventory.ListEventInventory;
 using Booking.Features.EventInventory.EventCatalog;
 using Booking.Features.Seed;
 using Booking.Features.EventCatalog;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
+using Booking.Features.Payments.Requests;
+using Booking.Features.Payments.Results;
+using Booking.Features.Tickets.Issuance;
 using Booking.Features.Tickets;
+using Booking.Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -51,14 +55,14 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 builder.Services.AddSingleton<Booking.Features.BookingHolds.RedisReservationService>();
 builder.Services.AddScoped<Booking.Features.Bookings.BookingService>();
-builder.Services.AddHttpClient<Booking.Features.Bookings.VenueOccupancyReport>(client =>
+builder.Services.AddHttpClient<Booking.Features.Bookings.Occupancy.VenueOccupancyReport>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["EventCatalog:BaseUrl"]
         ?? throw new InvalidOperationException("EventCatalog base URL is missing."));
     client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("EventCatalog:TimeoutSeconds", 5));
 });
 builder.Services.AddHostedService<Booking.Features.Bookings.BookingExpirationService>();
-builder.Services.AddHostedService<Booking.Features.Bookings.PaymentReconciliationService>();
+builder.Services.AddHostedService<Booking.Features.Bookings.Payments.PaymentReconciliationService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Booking.Features.Statistics.SalesStatistics>();
 builder.Services.AddHttpClient<Booking.Features.Statistics.IStatisticsPayments, Booking.Features.Statistics.StatisticsPayments>(client =>

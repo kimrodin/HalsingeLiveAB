@@ -1,5 +1,5 @@
 using Booking.Features.Bookings;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
 using Microsoft.EntityFrameworkCore;
 
 namespace Booking.IntegrationTests;

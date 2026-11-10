@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
 
 namespace Booking.UnitTests;
 

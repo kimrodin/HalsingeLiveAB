@@ -8,7 +8,7 @@ using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
-using PaymentSimulator.Messaging;
+using PaymentSimulator.Messaging.Results;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.Extensions.Logging.Abstractions;
 

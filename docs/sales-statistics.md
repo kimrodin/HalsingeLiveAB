@@ -113,6 +113,6 @@ konfigureras, så att en notis från en instans når adminklienter som är anslu
 - [Endpoint för försäljningsbetalningar och filtrering med sidmarkör](../src/services/PaymentSimulator/features/payments/Statistics/PaymentSalesController.cs)
 - [Migrering för betalningarnas försäljningsindex](../src/services/PaymentSimulator/Migrations/20261102120000_PaymentSalesIndex.cs)
 - [Autentiserad hubb för försäljningsnotiser](../src/services/Booking/features/statistics/SalesUpdatesHub.cs)
-- [Försäljningsnotis efter behandling av inbox](../src/services/Booking/features/payments/PaymentResultInboxDispatcher.cs)
+- [Försäljningsnotis efter behandling av inbox](../src/services/Booking/features/payments/Results/PaymentResultInboxDispatcher.cs)
 - [Tester för statistikberäkningar](../tests/Booking.UnitTests/SalesStatisticsTests.cs)
 - [Tester för betalningsklientens validering](../tests/Booking.UnitTests/StatisticsPaymentsTests.cs)

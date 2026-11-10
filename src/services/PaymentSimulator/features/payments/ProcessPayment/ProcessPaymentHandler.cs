@@ -4,7 +4,7 @@ using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
-using PaymentSimulator.Messaging;
+using PaymentSimulator.Messaging.Results;
 
 namespace PaymentSimulator.Features.Payments.ProcessPayment;
 

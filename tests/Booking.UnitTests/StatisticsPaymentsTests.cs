@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
 using Booking.Features.Statistics;
 using Microsoft.AspNetCore.Http;
 
