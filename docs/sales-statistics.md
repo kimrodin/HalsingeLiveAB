@@ -1,32 +1,32 @@
-# Sales statistics API and service integration
+# API för försäljningsstatistik och tjänsteintegration
 
-`GET /GetSalesStatistics?from=2026-10-01&to=2026-10-31` on Booking requires the
-existing `AdminOnly` policy. Through admin-web use `/booking-api/GetSalesStatistics`.
-Dashboard behavior and frontend implementation are documented in
-[Admin-dashboarden](admin_dashboard.md). This document covers API contracts,
-calculation rules, service integration and deployment.
+`GET /GetSalesStatistics?from=2026-10-01&to=2026-10-31` i Booking kräver den
+befintliga policyn `AdminOnly`. Via adminwebben används `/booking-api/GetSalesStatistics`.
+Dashboardens beteende och frontendimplementation beskrivs i
+[Admin-dashboarden](admin_dashboard.md). Detta dokument behandlar API-kontrakt,
+beräkningsregler, tjänsteintegration och driftsättning.
 
-## Meaning of the numbers
+## Vad siffrorna betyder
 
-- Dates are inclusive Swedish calendar dates, `Europe/Stockholm`. Actual UTC
-  boundaries vary across daylight-saving transitions. The default is today and
-  the preceding 29 days; maximum requested range is 366 days.
-- Only confirmed bookings with matching successful payments contribute. Temporary
-  reservations, cancelled/expired bookings and unsuccessful payments are excluded.
-- `PaidAt` determines the sale date, never booking creation time or event time.
-- Only SEK is supported, matching the existing booking/payment contract. Amounts
-  are the paid booking totals; no VAT breakdown or currency conversion is inferred.
-- `grossRevenue` includes successful payments for those bookings. Full refunds
-  reduce `netRevenue` on the **original sale date**, even if refunded later.
-  Historical results therefore change after refunds, as requested.
-- `soldTickets` is the net ticket quantity for non-refunded sales;
-  `refundedTickets` records the removed quantity. There is no partial-refund model.
-- `daily` includes every day, with zero values where applicable. Its totals equal
-  `summary`. `previousPeriod` covers an immediately preceding equally long range.
-- Percentage changes are `null` when the preceding value is zero (undefined),
-  rather than a fabricated 100% increase.
+- Datum avser svenska kalenderdagar i `Europe/Stockholm` och båda gränsdagarna
+  ingår. De faktiska UTC-gränserna varierar vid övergång mellan sommar- och
+  vintertid. Standardperioden är idag och de föregående 29 dagarna. Högsta tillåtna intervall är 366 dagar.
+- Bara bekräftade bokningar med matchande lyckade betalningar räknas med.
+  Tillfälliga reservationer, avbokade eller utgångna bokningar och misslyckade betalningar utesluts.
+- `PaidAt` avgör försäljningsdatumet, aldrig bokningens skapandetid eller evenemangets tidpunkt.
+- Bara SEK stöds, enligt befintligt boknings- och betalningskontrakt. Beloppen är
+  de betalda bokningarnas totalbelopp. Ingen momsuppdelning eller valutaomräkning härleds.
+- `grossRevenue` omfattar lyckade betalningar för dessa bokningar. Fulla
+  återbetalningar minskar `netRevenue` på den **ursprungliga försäljningsdagen**,
+  även om återbetalningen sker senare. Historiska resultat kan därför ändras efter återbetalningar.
+- `soldTickets` är nettoantalet biljetter för försäljning som inte har återbetalats.
+  `refundedTickets` anger det borttagna antalet. Någon modell för delåterbetalning finns inte.
+- `daily` innehåller varje dag, med nollvärden där det behövs. Summorna motsvarar
+  `summary`. `previousPeriod` omfattar den direkt föregående, lika långa perioden.
+- Procentuella förändringar är `null` om föregående värde är noll, eftersom
+  förändringen då är odefinierad. Ingen påhittad ökning på 100 procent används.
 
-Example response shape:
+Exempel på svarets struktur:
 
 ```json
 {
@@ -41,62 +41,78 @@ Example response shape:
 }
 ```
 
-`daily` is abbreviated above; the real response contains 31 entries.
+`daily` är förkortat ovan. Det verkliga svaret innehåller 31 poster.
 
-## Service integration and limits
+## Tjänsteintegration och begränsningar
 
-PaymentSimulator provides `GET /api/payments/sales` with `from` (inclusive UTC),
-`toExclusive` (exclusive UTC) and cursor parameters `afterPaidAt` /
-`afterPaymentId`. Both statistics endpoints require `AdminOnly`. Booking forwards
-its incoming bearer token per request; PaymentSimulator validates the same issuer,
-audience and admin role. Existing payment processing endpoints keep their access
-behavior. Authentication authority/metadata settings are configured in Compose.
+PaymentSimulator erbjuder `GET /api/payments/sales` med `from` som inkluderande
+UTC-gräns, `toExclusive` som exkluderande UTC-gräns och sidmarkörerna `afterPaidAt`
+och `afterPaymentId`. Båda statistikendpointsen kräver `AdminOnly`. Booking
+vidarebefordrar inkommande Bearer-token för varje anrop. PaymentSimulator
+validerar samma utfärdare, målgrupp och adminroll. Befintliga endpoints för
+betalningsbehandling behåller sina åtkomstregler. Inställningar för
+identitetsutfärdare och metadata konfigureras i Compose.
 
-PaymentSimulator applies the date predicate in PostgreSQL using a filtered
-`(PaidAt, Id)` index. It returns up to 500 rows per page, ordered by payment date
-and ID. Booking reads only those booking IDs and retains confirmed bookings;
-unconfirmed or deleted bookings do not contribute. There is no scan or remote
-lookup of the entire historical booking list. Errors in older payments outside
-the selected and comparison periods cannot block the report.
+PaymentSimulator tillämpar datumvillkoret i PostgreSQL med ett filtrerat index på
+`(PaidAt, Id)`. Svaret innehåller högst 500 rader per sida, sorterade efter
+betalningsdatum och ID. Booking läser bara dessa boknings-ID:n och behåller
+bekräftade bokningar. Obekräftade eller raderade bokningar bidrar inte. Hela den
+historiska bokningslistan genomsöks eller hämtas inte över nätverket. Fel i äldre
+betalningar utanför vald period och jämförelseperiod kan inte blockera rapporten.
 
-The payment date is the source of range membership. Payments without `PaidAt`
-do not belong to a dated report; the existing PaymentPaidAt migration backfills
-legacy successful payments from CompletedAt. Invalid returned pages (including
-missing dates, duplicates, an out-of-range row or a non-advancing cursor) fail
-with 502, as do inconsistent payments for confirmed bookings in the report range.
-Payment service timeouts return 502. Caller cancellation is propagated. Invalid
-calendar ranges return 400.
+Betalningsdatumet avgör om en betalning ingår i intervallet. Betalningar utan
+`PaidAt` tillhör ingen daterad rapport. Den befintliga migreringen `PaymentPaidAt`
+fyller i datum för äldre lyckade betalningar från `CompletedAt`. Ogiltiga
+svarssidor ger 502, exempelvis vid saknade datum, dubbletter, rader utanför
+intervallet eller en sidmarkör som inte går framåt. Detsamma gäller inkonsekventa
+betalningar för bekräftade bokningar inom rapportintervallet. Timeout i
+betaltjänsten ger 502. Avbrott från anroparen förs vidare. Ogiltiga kalenderintervall ger 400.
 
-`PaymentSalesIndex` adds the index without changing existing data. Deploy/migrate
-PaymentSimulator before the updated Booking service. Local PaymentSimulator
-applies migrations at startup as before. No Booking migration is required.
+`PaymentSalesIndex` lägger till indexet utan att ändra befintliga data.
+Driftsätt och migrera PaymentSimulator före den uppdaterade Booking-tjänsten.
+Lokalt tillämpar PaymentSimulator migreringar vid uppstart som tidigare.
+Ingen migrering krävs i Booking.
 
-The cursor uses immutable payment dates and an ID tie-breaker. Refunds are read
-at request time and attributed to the original sale date; there is no distributed
-snapshot. A payment or refund committed during a report can become visible on the
-next request.
+Sidmarkören använder oföränderliga betalningsdatum och ID för att skilja poster
+med samma datum åt. Återbetalningar läses vid anropstillfället och hänförs till
+ursprungligt försäljningsdatum. Det finns ingen gemensam distribuerad ögonblicksbild.
+En betalning eller återbetalning som sparas medan rapporten skapas kan bli synlig vid nästa anrop.
 
-## Sales notification hub
+## SignalR-hubb för försäljningsnotiser
 
-Booking exposes an authenticated SignalR hub at `/hubs/sales`. Admin-web connects
-through API Gateway at `/booking-api/hubs/sales`. The hub requires the existing
-`AdminOnly` policy and uses the admin's Keycloak access token. For browser
-WebSocket connections, Booking accepts the SignalR `access_token` query parameter
-only on this hub path. Nginx disables access logging for the hub requests, and
-Gateway/Booking suppress detailed request and proxy logs that could include the
-query string.
+Booking exponerar en autentiserad SignalR-hubb på `/hubs/sales`. Adminwebben
+ansluter genom API Gateway på `/booking-api/hubs/sales`. Hubben kräver den
+befintliga policyn `AdminOnly` och använder administratörens Keycloak-token.
+För WebSocket-anslutningar från webbläsaren accepterar Booking SignalR-parametern
+`access_token` i frågesträngen enbart på denna hubbsökväg. Nginx stänger av
+åtkomstloggning för hubbanrop. Gatewayen och Booking begränsar detaljerade
+anrops- och proxyloggar som kan innehålla frågesträngen.
 
-After Booking processes a successful sale or refund, it broadcasts the event
-`SalesUpdated` to connected admin clients. The event has no arguments and contains
-no booking, payment, ticket, customer, or sales data. Clients use it as an
-invalidation signal and retrieve data from the authenticated
-`GetSalesStatistics` endpoint, which remains the source of truth.
+När Booking har behandlat en lyckad försäljning eller återbetalning skickas
+händelsen `SalesUpdated` till anslutna adminklienter. Händelsen har inga argument
+och innehåller inga boknings-, betalnings-, biljett-, kund- eller försäljningsdata.
+Klienterna använder den som en signal om att sparade värden är inaktuella och
+hämtar data från den autentiserade endpointen `GetSalesStatistics`, som fortsatt
+är källan till statistiken.
 
-The admin-web Nginx proxy forwards WebSocket upgrade headers for
-`/booking-api/`; API Gateway routes that path to Booking. Client reconnection,
-polling and cache behavior are described in [Admin-dashboarden](admin_dashboard.md).
+Adminwebbens Nginx-proxy vidarebefordrar WebSocket-headers för protokolluppgradering
+på `/booking-api/`. API Gateway routar sökvägen till Booking. Klientens
+återanslutning, periodiska hämtning och cachehantering beskrivs i
+[Admin-dashboarden](admin_dashboard.md).
 
-The current deployment runs Booking as a single service instance. If Booking is
-scaled to multiple instances, configure a SignalR backplane or managed SignalR
-service so a notification from one instance can reach admin clients connected to
-another instance.
+Den nuvarande driftsättningen kör en instans av Booking. Om Booking skalas till
+flera instanser behöver en SignalR-backplane eller en hanterad SignalR-tjänst
+konfigureras, så att en notis från en instans når adminklienter som är anslutna till en annan.
+
+## Kodreferenser
+
+- [Statistikendpoint för administratörer och HTTP-fel](../src/services/Booking/features/statistics/SalesStatisticsController.cs)
+- [Summering, återbetalningar och jämförelseberäkningar](../src/services/Booking/features/statistics/SalesStatistics.cs)
+- [Svenska datumgränser och periodvalidering](../src/services/Booking/features/statistics/SalesPeriod.cs)
+- [Sidindelad hämtning av betalningar och svarsvalidering](../src/services/Booking/features/statistics/StatisticsPayments.cs)
+- [Endpoint för försäljningsbetalningar och filtrering med sidmarkör](../src/services/PaymentSimulator/features/payments/Statistics/PaymentSalesController.cs)
+- [Migrering för betalningarnas försäljningsindex](../src/services/PaymentSimulator/Migrations/20261102120000_PaymentSalesIndex.cs)
+- [Autentiserad hubb för försäljningsnotiser](../src/services/Booking/features/statistics/SalesUpdatesHub.cs)
+- [Försäljningsnotis efter behandling av inbox](../src/services/Booking/features/payments/PaymentResultInboxDispatcher.cs)
+- [Tester för statistikberäkningar](../tests/Booking.UnitTests/SalesStatisticsTests.cs)
+- [Tester för betalningsklientens validering](../tests/Booking.UnitTests/StatisticsPaymentsTests.cs)

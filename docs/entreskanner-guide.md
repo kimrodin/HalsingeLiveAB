@@ -112,10 +112,10 @@ Detaljerna för konflikter kan variera; serverns status och validering är det s
 
 ## Bra ställen att börja läsa
 
-1. Läs `TicketScannerPage.tsx` för det fullständiga UI- och kameraflödet.
-2. Läs `TicketScannerRoute.tsx` för lazy loading.
-3. Läs `features/bookings/api/bookings.ts` och sök efter `checkInTicket` för API-anropet.
-4. Följ BookingService-endpointen för admin check-in för att se behörighetskontrollen och proxyn.
-5. Läs `TicketService/Api/TicketsController.cs` för den slutliga statuskontrollen.
+1. Läs [TicketScannerPage.tsx](../src/frontend/admin-web/src/features/check-in/pages/TicketScannerPage.tsx) för det fullständiga UI- och kameraflödet.
+2. Läs [TicketScannerRoute.tsx](../src/frontend/admin-web/src/features/check-in/pages/TicketScannerRoute.tsx) för lazy loading.
+3. Läs [bookings.ts](../src/frontend/admin-web/src/features/bookings/api/bookings.ts) och sök efter `checkInTicket` för API-anropet.
+4. Följ [Bookings adminendpoint för check-in](../src/services/Booking/features/tickets/AdminTicketsController.cs) för att se behörighetskontrollen och proxyn.
+5. Läs [TicketsController.cs](../src/services/TicketService/Api/TicketsController.cs) för den slutliga statuskontrollen.
 
 För hur biljetter skapas, lagras och får sin QR-kod, se [TicketService-guiden](ticketservice-guide.md).

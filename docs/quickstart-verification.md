@@ -79,3 +79,13 @@ Testcontainrarna stoppades och testvolymerna behölls. Råresultaten finns i
 systemstart med tomma volymer och cachade bygglager. En helt kall installation
 inklusive alla nedladdningar är inte tidsverifierad. macOS/Linux som värd har
 inte körtestats; de separata mätningarna ovan ska inte summeras som en obruten körning.
+
+## Kodreferenser
+
+- [Grundmiljön som verifieras: tjänster, volymer och healthchecks](../src/Compose.yaml)
+- [Utvecklingsmiljön med Vite](../src/Compose.dev.yaml)
+- [Gatewayens API-rutter för HTTP-kontrollerna](../src/ApiGateway/appsettings.json)
+- [Keycloak-realm för admininloggningen](../infrastructure/keycloak/halsingelive-realm.json)
+- [Seedflödet som används i kontrollen](../src/services/EventCatalog/features/Seed/SeedAllHandler.cs)
+- [Kundens boknings- och betalningsflöde](../src/frontend/customer-web/src/features/bookings/pages/BookingPage.tsx)
+- [Biljett-PDF och QR-kod](../src/services/TicketService/Features/Tickets/DownloadTicket/TicketDocumentService.cs)

@@ -15,3 +15,11 @@ Containrarbetet startar först när både .NET- och frontendjobben har lyckats. 
 Om ett steg misslyckas markeras jobb och körning som misslyckade. Loggarna i GitHub Actions visar vilket kommando som fallerade och dess felmeddelande. En grön körning betyder att alla tre jobb har lyckats.
 
 Flödet har endast läsbehörighet till repot. Det publicerar inga avbildningar och driftsätter inte tjänsterna.
+
+## Kodreferenser
+
+- [GitHub Actions: jobb, tjänster och körkommandon](../.github/workflows/ci.yml)
+- [Adminappens bygg- och lintkommandon](../src/frontend/admin-web/package.json)
+- [Kundappens bygg- och lintkommandon](../src/frontend/customer-web/package.json)
+- [Grundkonfiguration för containerbyggen](../src/Compose.yaml)
+- [Utvecklingskonfiguration för containrar](../src/Compose.dev.yaml)
