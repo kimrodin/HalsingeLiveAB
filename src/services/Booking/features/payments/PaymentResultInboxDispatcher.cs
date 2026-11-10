@@ -1,11 +1,14 @@
 using Booking.Data;
 using Booking.Features.Bookings;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using Booking.Features.Statistics;
 
 namespace Booking.Features.Payments;
 
 public sealed class PaymentResultInboxDispatcher(BookingDbContext db, BookingService bookings,
-    TimeProvider clock, ILogger<PaymentResultInboxDispatcher> logger)
+    TimeProvider clock, ILogger<PaymentResultInboxDispatcher> logger,
+    IHubContext<SalesUpdatesHub> salesHub = null)
 {
     public async Task DispatchPendingAsync(CancellationToken token = default)
     {
@@ -20,9 +23,17 @@ public sealed class PaymentResultInboxDispatcher(BookingDbContext db, BookingSer
                 var result = await bookings.ApplyPaymentResultAsync(message, token);
                 if (result.PaymentStatus is not ("Succeeded" or "Failed" or "TimedOut" or "Refunded"))
                     throw new HttpRequestException(result.Message);
-                await db.PaymentResultInboxMessages.Where(row => row.MessageId == message.MessageId && row.RejectedAtUtc == null)
+                var processed = await db.PaymentResultInboxMessages.Where(row => row.MessageId == message.MessageId && row.RejectedAtUtc == null)
                     .ExecuteUpdateAsync(update => update.SetProperty(row => row.ProcessedAtUtc, clock.GetUtcNow())
                         .SetProperty(row => row.LastError, (string)null), token);
+                if (processed != 0 && (result.PaymentStatus is "Succeeded" or "Refunded"))
+                {
+                    try { if (salesHub is not null) await salesHub.Clients.All.SendAsync("SalesUpdated", cancellationToken: token); }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        logger.LogWarning(exception, "Could not notify admin clients about updated sales statistics.");
+                    }
+                }
             }
             catch (InvalidDataException exception)
             {

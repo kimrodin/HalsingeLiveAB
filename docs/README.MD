@@ -14,4 +14,6 @@ egna `-p` och `-f` för isolerade testmiljöer.
 - **Administration:** [Evenemangsbilder](event-images.md),
   [försäljningsstatistik](sales-statistics.md), [beläggning](dashboard-occupancy.md).
 - **Belastningstester:** [k6 checkout, biljettsläpp och uthållighet](../tests/load/README.md).
+- **Administration:** [Admin-dashboarden](admin_dashboard.md), [evenemangsbilder](event-images.md),
+  [försäljningsstatistikens API](sales-statistics.md).
 - **Underhåll:** [CI](ci.md), [historisk projektgranskning](projektgranskning-ver2.md).
