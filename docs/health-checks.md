@@ -101,3 +101,13 @@ docker compose up -d --build
 | PaymentSimulator | `http://localhost:5212/payment-api/health/ready` |
 
 Se även [Microsofts dokumentation om health checks](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks?view=aspnetcore-10.0).
+
+## Kodreferenser
+
+- [Bookings registrering och health-endpoints](../src/services/Booking/program.cs)
+- [Bookings Redis-kontroll](../src/services/Booking/Health/RedisHealthCheck.cs)
+- [EventCatalogs registrering och health-endpoints](../src/services/EventCatalog/program.cs)
+- [PaymentSimulators registrering och health-endpoints](../src/services/PaymentSimulator/Program.cs)
+- [TicketServices registrering och health-endpoints](../src/services/TicketService/Program.cs)
+- [Gatewayens egen health-endpoint](../src/ApiGateway/Program.cs)
+- [Containrarnas healthchecks och startberoenden](../src/Compose.yaml)

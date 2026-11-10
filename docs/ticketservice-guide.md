@@ -105,11 +105,11 @@ Vid check-in kontrolleras att ID:t finns, att valt event motsvarar biljettens ev
 
 ## Bra ställen att börja läsa
 
-1. Läs `Features/Tickets/Models/Ticket.cs` för att se vilka data en biljett består av.
-2. Läs `Api/TicketsController.cs` för endpointsen och säkerhetsgränserna.
-3. Läs `Features/Tickets/IssueTickets/IssueTicketsHandler.cs` för validering och idempotent utfärdande.
-4. Läs `Features/Tickets/DownloadTicket/TicketDocumentService.cs` för PDF- och QR-kodsgenerering.
-5. Läs `Data/TicketDbContext.cs` för regler och index som skyddar datan.
-6. Läs `README.md` i TicketService-mappen för kort information om PDF, intern nyckel och Booking-integrationen.
+1. Läs [Ticket.cs](../src/services/TicketService/Features/Tickets/Models/Ticket.cs) för att se vilka data en biljett består av.
+2. Läs [TicketsController.cs](../src/services/TicketService/Api/TicketsController.cs) för endpointsen och säkerhetsgränserna.
+3. Läs [IssueTicketsHandler.cs](../src/services/TicketService/Features/Tickets/IssueTickets/IssueTicketsHandler.cs) för validering och idempotent utfärdande.
+4. Läs [TicketDocumentService.cs](../src/services/TicketService/Features/Tickets/DownloadTicket/TicketDocumentService.cs) för PDF- och QR-kodsgenerering.
+5. Läs [TicketDbContext.cs](../src/services/TicketService/Data/TicketDbContext.cs) för regler och index som skyddar datan.
+6. Läs [TicketServices README](../src/services/TicketService/README.md) för kort information om PDF, intern nyckel och Booking-integrationen.
 
 Se även [guiden till entréskannern](entreskanner-guide.md), som använder biljett-ID:t i QR-koden.

@@ -250,3 +250,16 @@ När en backendändring påverkar request- eller responseformatet behöver API-m
 | **Bearer-token** | En token som skickas med en begäran för att visa vem användaren är och vad den får göra. |
 | **Gästtoken** | En hemlig token som ger åtkomst till en specifik bokning utan vanlig användarinloggning. |
 | **Proxy** | En mellanväg som tar emot ett frontendanrop och skickar det vidare till rätt backend. |
+
+## Kodreferenser
+
+- [Kundappens start och providers](../src/frontend/customer-web/src/main.tsx)
+- [Kundappens sidor och routning](../src/frontend/customer-web/src/app/router.tsx)
+- [Kundens evenemangslista](../src/frontend/customer-web/src/features/events/pages/HomePage.tsx)
+- [Kundens bokningssida](../src/frontend/customer-web/src/features/bookings/pages/BookingPage.tsx)
+- [Adminappens start och behörighetskontroll](../src/frontend/admin-web/src/main.tsx)
+- [Adminappens sidor och routning](../src/frontend/admin-web/src/app/router.tsx)
+- [Kundappens HTTP-hjälpare](../src/frontend/customer-web/src/shared/api/http.ts)
+- [Adminappens HTTP-hjälpare](../src/frontend/admin-web/src/shared/api/http.ts)
+- [Gatewayens reverse proxy](../src/ApiGateway/Program.cs)
+- [Gatewayens rutter och destinationer](../src/ApiGateway/appsettings.json)
