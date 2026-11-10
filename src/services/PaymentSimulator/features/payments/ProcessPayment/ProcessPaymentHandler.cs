@@ -48,13 +48,15 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSetting
         if (payment is null)
         {
             var (outcome, delayMs, timeoutMs) = await settingsService.Get(cancellationToken);
+            var plannedOutcome = delayMs > timeoutMs
+                ? PaymentStatus.TimedOut : PaymentValidation.ResolveOutcome(outcome);
             var now = DateTimeOffset.UtcNow;
             payment = new Payment
             {
                 Id = Guid.NewGuid(), BookingId = request.BookingId, Amount = request.Amount,
                 Currency = currency, Status = PaymentStatus.Pending, CreatedAt = now,
-                CompleteAfter = now.AddMilliseconds(Math.Min(delayMs, timeoutMs)),
-                PlannedOutcome = delayMs > timeoutMs ? PaymentStatus.TimedOut : PaymentValidation.ResolveOutcome(outcome)
+                CompleteAfter = now.AddMilliseconds(plannedOutcome == PaymentStatus.TimedOut ? timeoutMs : delayMs),
+                PlannedOutcome = plannedOutcome
             };
             dbContext.Payments.Add(payment);
             try

@@ -41,10 +41,10 @@ public static class PaymentValidation
         SimulationOutcome.Succeeded => PaymentStatus.Succeeded,
         SimulationOutcome.Failed => PaymentStatus.Failed,
         SimulationOutcome.TimedOut => PaymentStatus.TimedOut,
-        SimulationOutcome.Random => System.Random.Shared.Next(3) switch
+        SimulationOutcome.Random => System.Random.Shared.Next(100) switch
         {
-            0 => PaymentStatus.Succeeded,
-            1 => PaymentStatus.Failed,
+            < 80 => PaymentStatus.Succeeded,
+            < 95 => PaymentStatus.Failed,
             _ => PaymentStatus.TimedOut
         },
         _ => throw new ArgumentException("Unknown simulation outcome.", nameof(outcome))
