@@ -171,3 +171,14 @@ dotnet test tests/PaymentSimulator.IntegrationTests/PaymentSimulator.Integration
 Användaren behöver rätt att skapa databaser. Tester skapar separata databaser med slumpade namn, applicerar migrationerna och tar bort sina egna databaser vid städning. Booking-testerna använder egna inventarie- och reservations-ID:n i Redis. Booking-integrationstester hoppas över om deras två miljövariabler saknas.
 
 Tester täcker lyckat köp, misslyckande, timeout, utgången reservation, parallella försök, verifiering av bokning/belopp/valuta, spärrad direktbekräftelse, förlorat HTTP-svar, återbetalning efter avbokning/utgång och PostgreSQLs lagerkontroll. Simulatorns tester kontrollerar även återhämtning efter avbrutna anrop, idempotent återbetalning och migrering av det äldre databasschemat.
+
+## Kodreferenser
+
+- [Betalningsstart och atomär request-outbox](../src/services/Booking/features/bookings/StartPayment.cs)
+- [Tillämpning av betalningsresultat](../src/services/Booking/features/bookings/ApplyPaymentResult.cs)
+- [Bekräftelse, reservation och lagerkontroll](../src/services/Booking/features/bookings/BookingService.cs)
+- [HTTP-avstämning och kompensation](../src/services/Booking/features/bookings/PaymentReconciliationService.cs)
+- [Simulatorns betalningsbehandling och idempotens](../src/services/PaymentSimulator/features/payments/ProcessPayment/ProcessPaymentHandler.cs)
+- [Återbetalning och avbrytande](../src/services/PaymentSimulator/features/payments/RefundPayment/RefundPaymentHandler.cs)
+- [Integrationstester för Bookings betalningsflöde](../tests/Booking.IntegrationTests/BookingPaymentTests.cs)
+- [Integrationstester för simulator och återhämtning](../tests/PaymentSimulator.IntegrationTests/PaymentProcessingTests.cs)

@@ -122,3 +122,11 @@ Startkommandot finns i [snabbstarten](../README.md).
 - `down` behåller data. Ändrade bootstrap-lösenord uppdaterar inte befintliga
   PostgreSQL-, RabbitMQ- eller Keycloak-konton; en befintlig realm importeras inte om.
 - Lokal `dotnet run` och Vite på värddatorn läser inte rotens `.env` automatiskt.
+
+## Kodreferenser
+
+- [Tjänster, miljövariabler, portar och volymer](../src/Compose.yaml)
+- [Vite-containrar och utvecklingsinställningar](../src/Compose.dev.yaml)
+- [Gatewayens API-rutter och standarddestinationer](../src/ApiGateway/appsettings.json)
+- [Adminappens gatewayproxy](../src/frontend/admin-web/vite.config.ts)
+- [Kundappens gatewayproxy](../src/frontend/customer-web/vite.config.ts)
