@@ -166,6 +166,10 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         var result = await Handler(db, outcome).Handle(request, default);
         Assert.Equal(expected, result.Status);
         Assert.NotNull(result.CompletedAt);
+        var stored = await db.Payments.AsNoTracking().SingleAsync();
+        Assert.Equal(TimeSpan.FromMilliseconds(expected == PaymentStatus.TimedOut ? 5000 : 0),
+            stored.CompleteAfter - stored.CreatedAt);
+        Assert.True(result.CompletedAt >= stored.CompleteAfter);
         var repeat = await Handler(db, "Failed").Handle(request, default);
         Assert.Equal(result, repeat);
         var lookup = await new GetPaymentHandler(db).GetByBooking(request.BookingId, default);
@@ -195,11 +199,48 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         Assert.Contains(result.Status, new[] { PaymentStatus.Succeeded, PaymentStatus.Failed, PaymentStatus.TimedOut });
         var stored = await fresh.Payments.AsNoTracking().SingleAsync();
         Assert.Equal(result.Status, stored.PlannedOutcome);
+        Assert.Equal(TimeSpan.FromMilliseconds(result.Status == PaymentStatus.TimedOut ? 5000 : 0),
+            stored.CompleteAfter - stored.CreatedAt);
+        Assert.True(result.CompletedAt >= stored.CompleteAfter);
         Assert.Equal(result, await Handler(fresh).Handle(request, default));
 
         await settings.Update(new(SimulationOutcome.Random, 10, 1), default);
         Assert.Equal(PaymentStatus.TimedOut,
             (await Handler(fresh).Handle(new(Guid.NewGuid(), 100m, "SEK"), default)).Status);
+    }
+
+    [Fact]
+    public async Task TimedOut_waits_for_timeout_and_recovery_reuses_the_saved_deadline()
+    {
+        var request = new ProcessPaymentRequest(Guid.NewGuid(), 100m, "SEK");
+        await using (var db = CreateDb())
+        {
+            var handler = Handler(db, "TimedOut", delay: 0, timeout: 30000);
+            var accepted = await handler.AcceptAsync(request, default);
+            Assert.Equal(PaymentStatus.Pending, accepted.Status);
+            var stored = await db.Payments.AsNoTracking().SingleAsync();
+            Assert.Equal(PaymentStatus.TimedOut, stored.PlannedOutcome);
+            Assert.Equal(TimeSpan.FromSeconds(30), stored.CompleteAfter - stored.CreatedAt);
+
+            await handler.CompleteDuePayments(default);
+            var pending = await db.Payments.AsNoTracking().SingleAsync();
+            Assert.Equal(PaymentStatus.Pending, pending.Status);
+            Assert.Null(pending.CompletedAt);
+            Assert.Empty(await db.PaymentResultOutboxMessages.ToListAsync());
+        }
+
+        await using var fresh = CreateDb();
+        var retry = Handler(fresh, "Succeeded", delay: 0, timeout: 1);
+        Assert.Equal(PaymentStatus.Pending, (await retry.AcceptAsync(request, default)).Status);
+        await retry.CompleteDuePayments(default);
+        Assert.Equal(PaymentStatus.Pending, (await fresh.Payments.AsNoTracking().SingleAsync()).Status);
+
+        // Move the saved deadline into the past to exercise recovery without a 30-second sleep.
+        await fresh.Payments.ExecuteUpdateAsync(update => update.SetProperty(payment => payment.CompleteAfter,
+            DateTimeOffset.UtcNow.AddSeconds(-1)));
+        await retry.CompleteDuePayments(default);
+        Assert.Equal(PaymentStatus.TimedOut, (await retry.Handle(request, default)).Status);
+        Assert.Equal("TimedOut", (await fresh.PaymentResultOutboxMessages.SingleAsync()).Outcome);
     }
 
     [Fact]

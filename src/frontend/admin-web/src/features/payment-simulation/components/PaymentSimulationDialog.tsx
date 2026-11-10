@@ -83,7 +83,7 @@ function SettingsForm({ initial, onClose, onSaved }: Props & { initial: PaymentS
             <MenuItem value="Random">Slumpmässigt (Random)</MenuItem>
           </TextField>
           {outcome === 'Random' && (
-            <Alert severity="info">Varje nytt betalningsförsök får lika stor chans till Succeeded, Failed eller TimedOut. Återförsök behåller samma utfall.</Alert>
+            <Alert severity="info">Varje nytt betalningsförsök har 80 % chans till Succeeded, 15 % till Failed och 5 % till TimedOut. Återförsök behåller samma utfall.</Alert>
           )}
           <TextField label="Fördröjning (ms)" type="number" required value={delay}
             disabled={mutation.isPending} onChange={(event) => setDelay(event.target.value)}

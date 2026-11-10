@@ -42,11 +42,12 @@ Example PUT body (all three fields are required):
 ```
 
 `outcome` accepts `Succeeded`, `Failed`, `TimedOut`, or `Random`. Random gives each
-new payment an equal chance of Succeeded, Failed, or TimedOut. The selected result
+new payment an 80% chance of Succeeded, 15% of Failed, and 5% of TimedOut. The selected result
 is saved on creation; retries and recovery reuse it. `delayMs` must be nonnegative;
 `timeoutMs` must be between 1 and 30000. Invalid settings return 400.
 If the delay exceeds the timeout, a new payment times out at the timeout deadline,
-regardless of the selected outcome. Explicit `TimedOut` uses the earlier of delay and timeout.
+regardless of the selected outcome. `TimedOut`, whether selected explicitly or through
+Random, remains pending until the full timeout has elapsed. Succeeded and Failed use the delay.
 Restore normal behavior with `Succeeded`, delay 500, and timeout 5000 through PUT.
 
 Settings are global to new payment attempts, stored in PostgreSQL, and survive restarts.
