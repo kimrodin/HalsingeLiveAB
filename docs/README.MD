@@ -11,6 +11,9 @@ egna `-p` och `-f` för isolerade testmiljöer.
 - **Bokning:** [Betalningar](payments.md), [betalningssimulering](payment-simulation-admin.md),
   [testdata](seed-purchases.md), [RabbitMQ](messaging.md), [Redis](redis.md).
 - **Biljetter:** [TicketService](ticketservice-guide.md), [entréskanner](entreskanner-guide.md).
+- **Administration:** [Evenemangsbilder](event-images.md),
+  [försäljningsstatistik](sales-statistics.md), [beläggning](dashboard-occupancy.md).
+- **Belastningstester:** [k6 checkout, biljettsläpp och uthållighet](../tests/load/README.md).
 - **Administration:** [Admin-dashboarden](admin_dashboard.md), [evenemangsbilder](event-images.md),
   [försäljningsstatistikens API](sales-statistics.md).
 - **Underhåll:** [CI](ci.md), [historisk projektgranskning](projektgranskning-ver2.md).

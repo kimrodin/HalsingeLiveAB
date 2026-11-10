@@ -3,6 +3,7 @@
 [Oo]bj/
 [Aa]rtifacts/
 TestResults/
+tests/load/results/
 *.user
 *.suo
 *.cache
