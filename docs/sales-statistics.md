@@ -1,11 +1,10 @@
-# Sales statistics for the admin dashboard
+# Sales statistics API and service integration
 
 `GET /GetSalesStatistics?from=2026-10-01&to=2026-10-31` on Booking requires the
 existing `AdminOnly` policy. Through admin-web use `/booking-api/GetSalesStatistics`.
-The typed client is `features/dashboard/api/salesStatistics.ts`. The dashboard
-renders the net-revenue and sold-ticket cards, comparisons and daily sales chart
-from this endpoint. The event-count card uses event start dates within the selected
-Swedish calendar period. The upcoming-event list keeps its independent query.
+Dashboard behavior and frontend implementation are documented in
+[Admin-dashboarden](admin_dashboard.md). This document covers API contracts,
+calculation rules, service integration and deployment.
 
 ## Meaning of the numbers
 
@@ -75,9 +74,9 @@ applies migrations at startup as before. No Booking migration is required.
 The cursor uses immutable payment dates and an ID tie-breaker. Refunds are read
 at request time and attributed to the original sale date; there is no distributed
 snapshot. A payment or refund committed during a report can become visible on the
-next refresh. Admin cards and the API client contract remain unchanged.
+next request.
 
-## Live dashboard updates
+## Sales notification hub
 
 Booking exposes an authenticated SignalR hub at `/hubs/sales`. Admin-web connects
 through API Gateway at `/booking-api/hubs/sales`. The hub requires the existing
@@ -89,62 +88,15 @@ query string.
 
 After Booking processes a successful sale or refund, it broadcasts the event
 `SalesUpdated` to connected admin clients. The event has no arguments and contains
-no booking, payment, ticket, customer, or sales data. Clients use it only as an
-invalidation signal; the dashboard reloads the active period from the existing
-authenticated `GetSalesStatistics` endpoint. That endpoint remains the source of
-truth and retains its existing response contract.
+no booking, payment, ticket, customer, or sales data. Clients use it as an
+invalidation signal and retrieve data from the authenticated
+`GetSalesStatistics` endpoint, which remains the source of truth.
 
-The SignalR client attempts to reconnect when an established connection drops;
-initial connection failures are retried every five seconds. The dashboard keeps
-the existing 60-second polling as a fallback, so updates recover if a notification
-is missed or SignalR is temporarily unavailable. The admin-web Nginx proxy
-forwards WebSocket upgrade headers for `/booking-api/`; API Gateway routes that
-path to Booking.
+The admin-web Nginx proxy forwards WebSocket upgrade headers for
+`/booking-api/`; API Gateway routes that path to Booking. Client reconnection,
+polling and cache behavior are described in [Admin-dashboarden](admin_dashboard.md).
 
 The current deployment runs Booking as a single service instance. If Booking is
 scaled to multiple instances, configure a SignalR backplane or managed SignalR
 service so a notification from one instance can reach admin clients connected to
 another instance.
-
-## Admin frontend
-
-`DashboardPage` owns the applied `DashboardPeriod` (`from`, `to`). The default is
-30 Swedish calendar days. `DashboardPeriodFilter` keeps only an unsubmitted draft
-and calls the page's setter when **Visa period** or **Senaste 30 dagarna** is used.
-It remounts with the applied dates when the shared period changes.
-
-The page passes `period` to `SalesStatisticsSection` and `OccupancySection` via
-props. The event-count card uses the same period, converted to UTC boundaries for
-inclusive Swedish dates, including DST transitions. Its query cache includes both
-dates and requests can be cancelled when the period changes. Sales uses payment
-dates; occupancy and event counts use event start dates. The upcoming-event list
-retains its independent query.
-
-`SalesStatisticsSection` fetches totals and daily values for its `period` prop.
-Each range has its own query cache entry. Superseded requests can be aborted.
-`SalesUpdated` invalidates sales-statistics queries so the active range is fetched
-promptly; a 60-second interval remains as a fallback. `SalesMetricCard` formats
-totals and changes. Cards show the title, total, percentage change and the
-comparison date range beneath the percentage, using the previous period returned
-by the API. When the preceding value is zero and a percentage cannot be
-calculated, the percentage is omitted.
-
-`TicketSalesChart` uses MUI X Charts `LineChart`, loaded on demand, with the admin
-theme's primary color and an accessible summary. Each day has a vertical grid line
-and a data point. Axis labels appear every five days with the day and a three-letter
-Swedish month (for example, `5 sep`); tooltips show the full date and ticket count. Longer periods scroll
-horizontally. There is no day-selection state, slider or daily-values table. Custom
-dates and the last-30-days shortcut remain. Empty, loading and API-error states
-are still handled. Backend calculations and refund rules are unchanged.
-
-Frontend checks from `src/frontend/admin-web`:
-
-```sh
-npm run lint
-npm run build
-node --experimental-strip-types --test tests/dashboardPeriod.test.mjs
-```
-
-Two date tests cover the default Swedish period, invalid ranges, the maximum range
-and both DST transitions. Browser QA uses temporary simulated API responses; it does not
-replace authenticated end-to-end backend verification.

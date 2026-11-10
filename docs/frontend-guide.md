@@ -139,7 +139,7 @@ När appen startar initieras Keycloak. En användare utan adminrollen får inte 
 Authorization: Bearer <token>
 ```
 
-Dashboarden använder React Query-frågor för att hämta till exempel antal aktiva evenemang, kommande evenemang och scener. Adminsidorna använder mutationer för att spara ändringar, exempelvis när ett evenemang skapas eller redigeras.
+Dashboardens flöde, statistik och uppdateringar beskrivs i [Admin-dashboarden](admin_dashboard.md). Adminsidorna använder mutationer för att spara ändringar, exempelvis när ett evenemang skapas eller redigeras.
 
 ## API-anrop och data
 
