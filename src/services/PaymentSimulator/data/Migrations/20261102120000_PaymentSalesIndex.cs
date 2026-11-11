@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using PaymentSimulator.Data;
 
-namespace PaymentSimulator.Migrations;
+namespace PaymentSimulator.Data.Migrations;
 
 [DbContext(typeof(PaymentDbContext))]
 [Migration("20261102120000_PaymentSalesIndex")]

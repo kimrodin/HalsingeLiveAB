@@ -9,11 +9,11 @@ using PaymentSimulator.Data;
 
 #nullable disable
 
-namespace PaymentSimulator.Migrations
+namespace PaymentSimulator.Data.Migrations
 {
     [DbContext(typeof(PaymentDbContext))]
-    [Migration("20261102104857_RandomSimulationOutcome")]
-    partial class RandomSimulationOutcome
+    [Migration("20261022080921_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -38,9 +38,6 @@ namespace PaymentSimulator.Migrations
                     b.Property<Guid>("BookingId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset>("CompleteAfter")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -52,17 +49,6 @@ namespace PaymentSimulator.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
-                    b.Property<DateTimeOffset?>("PaidAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("PlannedOutcome")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTimeOffset?>("RefundedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -73,33 +59,7 @@ namespace PaymentSimulator.Migrations
                     b.HasIndex("BookingId")
                         .IsUnique();
 
-                    b.HasIndex("Status", "CompleteAfter");
-
                     b.ToTable("Payments");
-                });
-
-            modelBuilder.Entity("PaymentSimulator.Features.Payments.Simulation.SimulationSettings", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("DelayMs")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Outcome")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int>("TimeoutMs")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SimulationSettings", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_SimulationSettings_Valid", "\"Id\" = 1 AND \"Outcome\" IN ('Succeeded', 'Failed', 'TimedOut', 'Random') AND \"DelayMs\" >= 0 AND \"TimeoutMs\" BETWEEN 1 AND 30000");
-                        });
                 });
 #pragma warning restore 612, 618
         }

@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace PaymentSimulator.Migrations
+namespace PaymentSimulator.Data.Migrations
 {
     /// <inheritdoc />
     public partial class RandomSimulationOutcome : Migration

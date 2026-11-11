@@ -283,7 +283,7 @@ Outbox och inbox ligger i respektive tjänsts PostgreSQL-databas, inte i RabbitM
 | --- | --- |
 | [PaymentRequestOutbox](../src/services/Booking/data/Migrations/20261104064904_PaymentRequestOutbox.cs) | Sparar Bookings betalningsbegäranden och för över äldre oavslutade betalningsavsikter till request-outbox. |
 | [TicketIssueOutbox](../src/services/Booking/data/Migrations/20261027133047_TicketIssueOutbox.cs) | Sparar Bookings väntande biljettmeddelanden. |
-| [PaymentResultOutbox](../src/services/PaymentSimulator/Migrations/20261103125856_PaymentResultOutbox.cs) | Sparar PaymentSimulators väntande betalningsresultat. |
+| [PaymentResultOutbox](../src/services/PaymentSimulator/data/Migrations/20261103125856_PaymentResultOutbox.cs) | Sparar PaymentSimulators väntande betalningsresultat. |
 | [PaymentResultInbox](../src/services/Booking/data/Migrations/20261103125909_PaymentResultInbox.cs) | Sparar Bookings mottagna betalningsresultat och behandlingsstatus. |
 
 Resultatmigrationerna lägger till tabeller utan att ändra befintliga bokningar eller betalningar. Historiska slutliga betalningar får inte automatiskt några outbox-meddelanden. Migrationerna behöver tillämpas genom tjänsternas vanliga migreringsflöde innan de nya arbetarna körs.

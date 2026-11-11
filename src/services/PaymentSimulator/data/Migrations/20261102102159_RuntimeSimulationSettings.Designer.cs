@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaymentSimulator.Data;
 
 #nullable disable
 
-namespace PaymentSimulator.Migrations
+namespace PaymentSimulator.Data.Migrations
 {
     [DbContext(typeof(PaymentDbContext))]
-    partial class PaymentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261102102159_RuntimeSimulationSettings")]
+    partial class RuntimeSimulationSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -70,9 +73,6 @@ namespace PaymentSimulator.Migrations
                     b.HasIndex("BookingId")
                         .IsUnique();
 
-                    b.HasIndex("PaidAt", "Id")
-                        .HasFilter("\"PaidAt\" IS NOT NULL");
-
                     b.HasIndex("Status", "CompleteAfter");
 
                     b.ToTable("Payments");
@@ -98,63 +98,8 @@ namespace PaymentSimulator.Migrations
 
                     b.ToTable("SimulationSettings", null, t =>
                         {
-                            t.HasCheckConstraint("CK_SimulationSettings_Valid", "\"Id\" = 1 AND \"Outcome\" IN ('Succeeded', 'Failed', 'TimedOut', 'Random') AND \"DelayMs\" >= 0 AND \"TimeoutMs\" BETWEEN 1 AND 30000");
+                            t.HasCheckConstraint("CK_SimulationSettings_Valid", "\"Id\" = 1 AND \"Outcome\" IN ('Succeeded', 'Failed', 'TimedOut') AND \"DelayMs\" >= 0 AND \"TimeoutMs\" BETWEEN 1 AND 30000");
                         });
-                });
-
-            modelBuilder.Entity("PaymentSimulator.Messaging.Results.PaymentResultOutboxMessage", b =>
-                {
-                    b.Property<Guid>("MessageId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<int>("AttemptCount")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("BookingId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
-
-                    b.Property<DateTimeOffset?>("DeliveredAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LastError")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<DateTimeOffset>("NextAttemptAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("OccurredAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Outcome")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTimeOffset?>("PaidAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("PaymentId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("MessageId");
-
-                    b.HasIndex("PaymentId")
-                        .IsUnique();
-
-                    b.HasIndex("DeliveredAtUtc", "NextAttemptAtUtc");
-
-                    b.ToTable("PaymentResultOutboxMessages", (string)null);
                 });
 #pragma warning restore 612, 618
         }

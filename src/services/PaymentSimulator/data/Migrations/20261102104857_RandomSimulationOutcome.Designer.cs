@@ -2,16 +2,20 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PaymentSimulator.Data;
 
 #nullable disable
 
-namespace PaymentSimulator.Migrations
+namespace PaymentSimulator.Data.Migrations
 {
-    partial class DurablePaymentProcessing
+    [DbContext(typeof(PaymentDbContext))]
+    [Migration("20261102104857_RandomSimulationOutcome")]
+    partial class RandomSimulationOutcome
     {
+        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -34,18 +38,10 @@ namespace PaymentSimulator.Migrations
                     b.Property<Guid>("BookingId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset>("CompleteAfter")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("PlannedOutcome")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTimeOffset?>("RefundedAt")
+                    b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -55,6 +51,17 @@ namespace PaymentSimulator.Migrations
                         .IsRequired()
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PlannedOutcome")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("RefundedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -70,8 +77,31 @@ namespace PaymentSimulator.Migrations
 
                     b.ToTable("Payments");
                 });
+
+            modelBuilder.Entity("PaymentSimulator.Features.Payments.Simulation.SimulationSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DelayMs")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("TimeoutMs")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SimulationSettings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SimulationSettings_Valid", "\"Id\" = 1 AND \"Outcome\" IN ('Succeeded', 'Failed', 'TimedOut', 'Random') AND \"DelayMs\" >= 0 AND \"TimeoutMs\" BETWEEN 1 AND 30000");
+                        });
+                });
 #pragma warning restore 612, 618
         }
     }
 }
-

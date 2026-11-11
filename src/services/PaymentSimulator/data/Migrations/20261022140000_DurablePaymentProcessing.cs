@@ -5,7 +5,7 @@ using PaymentSimulator.Data;
 
 #nullable disable
 
-namespace PaymentSimulator.Migrations;
+namespace PaymentSimulator.Data.Migrations;
 
 [DbContext(typeof(PaymentDbContext))]
 [Migration("20261022140000_DurablePaymentProcessing")]

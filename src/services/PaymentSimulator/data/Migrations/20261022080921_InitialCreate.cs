@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace PaymentSimulator.Migrations
+namespace PaymentSimulator.Data.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
