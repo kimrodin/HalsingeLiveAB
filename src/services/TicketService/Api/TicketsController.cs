@@ -67,7 +67,7 @@ public sealed class TicketsController(
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> IssueFromBooking(
-        [FromBody] BookingConfirmedV1 message,
+        [FromBody] BookingConfirmed message,
         [FromHeader(Name = "X-Internal-Api-Key")] string apiKey,
         CancellationToken cancellationToken)
     {

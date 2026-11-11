@@ -162,7 +162,7 @@ Redis-städning kan alltså frigöra platser innan databasens bokningsstatus har
 
 ## Samtidighet, fel och återhämtning
 
-Lua-skripten skyddar ändringar inom Redis. PostgreSQLs transaktioner, radlås och villkorade lageruppdatering skyddar bokningar och det beständiga lagret. Betalningsflödets advisory lock ligger också i PostgreSQL, i [StartPayment.cs](../src/services/Booking/features/bookings/StartPayment.cs).
+Lua-skripten skyddar ändringar inom Redis. PostgreSQLs transaktioner, radlås och villkorade lageruppdatering skyddar bokningar och det beständiga lagret. Betalningsflödets advisory lock ligger också i PostgreSQL, i [StartPayment.cs](../src/services/Booking/features/bookings/Payments/StartPayment.cs).
 
 Redis och PostgreSQL deltar inte i en gemensam transaktion. Följande återhämtning finns i implementationen:
 

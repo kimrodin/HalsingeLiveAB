@@ -12,7 +12,7 @@ public sealed class HttpTicketServiceClient(
     IConfiguration configuration) : ITicketServiceClient
 {
     public async Task IssueTicketsAsync(
-        BookingConfirmedV1 message,
+        BookingConfirmed message,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateRequest(HttpMethod.Post, "tickets/issue-from-booking");

@@ -13,7 +13,8 @@ using PaymentSimulator.Features.Payments.Models;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
 using PaymentSimulator.Features.Payments.Simulation;
-using PaymentSimulator.Messaging;
+using PaymentSimulator.Infrastructure.Messaging;
+using PaymentSimulator.Messaging.Requests;
 using RabbitMQ.Client;
 
 namespace PaymentSimulator.IntegrationTests;
@@ -340,7 +341,7 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
     private static PaymentRecoveryWorker CreateRecoveryWorker(ServiceProvider services) => new(
         services.GetRequiredService<IServiceScopeFactory>(), NullLogger<PaymentRecoveryWorker>.Instance);
 
-    private static PaymentRequestedV1 CreateMessage() => new()
+    private static PaymentRequested CreateMessage() => new()
     {
         MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), BookingId = Guid.NewGuid(),
         Amount = 125.50m, Currency = "SEK", OccurredAtUtc = DateTimeOffset.UtcNow

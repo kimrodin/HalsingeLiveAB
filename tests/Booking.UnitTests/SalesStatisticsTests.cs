@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using Booking.Data;
 using Booking.Features.Bookings;
 using Booking.Features.Bookings.Models;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
 using Booking.Features.Statistics;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;

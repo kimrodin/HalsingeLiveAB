@@ -19,7 +19,8 @@ using Npgsql;
 using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.Simulation;
-using PaymentSimulator.Messaging;
+using PaymentSimulator.Messaging.Requests;
+using PaymentSimulator.Messaging.Results;
 using Microsoft.Extensions.Hosting;
 
 namespace PaymentSimulator.IntegrationTests;

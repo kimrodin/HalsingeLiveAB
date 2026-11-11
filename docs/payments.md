@@ -174,10 +174,10 @@ Tester täcker lyckat köp, misslyckande, timeout, utgången reservation, parall
 
 ## Kodreferenser
 
-- [Betalningsstart och atomär request-outbox](../src/services/Booking/features/bookings/StartPayment.cs)
-- [Tillämpning av betalningsresultat](../src/services/Booking/features/bookings/ApplyPaymentResult.cs)
+- [Betalningsstart och atomär request-outbox](../src/services/Booking/features/bookings/Payments/StartPayment.cs)
+- [Tillämpning av betalningsresultat](../src/services/Booking/features/bookings/Payments/ApplyPaymentResult.cs)
 - [Bekräftelse, reservation och lagerkontroll](../src/services/Booking/features/bookings/BookingService.cs)
-- [HTTP-avstämning och kompensation](../src/services/Booking/features/bookings/PaymentReconciliationService.cs)
+- [HTTP-avstämning och kompensation](../src/services/Booking/features/bookings/Payments/PaymentReconciliationService.cs)
 - [Simulatorns betalningsbehandling och idempotens](../src/services/PaymentSimulator/features/payments/ProcessPayment/ProcessPaymentHandler.cs)
 - [Återbetalning och avbrytande](../src/services/PaymentSimulator/features/payments/RefundPayment/RefundPaymentHandler.cs)
 - [Integrationstester för Bookings betalningsflöde](../tests/Booking.IntegrationTests/BookingPaymentTests.cs)

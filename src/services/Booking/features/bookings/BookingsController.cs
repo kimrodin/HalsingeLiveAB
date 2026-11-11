@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using Booking.Features.EventCatalog;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
 using Booking.Features.Tickets;
 
 namespace Booking.Features.Bookings;

@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using RabbitMQ.Client;
 using TicketService.Features.Tickets.IssueTickets;
+using TicketService.Infrastructure.Messaging;
+using TicketService.Messaging.Issuance;
 
 namespace TicketService.IntegrationTests;
 
@@ -56,14 +58,14 @@ public sealed class BookingConfirmedConsumerTests(TicketDatabaseFixture database
         try
         {
             await WaitForConsumerAsync(channel, token);
-            var message = new BookingConfirmedV1
+            var message = new BookingConfirmed
             {
                 MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), BookingId = Guid.NewGuid(),
                 BookingItemId = Guid.NewGuid(), EventId = Guid.NewGuid(), EventName = "Recovered after database outage",
                 EventStartsAtUtc = DateTimeOffset.Parse("2026-12-01T19:00:00.1234567Z"), VenueName = "Venue", SectionName = "Standing",
                 Quantity = 2, UnitPrice = 100m, Currency = "SEK", OccurredAtUtc = DateTimeOffset.UtcNow
             };
-            Task Publish(BookingConfirmedV1 value) => channel.BasicPublishAsync(Exchange, RoutingKey, mandatory: true,
+            Task Publish(BookingConfirmed value) => channel.BasicPublishAsync(Exchange, RoutingKey, mandatory: true,
                 new BasicProperties { Persistent = true, ContentType = "application/json" },
                 JsonSerializer.SerializeToUtf8Bytes(value), token).AsTask();
             const string deadQueue = "tickets.booking-confirmed.v1.dead";
@@ -154,7 +156,7 @@ public sealed class BookingConfirmedConsumerTests(TicketDatabaseFixture database
                 await consumerConnection.CloseAsync(token);
             }
 
-            var message = new BookingConfirmedV1
+            var message = new BookingConfirmed
             {
                 MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), BookingId = Guid.NewGuid(),
                 BookingItemId = Guid.NewGuid(), EventId = Guid.NewGuid(), EventName = "Recovered ticket issuance",

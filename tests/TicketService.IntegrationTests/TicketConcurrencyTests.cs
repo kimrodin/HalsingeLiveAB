@@ -24,7 +24,7 @@ public sealed class TicketConcurrencyTests(TicketDatabaseFixture database) : ICl
         var gate = new ConcurrentSaveGate();
         await using var firstDb = database.CreateContext(gate);
         await using var secondDb = database.CreateContext(gate);
-        var message = new BookingConfirmedV1
+        var message = new BookingConfirmed
         {
             MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), OccurredAtUtc = DateTimeOffset.UtcNow,
             BookingId = Guid.NewGuid(), BookingItemId = Guid.NewGuid(), EventId = Guid.NewGuid(),
@@ -118,7 +118,7 @@ public sealed class TicketConcurrencyTests(TicketDatabaseFixture database) : ICl
     }
 
     private static async Task<(IssueTicketsResult? Result, Exception? Error)> AttemptIssue(
-        TicketDbContext db, BookingConfirmedV1 message)
+        TicketDbContext db, BookingConfirmed message)
     {
         try
         {

@@ -1,6 +1,7 @@
 using Booking.Data;
 using Booking.Features.Bookings;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
+using Booking.Features.Payments.Results;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -154,7 +155,7 @@ public sealed class PaymentResultTests(BookingDatabaseFixture fixture) : IClassF
         return id;
     }
 
-    private async Task ReceiveAsync(PaymentSucceededV1 message)
+    private async Task ReceiveAsync(PaymentSucceeded message)
     {
         await using var db = fixture.CreateContext();
         await new PaymentResultInbox(db, TimeProvider.System).ReceiveAsync(message);
@@ -174,7 +175,7 @@ public sealed class PaymentResultTests(BookingDatabaseFixture fixture) : IClassF
             .ExecuteUpdateAsync(update => update.SetProperty(row => row.NextAttemptAtUtc, DateTimeOffset.UtcNow.AddSeconds(-1)));
     }
 
-    private static PaymentSucceededV1 Success(ResultGateway gateway) => new()
+    private static PaymentSucceeded Success(ResultGateway gateway) => new()
     {
         MessageId = Guid.NewGuid(), CorrelationId = gateway.Current!.BookingId,
         PaymentId = gateway.Current.PaymentId, BookingId = gateway.Current.BookingId,
@@ -182,7 +183,7 @@ public sealed class PaymentResultTests(BookingDatabaseFixture fixture) : IClassF
         PaidAtUtc = gateway.Current.PaidAt!.Value, OccurredAtUtc = gateway.Current.CompletedAt!.Value
     };
 
-    private static PaymentFailedV1 Failure(ResultGateway gateway) => new()
+    private static PaymentFailed Failure(ResultGateway gateway) => new()
     {
         MessageId = Guid.NewGuid(), CorrelationId = gateway.Current!.BookingId,
         PaymentId = gateway.Current.PaymentId, BookingId = gateway.Current.BookingId,

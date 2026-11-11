@@ -1,6 +1,6 @@
 using Booking.Data;
 using Booking.Features.Bookings;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 using Inventory = Booking.Features.EventInventory.Models.EventInventory;

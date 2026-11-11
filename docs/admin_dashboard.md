@@ -102,9 +102,8 @@ tjänst och tar bort prefixet, exempelvis
 Booking hämtar i sin tur betalningsdata för försäljningen och katalogdata för
 beläggningsrapporten. Dashboarden anropar inte PaymentSimulator direkt för statistiken.
 
-**`GetVenueOccupancy` används inte av dashboarden.** Endpointen finns i Booking
-för en rapport per scen. Dashboarden använder `GetEventOccupancy` för att visa
-varje evenemang separat. Backendkontrakten beskrivs längre ned i dokumentet.
+Dashboarden använder `GetEventOccupancy` för att visa varje evenemang separat.
+Backendkontraktet beskrivs längre ned i dokumentet.
 
 Utöver JSON-anropen kan webbläsaren hämta evenemangsbilder från `imageUrl` i
 evenemangssvaret. För uppladdade katalogbilder leder adressen normalt till
@@ -271,14 +270,10 @@ Exempel: En biljett betalas i november till en konsert i december. Betalningen i
 
 ## Beläggningens API och backendfiltrering
 
-Booking har två endpoints som kräver administratörsbehörighet och tar valfria
-`from`- och `to`-datum. Bara den första används av dashboarden:
-
-- `/GetEventOccupancy` returnerar `eventId`, `eventName`, `eventStartsAt`,
-  `venueId`, `venueName`, `capacity`, `sold` och `occupancyPercent`.
-- `/GetVenueOccupancy` används inte av dashboarden och returnerar `venueId`, `venueName`, `capacity`, `sold`
-  och `occupancyPercent`. Beläggningen per scen beräknas från summerade sålda
-  platser och summerad kapacitet, inte som medelvärdet av evenemangens procentsatser.
+Booking har endpointen `/GetEventOccupancy`, som kräver administratörsbehörighet
+och tar valfria `from`- och `to`-datum. Den används av dashboarden och returnerar
+`eventId`, `eventName`, `eventStartsAt`, `venueId`, `venueName`, `capacity`, `sold`
+och `occupancyPercent`.
 
 Booking hämtar kataloguppgifter för biljettlagrets evenemangs-ID:n i grupper om
 500. Katalogens inkluderande UTC-dagsfilter begränsar urvalet till dagar som berör
@@ -287,9 +282,8 @@ Det begränsar mängden hämtad historik och hanterar midnatt samt sommar- och
 vintertid. Raderade evenemang utesluts. Antalet sålda platser beräknas som total
 kvantitet minus tillgänglig kvantitet.
 
-Backendtesterna omfattar separata rader för evenemang med samma namn och svenska
-datumgränser på dagen för övergång till vintertid. Det finns även tester för
-scensummor, raderade evenemang, avbrutna anrop och timeout.
+Backendtestet omfattar separata rader för evenemang med samma namn och svenska
+datumgränser på dagen för övergång till vintertid samt beläggningsprocent.
 
 ### Utvecklingsmiljö och integrationshistorik
 
@@ -320,7 +314,7 @@ utesluta filen återkallar inte nyckeln.
 - [SignalR-hubb i Booking](../src/services/Booking/features/statistics/SalesUpdatesHub.cs)
 - [Autentiserade API-anrop](../src/frontend/admin-web/src/shared/api/http.ts)
 - [Beräkning av försäljningsstatistik](../src/services/Booking/features/statistics/SalesStatistics.cs)
-- [API för beläggning](../src/services/Booking/features/bookings/EventOccupancyController.cs)
-- [Backendrapport för beläggning och datumfiltrering](../src/services/Booking/features/bookings/VenueOccupancyReport.cs)
-- [Tester för beläggning](../tests/Booking.UnitTests/VenueOccupancyTests.cs)
+- [API för beläggning](../src/services/Booking/features/bookings/Occupancy/EventOccupancyController.cs)
+- [Backendrapport för beläggning och datumfiltrering](../src/services/Booking/features/bookings/Occupancy/VenueOccupancyReport.cs)
+- [Tester för beläggning](../tests/Booking.UnitTests/EventOccupancyTests.cs)
 - [Försäljningsstatistikens API och backendregler](sales-statistics.md)

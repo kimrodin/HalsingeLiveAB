@@ -1,6 +1,6 @@
 using Booking.Data;
 using Booking.Features.Bookings;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Requests;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -103,10 +103,10 @@ public sealed class PaymentRequestOutboxDispatcherTests
 
     private sealed class RecordingPublisher : IPaymentRequestedPublisher
     {
-        public List<PaymentRequestedV1> Messages { get; } = [];
+        public List<PaymentRequested> Messages { get; } = [];
         public bool Fail { get; set; }
         public CancellationTokenSource? Shutdown { get; init; }
-        public Task PublishAsync(PaymentRequestedV1 message, CancellationToken cancellationToken = default)
+        public Task PublishAsync(PaymentRequested message, CancellationToken cancellationToken = default)
         {
             Messages.Add(message);
             if (Shutdown is not null)

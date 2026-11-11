@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Booking.Features.Bookings;
 using Booking.Features.EventCatalog;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Gateway;
 using Booking.Features.Tickets;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.AspNetCore.Builder;
@@ -358,7 +358,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
     private sealed class StubTicketServiceClient : ITicketServiceClient
     {
         public Task IssueTicketsAsync(
-            BookingConfirmedV1 message,
+            BookingConfirmed message,
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 

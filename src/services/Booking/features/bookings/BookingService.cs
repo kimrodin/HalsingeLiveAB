@@ -2,8 +2,8 @@ using Booking.Data;
 using Booking.Features.BookingHolds;
 using Booking.Features.Bookings.Models;
 using Booking.Features.EventCatalog;
-using Booking.Features.Payments;
-using Booking.Features.Tickets;
+using Booking.Features.Payments.Gateway;
+using Booking.Features.Tickets.Issuance;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
 

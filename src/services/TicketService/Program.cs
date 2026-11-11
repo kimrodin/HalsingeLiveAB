@@ -7,6 +7,8 @@ using QuestPDF.Infrastructure;
 using TicketService.Data;
 using TicketService.Features.Tickets.DownloadTicket;
 using TicketService.Features.Tickets.IssueTickets;
+using TicketService.Infrastructure.Messaging;
+using TicketService.Messaging.Issuance;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);

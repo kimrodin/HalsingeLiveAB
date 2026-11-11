@@ -26,7 +26,7 @@ internal static class TicketTestData
             ["TicketService:InternalApiKey"] = configuredKey
         }).Build(), NullLogger<TicketsController>.Instance);
 
-    public static BookingConfirmedV1 CreateMessage(int quantity = 2) => new()
+    public static BookingConfirmed CreateMessage(int quantity = 2) => new()
     {
         MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), OccurredAtUtc = Now,
         BookingId = Guid.NewGuid(), BookingItemId = Guid.NewGuid(), EventId = Guid.NewGuid(),

@@ -83,6 +83,6 @@ integrationstest i PaymentSimulator.
 - [Bekräftade köp, lager och biljett-outbox](../src/services/Booking/features/Seed/SeedPurchases/SeedPurchasesHandler.cs)
 - [Radering av köp och återställning av lager](../src/services/Booking/features/Seed/SeedPurchases/DeleteSeedPurchasesHandler.cs)
 - [Skapande av simulerade seedbetalningar](../src/services/PaymentSimulator/features/Seed/SeedPaymentsHandler.cs)
-- [Utskick och låsning för seedbiljetter](../src/services/Booking/features/tickets/TicketIssueOutboxDispatcher.cs)
+- [Utskick och låsning för seedbiljetter](../src/services/Booking/features/tickets/Issuance/TicketIssueOutboxDispatcher.cs)
 - [Integrationstester för köpens livscykel](../tests/Booking.IntegrationTests/SeedPurchasesTests.cs)
 - [Integrationstester för katalogens seeddata](../tests/EventCatalog.IntegrationTests/Features/Seed/SeedEventsTests.cs)

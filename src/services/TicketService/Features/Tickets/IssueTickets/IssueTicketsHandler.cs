@@ -15,7 +15,7 @@ public sealed class IssueTicketsHandler(
         "IX_Tickets_BookingItemId_TicketNumberInBookingItem";
 
     public async Task<IssueTicketsResult> HandleAsync(
-        BookingConfirmedV1 message,
+        BookingConfirmed message,
         CancellationToken cancellationToken = default)
     {
         if (message is null)
@@ -71,7 +71,7 @@ public sealed class IssueTicketsHandler(
         }
     }
 
-    private static void Validate(BookingConfirmedV1 message)
+    private static void Validate(BookingConfirmed message)
     {
         var errors = new List<string>();
         if (message.MessageId == Guid.Empty)
@@ -109,7 +109,7 @@ public sealed class IssueTicketsHandler(
 
     private static IssueTicketsResult ExistingOrThrow(
         Ticket[] existingTickets,
-        BookingConfirmedV1 message)
+        BookingConfirmed message)
     {
         var expectedStart = message.EventStartsAtUtc.ToUniversalTime();
         var isSameIssue = existingTickets.Length == message.Quantity &&

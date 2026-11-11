@@ -14,6 +14,7 @@ Den är separat från BookingService eftersom en bokning och en biljett har olik
 | --- | --- |
 | **ASP.NET Core / .NET 10** | HTTP-API, dependency injection, konfiguration och autentisering. |
 | **C#** | Ticketmodellen, validering och applikationslogik. |
+| **RabbitMQ** | Levererar bekräftade bokningsrader till biljettutfärdandet. |
 | **Entity Framework Core** | Läser och skriver biljetter i databasen. |
 | **PostgreSQL + Npgsql** | Beständig lagring och databasanslutning. |
 | **JWT Bearer / Keycloak** | Skyddar admin-API:er med administratörens token. |
@@ -31,6 +32,8 @@ src/services/TicketService/
   Features/Tickets/Models/            Biljettmodell och statusar
   Features/Tickets/IssueTickets/      Utfärdande och idempotens
   Features/Tickets/DownloadTicket/    QR-kod och PDF-generering
+  messaging/Issuance/                 RabbitMQ-konsument och kötopologi
+  Infrastructure/Messaging/           Gemensam RabbitMQ-anslutning
 ```
 
 `TicketsController` tar emot HTTP-anrop och översätter dem till användning av databasen eller `IssueTicketsHandler` och `TicketDocumentService`. Det håller transportdetaljer (URL:er, headers och HTTP-statusar) separerade från delar som utfärdar biljetter eller skapar dokument.
@@ -56,18 +59,19 @@ Det förenklade flödet är:
 ```text
 Booking bekräftar en betald bokning
   → Booking sparar ett ticket-issue-meddelande i sin outbox
-  → en dispatcher skickar meddelandet till TicketService
-  → TicketService verifierar intern API-nyckel och innehåll
+  → en dispatcher publicerar BookingConfirmed till RabbitMQ
+  → BookingConfirmedConsumer tar emot meddelandet
   → IssueTicketsHandler skapar en biljett per köpt plats
-  → TicketService svarar med biljetterna
-  → Booking markerar outbox-meddelandet levererat
+  → konsumenten kvitterar meddelandet när biljetterna har sparats
 ```
 
-En **outbox** är en tabell där Booking sparar ett meddelande i samma beständiga flöde som sin egen ändring. En separat dispatcher skickar det vidare och försöker igen om nätverket eller TicketService är tillfälligt otillgängligt. På så sätt är biljettutfärdandet inte beroende av att två tjänster lyckas i exakt samma ögonblick.
+En **outbox** är en tabell där Booking sparar ett meddelande i samma transaktion som sin egen ändring. En separat dispatcher publicerar det till RabbitMQ och markerar det levererat när brokern har bekräftat publiceringen. TicketService behandlar meddelandet och kvitterar först efter att biljetterna har sparats. På så sätt kan tjänsterna arbeta oberoende och hantera tillfälliga avbrott.
+
+Utvecklingsmiljöns seedbokningar är ett undantag: dispatchern anropar `POST /tickets/issue-from-booking` med intern API-nyckel och väntar på svaret. HTTP-endpointen använder samma `IssueTicketsHandler`. Det gör att seedradering kan samordnas med pågående utfärdande utan kvarvarande seedmeddelanden i RabbitMQ.
 
 ### Varför utfärdandet är idempotent
 
-Ett meddelande kan skickas igen om Booking inte fick svar, även om TicketService redan hann skapa biljetterna. Därför söker `IssueTicketsHandler` först efter biljetter på bokningsraden. Om de redan finns och innehållet stämmer returneras de befintliga biljetterna. Om samma bokningsrad kommer tillbaka med andra uppgifter blir det en konflikt i stället för att en andra uppsättning skapas.
+Ett meddelande kan levereras igen om konsumenten inte hann kvittera det, även om TicketService redan hann skapa biljetterna. Därför söker `IssueTicketsHandler` först efter biljetter på bokningsraden. Om de redan finns och innehållet stämmer returneras de befintliga biljetterna. Om samma bokningsrad kommer tillbaka med andra uppgifter blir det en konflikt i stället för att en andra uppsättning skapas.
 
 Databasens unika index hanterar samtidigt kapplöpningar där två anrop försöker utfärda samma biljetter parallellt. Kombinationen av applikationskontroll och databasregel gör upprepade leveranser säkra utan att lita enbart på nätverkslagret.
 
@@ -85,7 +89,7 @@ TicketService erbjuder i huvudsak följande typer av endpoints:
 
 | Typ | Exempel | Skydd |
 | --- | --- | --- |
-| Utfärda biljetter från bekräftad bokning | `POST /tickets/issue-from-booking` | Intern API-nyckel från BookingService. |
+| Utfärda biljetter för seedbokningar via HTTP | `POST /tickets/issue-from-booking` | Intern API-nyckel från BookingService. |
 | Läsa biljett för kundens bokning och hämta PDF | `/tickets/by-booking/...` | Intern API-nyckel; Booking verifierar kundens gästtoken innan proxyn används. |
 | Administrera och läsa biljetter | `/tickets/admin/...` | Keycloak JWT och rollen `admin`. |
 | Ändra biljettstatus | `POST /tickets/{ticketId}/check-in` eller `/cancel` | Intern API-nyckel; adminwebben går via BookingService som kontrollerar adminbehörighet. |

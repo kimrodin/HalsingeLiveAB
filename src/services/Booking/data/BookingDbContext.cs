@@ -1,6 +1,7 @@
 using Booking.Features.Bookings.Models;
-using Booking.Features.Tickets;
-using Booking.Features.Payments;
+using Booking.Features.Payments.Requests;
+using Booking.Features.Payments.Results;
+using Booking.Features.Tickets.Issuance;
 using Microsoft.EntityFrameworkCore;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
 using InventoryModel = Booking.Features.EventInventory.Models.EventInventory;

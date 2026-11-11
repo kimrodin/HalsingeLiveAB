@@ -1,4 +1,5 @@
 using Booking.Data;
+using Booking.Features.Tickets.Issuance;
 using Booking.Features.Tickets;
 using HalsingeLive.Contracts.Messaging;
 using Microsoft.EntityFrameworkCore;
@@ -104,17 +105,17 @@ public sealed class TicketIssueOutboxDispatcherTests
     private sealed class RecordingBookingConfirmedPublisher(Exception? exception = null)
         : IBookingConfirmedPublisher, ITicketServiceClient
     {
-        public BookingConfirmedV1? Message { get; private set; }
+        public BookingConfirmed? Message { get; private set; }
 
         public Task PublishAsync(
-            BookingConfirmedV1 message,
+            BookingConfirmed message,
             CancellationToken cancellationToken = default)
         {
             Message = message;
             return exception is null ? Task.CompletedTask : Task.FromException(exception);
         }
 
-        public Task IssueTicketsAsync(BookingConfirmedV1 message, CancellationToken cancellationToken = default) =>
+        public Task IssueTicketsAsync(BookingConfirmed message, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Ordinary ticket issuance must use RabbitMQ.");
 
         public Task<IReadOnlyList<TicketServiceTicketResponse>> GetTicketsForBookingAsync(

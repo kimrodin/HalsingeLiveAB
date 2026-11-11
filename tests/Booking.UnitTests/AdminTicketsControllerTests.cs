@@ -67,7 +67,7 @@ public sealed class AdminTicketsControllerTests
         public HttpRequestException? Exception { get; init; }
 
         public Task IssueTicketsAsync(
-            BookingConfirmedV1 message,
+            BookingConfirmed message,
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
