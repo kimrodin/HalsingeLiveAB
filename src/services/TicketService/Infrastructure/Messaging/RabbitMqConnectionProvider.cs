@@ -1,6 +1,6 @@
 using RabbitMQ.Client;
 
-namespace TicketService.Features.Tickets.IssueTickets;
+namespace TicketService.Infrastructure.Messaging;
 
 public sealed class RabbitMqConnectionProvider(IConfiguration configuration) : IAsyncDisposable
 {

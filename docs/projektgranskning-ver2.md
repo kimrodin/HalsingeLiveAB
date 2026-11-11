@@ -134,7 +134,7 @@ Dokumentationen innehåller flera kvarvarande uppgifter från tidigare implement
 | RabbitMQ mellan tjänsterna | Finns | `PaymentRequested`, `PaymentSucceeded`, `PaymentFailed` och `BookingConfirmed` är inkopplade. Se [meddelandedokumentationen](messaging.md). |
 | `SeatsHeld` vid reservation | Saknas | Ingen sådan kontraktstyp, publicering eller konsumtion hittades. Publiceringen anges uttryckligen i dokumentets bokningsflöde. |
 | `TicketScanned` i arkitekturbilden | Saknas | Skanning ändrar biljettstatus via HTTP. Ingen sådan händelse hittades. Detta är en avvikelse från bilden; flödestexten kräver framför allt att biljetten markeras använd. |
-| Biljetter skapas vid `BookingConfirmed` | Finns | [BookingConfirmedConsumer](../src/services/TicketService/Features/Tickets/IssueTickets/BookingConfirmedConsumer.cs) och idempotent utfärdande med unikt databasindex finns. |
+| Biljetter skapas vid `BookingConfirmed` | Finns | [BookingConfirmedConsumer](../src/services/TicketService/messaging/Issuance/BookingConfirmedConsumer.cs) och idempotent utfärdande med unikt databasindex finns. |
 | PDF med QR-kod, QuestPDF och QRCoder | Finns | [TicketDocumentService](../src/services/TicketService/Features/Tickets/DownloadTicket/TicketDocumentService.cs), verifierat av tester. |
 | Biljett skickas via e-post | Saknas | PDF hämtas i kundwebben. Mailpit från arkitekturbilden saknas också. |
 | Entréskanner och engångsanvändning | Finns, integrerad i adminappen | Kamera och manuell inmatning i [TicketScannerPage](../src/frontend/admin-web/src/features/check-in/pages/TicketScannerPage.tsx). Eventkontroll och optimistisk samtidighetskontroll skyddar statusändringen i TicketService. |

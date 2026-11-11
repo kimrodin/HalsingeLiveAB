@@ -186,7 +186,7 @@ Utvecklingsverktygets seedbokningar med ID-prefix `51000000-` är ett undantag. 
 
 ### 3. Skapa och spara biljetter
 
-[BookingConfirmedConsumer](../src/services/TicketService/Features/Tickets/IssueTickets/BookingConfirmedConsumer.cs) anropar [IssueTicketsHandler](../src/services/TicketService/Features/Tickets/IssueTickets/IssueTicketsHandler.cs), som validerar meddelandet och sparar biljetterna. Först när detta är klart kvitteras leveransen.
+[BookingConfirmedConsumer](../src/services/TicketService/messaging/Issuance/BookingConfirmedConsumer.cs) anropar [IssueTicketsHandler](../src/services/TicketService/Features/Tickets/IssueTickets/IssueTicketsHandler.cs), som validerar meddelandet och sparar biljetterna. Först när detta är klart kvitteras leveransen.
 
 Biljettutfärdandet är idempotent per `BookingItemId`. En omleverans med samma bokningsinformation återanvänder befintliga biljetter. Ändrad information för samma bokningsrad behandlas som en konflikt. Ett unikt databasindex på bokningsrad och biljettnummer inom raden skyddar även mot samtidiga försök.
 
@@ -274,6 +274,22 @@ PaymentSimulator/
 ```
 
 `Requests` använder namespace `PaymentSimulator.Messaging.Requests` och `Results` använder `PaymentSimulator.Messaging.Results`. Den gemensamma anslutningen använder `PaymentSimulator.Infrastructure.Messaging` och delas av begäranskonsumenten och resultatpubliceraren. Simuleringslogik och återhämtningsarbetaren finns under `features/payments/ProcessPayment`.
+
+### Mappstruktur i TicketService
+
+Biljettutfärdandets transportkod är separerad från affärslogiken och den gemensamma anslutningen:
+
+```text
+TicketService/
+├── messaging/
+│   └── Issuance/        # BookingConfirmedConsumer och TicketMessagingTopology
+├── Infrastructure/
+│   └── Messaging/       # Gemensam RabbitMqConnectionProvider
+└── Features/Tickets/
+    └── IssueTickets/    # IssueTicketsHandler för både RabbitMQ och HTTP
+```
+
+Konsumenten och topologin använder namespace `TicketService.Messaging.Issuance`. [RabbitMqConnectionProvider](../src/services/TicketService/Infrastructure/Messaging/RabbitMqConnectionProvider.cs) använder `TicketService.Infrastructure.Messaging`. [TicketMessagingTopology](../src/services/TicketService/messaging/Issuance/TicketMessagingTopology.cs) deklarerar exchanges, köer, bindningar och dead-letter-routning. `IssueTicketsHandler` behåller namespace `TicketService.Features.Tickets.IssueTickets`.
 
 ### Lagring och tjänsteregistrering
 

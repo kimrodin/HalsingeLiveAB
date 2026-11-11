@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using RabbitMQ.Client;
 using TicketService.Features.Tickets.IssueTickets;
+using TicketService.Infrastructure.Messaging;
+using TicketService.Messaging.Issuance;
 
 namespace TicketService.IntegrationTests;
 
