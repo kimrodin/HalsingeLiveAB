@@ -358,7 +358,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
     private sealed class StubTicketServiceClient : ITicketServiceClient
     {
         public Task IssueTicketsAsync(
-            BookingConfirmedV1 message,
+            BookingConfirmed message,
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 

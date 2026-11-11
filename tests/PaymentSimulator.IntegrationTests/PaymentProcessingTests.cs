@@ -455,8 +455,8 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
     {
         public bool Fail { get; set; }
         public List<object> Messages { get; } = [];
-        public Task PublishAsync(PaymentSucceededV1 message, CancellationToken cancellationToken = default) => Record(message);
-        public Task PublishAsync(PaymentFailedV1 message, CancellationToken cancellationToken = default) => Record(message);
+        public Task PublishAsync(PaymentSucceeded message, CancellationToken cancellationToken = default) => Record(message);
+        public Task PublishAsync(PaymentFailed message, CancellationToken cancellationToken = default) => Record(message);
         private Task Record(object message)
         {
             Messages.Add(message);

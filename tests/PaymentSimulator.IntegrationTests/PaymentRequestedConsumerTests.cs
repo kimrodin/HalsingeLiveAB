@@ -341,7 +341,7 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
     private static PaymentRecoveryWorker CreateRecoveryWorker(ServiceProvider services) => new(
         services.GetRequiredService<IServiceScopeFactory>(), NullLogger<PaymentRecoveryWorker>.Instance);
 
-    private static PaymentRequestedV1 CreateMessage() => new()
+    private static PaymentRequested CreateMessage() => new()
     {
         MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), BookingId = Guid.NewGuid(),
         Amount = 125.50m, Currency = "SEK", OccurredAtUtc = DateTimeOffset.UtcNow

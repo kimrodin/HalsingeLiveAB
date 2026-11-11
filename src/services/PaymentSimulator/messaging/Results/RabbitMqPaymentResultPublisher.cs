@@ -9,11 +9,11 @@ public sealed class RabbitMqPaymentResultPublisher(
     RabbitMqConnectionProvider connectionProvider,
     ILogger<RabbitMqPaymentResultPublisher> logger) : IPaymentResultPublisher
 {
-    public Task PublishAsync(PaymentSucceededV1 message, CancellationToken cancellationToken = default) =>
+    public Task PublishAsync(PaymentSucceeded message, CancellationToken cancellationToken = default) =>
         PublishAsync(message.MessageId, message.CorrelationId, PaymentResultMessagingTopology.Succeeded,
             JsonSerializer.SerializeToUtf8Bytes(message), cancellationToken);
 
-    public Task PublishAsync(PaymentFailedV1 message, CancellationToken cancellationToken = default) =>
+    public Task PublishAsync(PaymentFailed message, CancellationToken cancellationToken = default) =>
         PublishAsync(message.MessageId, message.CorrelationId, PaymentResultMessagingTopology.Failed,
             JsonSerializer.SerializeToUtf8Bytes(message), cancellationToken);
 

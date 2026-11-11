@@ -5,7 +5,7 @@ namespace Booking.Features.Tickets;
 public interface ITicketServiceClient
 {
     Task IssueTicketsAsync(
-        BookingConfirmedV1 message,
+        BookingConfirmed message,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<TicketServiceTicketResponse>> GetTicketsForBookingAsync(

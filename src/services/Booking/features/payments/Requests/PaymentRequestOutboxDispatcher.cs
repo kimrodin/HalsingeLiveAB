@@ -30,7 +30,7 @@ public sealed class PaymentRequestOutboxDispatcher(BookingDbContext db, IPayment
                 }
                 else
                 {
-                    await publisher.PublishAsync(new PaymentRequestedV1
+                    await publisher.PublishAsync(new PaymentRequested
                     {
                         MessageId = message.MessageId, CorrelationId = message.BookingId,
                         BookingId = message.BookingId, Amount = message.Amount, Currency = message.Currency,

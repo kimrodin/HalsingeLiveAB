@@ -23,10 +23,10 @@ sequenceDiagram
     C->>B: HTTP POST /StartPayment/{bookingId}
     B->>B: Spara betalningsavsikt och request-outbox atomärt
     B-->>C: HTTP 202 Accepted, Pending
-    B->>R: AMQP: PaymentRequestedV1 från outbox
+    B->>R: AMQP: PaymentRequested från outbox
     R->>P: AMQP: leverera betalningsbegäran
     P->>P: Spara betalningsresultat och outbox
-    P->>R: AMQP: PaymentSucceededV1 eller PaymentFailedV1
+    P->>R: AMQP: PaymentSucceeded eller PaymentFailed
     R->>B: AMQP: leverera betalningsresultat
     B->>B: Spara resultat i inbox
     B->>P: HTTP: hämta aktuell betalningsstatus för verifiering
@@ -34,7 +34,7 @@ sequenceDiagram
     B->>B: Tillämpa verifierat resultat
     opt Betalningen godkänns och bokningen kan bekräftas
         B->>B: Bekräfta bokning och spara biljett-outbox
-        B->>R: AMQP: BookingConfirmedV1 per bokningsrad
+        B->>R: AMQP: BookingConfirmed per bokningsrad
         R->>T: AMQP: leverera bekräftad bokningsrad
         T->>T: Spara biljetter
     end
@@ -49,10 +49,10 @@ HTTP används även för bland annat uppslag av betalningsstatus, återbetalning
 
 | Meddelande | Avsändare → mottagare | Nuvarande användning |
 | --- | --- | --- |
-| `PaymentRequestedV1` | Booking → PaymentSimulator | Startar betalningen via Bookings request-outbox och PaymentSimulators konsument. |
-| `PaymentSucceededV1` | PaymentSimulator → Booking | Levererar lyckade betalningar via outbox, RabbitMQ och inbox. |
-| `PaymentFailedV1` | PaymentSimulator → Booking | Levererar slutliga utfall `Failed` och `TimedOut` via samma resultatflöde. |
-| `BookingConfirmedV1` | Booking → TicketService | Begär biljettutfärdande för varje bekräftad bokningsrad. |
+| `PaymentRequested` | Booking → PaymentSimulator | Startar betalningen via Bookings request-outbox och PaymentSimulators konsument. |
+| `PaymentSucceeded` | PaymentSimulator → Booking | Levererar lyckade betalningar via outbox, RabbitMQ och inbox. |
+| `PaymentFailed` | PaymentSimulator → Booking | Levererar slutliga utfall `Failed` och `TimedOut` via samma resultatflöde. |
+| `BookingConfirmed` | Booking → TicketService | Begär biljettutfärdande för varje bekräftad bokningsrad. |
 
 ## Begrepp i implementationen
 
@@ -70,14 +70,14 @@ HTTP används även för bland annat uppslag av betalningsstatus, återbetalning
 
 ## Kontrakt och metadata
 
-Kontrakten delas av tjänsterna och finns i [Contracts/Messaging](../src/Contracts/Messaging). De är versionsmärkta med `V1` och serialiseras som JSON.
+Kontrakten delas av tjänsterna och finns i [Contracts/Messaging](../src/Contracts/Messaging). De serialiseras som JSON och har typnamn utan versionssuffix. RabbitMQ:s routingnycklar och könamn behåller suffixet `.v1`.
 
 | Kontrakt | Innehåll |
 | --- | --- |
-| [PaymentRequestedV1](../src/Contracts/Messaging/PaymentRequestedV1.cs) | `BookingId`, bokningens totala `Amount`, `Currency` och meddelandemetadata. PaymentSimulator tilldelar betalnings-ID när försöket skapas. |
-| [PaymentSucceededV1](../src/Contracts/Messaging/PaymentSucceededV1.cs) | Betalningens `PaymentId`, `BookingId`, `Amount`, `Currency` och `PaidAtUtc`, samt meddelandemetadata. |
-| [PaymentFailedV1](../src/Contracts/Messaging/PaymentFailedV1.cs) | Samma betalningsidentifierare och belopp, samt `FailureCode`: `Failed` eller `TimedOut`. |
-| [BookingConfirmedV1](../src/Contracts/Messaging/BookingConfirmedV1.cs) | En bokningsrad med `BookingItemId`, evenemangs- och platsinformation, `Quantity`, `UnitPrice` och `Currency`, samt meddelandemetadata. |
+| [PaymentRequested](../src/Contracts/Messaging/PaymentRequested.cs) | `BookingId`, bokningens totala `Amount`, `Currency` och meddelandemetadata. PaymentSimulator tilldelar betalnings-ID när försöket skapas. |
+| [PaymentSucceeded](../src/Contracts/Messaging/PaymentSucceeded.cs) | Betalningens `PaymentId`, `BookingId`, `Amount`, `Currency` och `PaidAtUtc`, samt meddelandemetadata. |
+| [PaymentFailed](../src/Contracts/Messaging/PaymentFailed.cs) | Samma betalningsidentifierare och belopp, samt `FailureCode`: `Failed` eller `TimedOut`. |
+| [BookingConfirmed](../src/Contracts/Messaging/BookingConfirmed.cs) | En bokningsrad med `BookingItemId`, evenemangs- och platsinformation, `Quantity`, `UnitPrice` och `Currency`, samt meddelandemetadata. |
 
 Följande metadata följer varje meddelande:
 
@@ -87,7 +87,7 @@ Följande metadata följer varje meddelande:
 
 Alla kontraktsfält är `required` och saknar genererade ID:n eller standardvärden för pengar. Mottagaren måste ändå kontrollera innehållet: ett angivet men tomt GUID eller ett ogiltigt belopp är fortfarande felaktigt. Valuta ska vara en uttrycklig kod med tre stora bokstäver. Betalningsbelopp måste vara positiva; ett uttryckligen angivet biljettpris på noll är tillåtet.
 
-`PaidAtUtc` anger när betalningen lyckades, medan `OccurredAtUtc` beskriver händelsens tidpunkt. En senare återbetalning ändrar inte det historiska framgångsmeddelandet. Ett nätverksavbrott eller en otillgänglig broker är inte ett slutligt betalningsfel och ska inte omvandlas till `PaymentFailedV1`.
+`PaidAtUtc` anger när betalningen lyckades, medan `OccurredAtUtc` beskriver händelsens tidpunkt. En senare återbetalning ändrar inte det historiska framgångsmeddelandet. Ett nätverksavbrott eller en otillgänglig broker är inte ett slutligt betalningsfel och ska inte omvandlas till `PaymentFailed`.
 
 ## Betalningsbegäran: från Booking till PaymentSimulator
 
@@ -99,7 +99,7 @@ Ett unikt index på `BookingId` och det gemensamma betalningslåset förhindrar 
 
 ### 2. Publicera från request-outbox
 
-[PaymentRequestOutboxWorker](../src/services/Booking/features/payments/Requests/PaymentRequestOutboxWorker.cs) kör [PaymentRequestOutboxDispatcher](../src/services/Booking/features/payments/Requests/PaymentRequestOutboxDispatcher.cs) ungefär varje sekund. Dispatchern hämtar högst 25 förfallna rader och använder den sparade ögonblicksbilden för att skapa `PaymentRequestedV1`. Radens ID blir `MessageId`, bokningens ID blir `CorrelationId` och skapandetiden blir `OccurredAtUtc`.
+[PaymentRequestOutboxWorker](../src/services/Booking/features/payments/Requests/PaymentRequestOutboxWorker.cs) kör [PaymentRequestOutboxDispatcher](../src/services/Booking/features/payments/Requests/PaymentRequestOutboxDispatcher.cs) ungefär varje sekund. Dispatchern hämtar högst 25 förfallna rader och använder den sparade ögonblicksbilden för att skapa `PaymentRequested`. Radens ID blir `MessageId`, bokningens ID blir `CorrelationId` och skapandetiden blir `OccurredAtUtc`.
 
 Booking registrerar [IPaymentRequestedPublisher](../src/services/Booking/features/payments/Requests/IPaymentRequestedPublisher.cs) med implementationen [RabbitMqPaymentRequestedPublisher](../src/services/Booking/features/payments/Requests/RabbitMqPaymentRequestedPublisher.cs). Publiceraren använder tjänstens gemensamma RabbitMQ-anslutning och skickar beständig JSON med publisher confirms och obligatorisk routning (`mandatory`).
 
@@ -107,7 +107,7 @@ Booking registrerar [IPaymentRequestedPublisher](../src/services/Booking/feature
 
 ### 3. Behandla betalningsbegäran
 
-1. [PaymentRequestedConsumer](../src/services/PaymentSimulator/messaging/Requests/PaymentRequestedConsumer.cs) läser från begäranskön och deserialiserar `PaymentRequestedV1`.
+1. [PaymentRequestedConsumer](../src/services/PaymentSimulator/messaging/Requests/PaymentRequestedConsumer.cs) läser från begäranskön och deserialiserar `PaymentRequested`.
 2. [PaymentRequestedHandler](../src/services/PaymentSimulator/messaging/Requests/PaymentRequestedHandler.cs) kontrollerar metadata, boknings-ID, belopp och valuta och anropar sedan `AcceptAsync` i [ProcessPaymentHandler](../src/services/PaymentSimulator/features/payments/ProcessPayment/ProcessPaymentHandler.cs).
 3. Betalningen sparas med `BookingId` som idempotensnyckel. Samma bokning med samma belopp och valuta återanvänder det befintliga försöket. Ändrat belopp eller ändrad valuta betraktas som en konflikt.
 4. Konsumenten kvitterar så snart betalningen är beständigt sparad eller ett befintligt försök har verifierats. Den väntar inte på simuleringens fördröjning, så nästa begäran kan behandlas medan tidigare betalningar fortfarande är `Pending`. Även befintliga terminala utfall kvitteras normalt.
@@ -134,11 +134,11 @@ Avbokning och återbetalning hanteras också:
 
 - Avbokning av ett väntande försök ger `TimedOut` och sparar felresultatet atomärt i [RefundPaymentHandler](../src/services/PaymentSimulator/features/payments/RefundPayment/RefundPaymentHandler.cs).
 - Avbokning innan ett betalningsförsök finns sparar både en spärr mot senare betalningsstart och ett `TimedOut`-meddelande tillsammans i `ProcessPaymentHandler.Cancel`.
-- Återbetalning av en redan lyckad betalning bevarar dess ursprungliga framgångsmeddelande. Återbetalning är inte ett nytt `PaymentFailedV1`.
+- Återbetalning av en redan lyckad betalning bevarar dess ursprungliga framgångsmeddelande. Återbetalning är inte ett nytt `PaymentFailed`.
 
 ### 2. Publicera från outbox
 
-[PaymentResultOutboxWorker](../src/services/PaymentSimulator/messaging/Results/PaymentResultOutboxWorker.cs) kör regelbundet [PaymentResultOutboxDispatcher](../src/services/PaymentSimulator/messaging/Results/PaymentResultOutboxDispatcher.cs). Dispatchern hämtar väntande rader i omgångar om högst 25 och bygger antingen `PaymentSucceededV1` eller `PaymentFailedV1` från den sparade ögonblicksbilden.
+[PaymentResultOutboxWorker](../src/services/PaymentSimulator/messaging/Results/PaymentResultOutboxWorker.cs) kör regelbundet [PaymentResultOutboxDispatcher](../src/services/PaymentSimulator/messaging/Results/PaymentResultOutboxDispatcher.cs). Dispatchern hämtar väntande rader i omgångar om högst 25 och bygger antingen `PaymentSucceeded` eller `PaymentFailed` från den sparade ögonblicksbilden.
 
 [RabbitMqPaymentResultPublisher](../src/services/PaymentSimulator/messaging/Results/RabbitMqPaymentResultPublisher.cs) publicerar meddelandet. Först efter RabbitMQ:s bekräftelse sätts `DeliveredAtUtc`. Vid fel sparas `AttemptCount`, `LastError` och nästa försökstid, `NextAttemptAtUtc`, med exponentiellt ökande väntetid. Samma meddelande-ID och innehåll används vid nästa försök.
 
@@ -174,7 +174,7 @@ Affärsändringen och markeringen `ProcessedAtUtc` sker inte i en gemensam trans
 
 `ConfirmAsync` i [BookingService](../src/services/Booking/features/bookings/BookingService.cs) låser bokningen och kontrollerar betalning, reservation och lager. Bekräftelsen och raderna i [TicketIssueOutboxMessage](../src/services/Booking/features/tickets/Issuance/TicketIssueOutboxMessage.cs) sparas i samma transaktion.
 
-Det skapas ett `BookingConfirmedV1` per bokningsrad, inte ett per hel bokning. Meddelandet innehåller den information som behövs för att utfärda biljetter, så TicketService behöver inte fråga Booking eller EventCatalog när meddelandet behandlas.
+Det skapas ett `BookingConfirmed` per bokningsrad, inte ett per hel bokning. Meddelandet innehåller den information som behövs för att utfärda biljetter, så TicketService behöver inte fråga Booking eller EventCatalog när meddelandet behandlas.
 
 ### 2. Publicera bekräftade bokningsrader
 
@@ -198,10 +198,10 @@ Alla vanliga meddelanden publiceras till den beständiga topic-exchangen `halsin
 
 | Meddelande | Routing key | Konsumentkö | Dead-letter routing key | Dead-letter-kö |
 | --- | --- | --- | --- | --- |
-| `PaymentRequestedV1` | `payment.requested.v1` | `payments.payment-requested.v1` | `payment-request.dead` | `payments.payment-requested.v1.dead` |
-| `PaymentSucceededV1` | `payment.succeeded.v1` | `booking.payment-results.v1` | `payment-result.dead` | `booking.payment-results.v1.dead` |
-| `PaymentFailedV1` | `payment.failed.v1` | `booking.payment-results.v1` | `payment-result.dead` | `booking.payment-results.v1.dead` |
-| `BookingConfirmedV1` | `booking.confirmed.v1` | `tickets.booking-confirmed.v1` | `ticket-issue.dead` | `tickets.booking-confirmed.v1.dead` |
+| `PaymentRequested` | `payment.requested.v1` | `payments.payment-requested.v1` | `payment-request.dead` | `payments.payment-requested.v1.dead` |
+| `PaymentSucceeded` | `payment.succeeded.v1` | `booking.payment-results.v1` | `payment-result.dead` | `booking.payment-results.v1.dead` |
+| `PaymentFailed` | `payment.failed.v1` | `booking.payment-results.v1` | `payment-result.dead` | `booking.payment-results.v1.dead` |
+| `BookingConfirmed` | `booking.confirmed.v1` | `tickets.booking-confirmed.v1` | `ticket-issue.dead` | `tickets.booking-confirmed.v1.dead` |
 
 Publicerare och konsumenter deklarerar samma topologi. Köerna är beständiga, inte exklusiva och tas inte bort automatiskt när en konsument kopplas ned. Därmed kan meddelanden köas även innan mottagartjänsten har startat.
 

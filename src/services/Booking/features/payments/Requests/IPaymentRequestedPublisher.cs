@@ -4,5 +4,5 @@ namespace Booking.Features.Payments.Requests;
 
 public interface IPaymentRequestedPublisher
 {
-    Task PublishAsync(PaymentRequestedV1 message, CancellationToken cancellationToken = default);
+    Task PublishAsync(PaymentRequested message, CancellationToken cancellationToken = default);
 }

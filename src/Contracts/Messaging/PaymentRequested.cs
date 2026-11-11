@@ -1,7 +1,7 @@
 namespace HalsingeLive.Contracts.Messaging;
 
 /// <summary>Requests payment processing using BookingId as the idempotency key.</summary>
-public sealed record PaymentRequestedV1
+public sealed record PaymentRequested
 {
     public required Guid MessageId { get; init; }
     public required Guid CorrelationId { get; init; }

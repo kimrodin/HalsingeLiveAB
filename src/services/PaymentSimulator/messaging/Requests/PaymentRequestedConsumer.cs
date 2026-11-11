@@ -80,10 +80,10 @@ public sealed class PaymentRequestedConsumer(
 
     private async Task HandleDeliveryAsync(IChannel channel, BasicDeliverEventArgs delivery, CancellationToken stoppingToken)
     {
-        PaymentRequestedV1 message;
+        PaymentRequested message;
         try
         {
-            message = JsonSerializer.Deserialize<PaymentRequestedV1>(delivery.Body.Span)
+            message = JsonSerializer.Deserialize<PaymentRequested>(delivery.Body.Span)
                 ?? throw new InvalidDataException("The payment request was empty.");
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException)

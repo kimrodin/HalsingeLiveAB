@@ -110,7 +110,7 @@ public sealed class SeedPurchasesTests(BookingDatabaseFixture database) : IClass
 
     private sealed class RejectingPublisher : IBookingConfirmedPublisher
     {
-        public Task PublishAsync(BookingConfirmedV1 message, CancellationToken cancellationToken = default) =>
+        public Task PublishAsync(BookingConfirmed message, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Seed tickets must not be queued in RabbitMQ.");
     }
 
@@ -126,7 +126,7 @@ public sealed class SeedPurchasesTests(BookingDatabaseFixture database) : IClass
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
             Assert.False(await db.Database.SqlQueryRaw<bool>(
                 "SELECT pg_try_advisory_xact_lock(51000000) AS \"Value\"").SingleAsync(ct));
-            var message = await request.Content!.ReadFromJsonAsync<BookingConfirmedV1>(ct);
+            var message = await request.Content!.ReadFromJsonAsync<BookingConfirmed>(ct);
             Assert.NotNull(message);
             tickets.Rows[message.BookingId] = message.Quantity;
             return new HttpResponseMessage(HttpStatusCode.OK);

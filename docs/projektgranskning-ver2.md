@@ -26,7 +26,7 @@ Statusen **Finns** betyder att implementationen har hittats och granskats; genom
 
 **Krav:** Kundens platsval och skydd mot att samma plats säljs två gånger, med Kulturhusets 600 numrerade platser i tre sektioner.
 
-**Nuvarande lösning:** Kunden väljer sektion och antal. [CreateBookingRequest](../src/services/Booking/features/bookings/CreateBookingRequest.cs) innehåller `InventoryId` och `Quantity`. [BookingItem](../src/services/Booking/features/bookings/Models/BookingItem.cs), [BookingConfirmedV1](../src/Contracts/Messaging/BookingConfirmedV1.cs) och [Ticket](../src/services/TicketService/Features/Tickets/Models/Ticket.cs) saknar stol-ID och rad/stolnummer. Kundens [biljettval](../src/frontend/customer-web/src/features/bookings/components/EventTicketInventory.tsx) och [platskarta](../src/frontend/customer-web/src/features/venues/components/VenueSeatingMapViewer.tsx) ger inget val av enskild stol; kartan visar uppladdade bild- eller PDF-filer.
+**Nuvarande lösning:** Kunden väljer sektion och antal. [CreateBookingRequest](../src/services/Booking/features/bookings/CreateBookingRequest.cs) innehåller `InventoryId` och `Quantity`. [BookingItem](../src/services/Booking/features/bookings/Models/BookingItem.cs), [BookingConfirmed](../src/Contracts/Messaging/BookingConfirmed.cs) och [Ticket](../src/services/TicketService/Features/Tickets/Models/Ticket.cs) saknar stol-ID och rad/stolnummer. Kundens [biljettval](../src/frontend/customer-web/src/features/bookings/components/EventTicketInventory.tsx) och [platskarta](../src/frontend/customer-web/src/features/venues/components/VenueSeatingMapViewer.tsx) ger inget val av enskild stol; kartan visar uppladdade bild- eller PDF-filer.
 
 Katalogen har redan en `Seat`-modell och ett unikt index på sektion, rad och nummer i [EventCatalogDbContext](../src/services/EventCatalog/data/EventCatalogDbContext.cs). Den modellen är inte kopplad till köpflödet. `TicketNumberInBookingItem` är ett löpnummer inom bokningsraden och kan därför inte användas som stolnummer.
 
@@ -46,7 +46,7 @@ Gatewayen saknar `AddAuthentication`, `AddAuthorization` och motsvarande middlew
 
 **Krav:** Biljettjänsten skapar en PDF med QR-kod och skickar biljetten via e-post. Arkitekturbilden visar även Mailpit.
 
-**Nuvarande lösning:** [TicketDocumentService](../src/services/TicketService/Features/Tickets/DownloadTicket/TicketDocumentService.cs) skapar PDF och QR-kod. Kunden hämtar biljetten på [bokningssidan](../src/frontend/customer-web/src/features/bookings/pages/BookingPage.tsx). Det finns ingen e-postavsändare, SMTP-konfiguration eller Mailpit-tjänst. Kundens e-postadress sparas i Booking, men ingår inte i [bekräftelsemeddelandet](../src/Contracts/Messaging/BookingConfirmedV1.cs) som TicketService tar emot.
+**Nuvarande lösning:** [TicketDocumentService](../src/services/TicketService/Features/Tickets/DownloadTicket/TicketDocumentService.cs) skapar PDF och QR-kod. Kunden hämtar biljetten på [bokningssidan](../src/frontend/customer-web/src/features/bookings/pages/BookingPage.tsx). Det finns ingen e-postavsändare, SMTP-konfiguration eller Mailpit-tjänst. Kundens e-postadress sparas i Booking, men ingår inte i [bekräftelsemeddelandet](../src/Contracts/Messaging/BookingConfirmed.cs) som TicketService tar emot.
 
 Kundens åtkomsttoken sparas i `sessionStorage`. Bokningslänken ensam räcker därför inte för att återöppna bokningen på en annan enhet eller i en ny webbläsarsession. Detta gör den uteblivna e-postleveransen särskilt märkbar.
 
@@ -131,7 +131,7 @@ Dokumentationen innehåller flera kvarvarande uppgifter från tidigare implement
 | Val av bestämda numrerade platser | Saknas | Bokning och biljett hanterar sektion och antal. Se lucka 1. |
 | Saga-liknande reservera/betala/bekräfta eller släpp | Finns | Meddelandeflöde, kompensation, återbetalning och avstämning. Se [StartPayment](../src/services/Booking/features/bookings/Payments/StartPayment.cs). |
 | Betalsimulator med lyckat, misslyckat och timeout | Finns | Konfigurerbara och lagrade utfall. Även slumpat utfall och admininställningar finns. |
-| RabbitMQ mellan tjänsterna | Finns | `PaymentRequestedV1`, `PaymentSucceededV1`, `PaymentFailedV1` och `BookingConfirmedV1` är inkopplade. Se [meddelandedokumentationen](messaging.md). |
+| RabbitMQ mellan tjänsterna | Finns | `PaymentRequested`, `PaymentSucceeded`, `PaymentFailed` och `BookingConfirmed` är inkopplade. Se [meddelandedokumentationen](messaging.md). |
 | `SeatsHeld` vid reservation | Saknas | Ingen sådan kontraktstyp, publicering eller konsumtion hittades. Publiceringen anges uttryckligen i dokumentets bokningsflöde. |
 | `TicketScanned` i arkitekturbilden | Saknas | Skanning ändrar biljettstatus via HTTP. Ingen sådan händelse hittades. Detta är en avvikelse från bilden; flödestexten kräver framför allt att biljetten markeras använd. |
 | Biljetter skapas vid `BookingConfirmed` | Finns | [BookingConfirmedConsumer](../src/services/TicketService/Features/Tickets/IssueTickets/BookingConfirmedConsumer.cs) och idempotent utfärdande med unikt databasindex finns. |

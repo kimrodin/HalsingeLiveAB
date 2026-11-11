@@ -9,7 +9,7 @@ public sealed class RabbitMqPaymentRequestedPublisher(
     RabbitMqConnectionProvider connectionProvider,
     ILogger<RabbitMqPaymentRequestedPublisher> logger) : IPaymentRequestedPublisher
 {
-    public async Task PublishAsync(PaymentRequestedV1 message, CancellationToken cancellationToken = default)
+    public async Task PublishAsync(PaymentRequested message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
 

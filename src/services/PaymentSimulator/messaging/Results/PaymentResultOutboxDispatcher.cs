@@ -18,7 +18,7 @@ public sealed class PaymentResultOutboxDispatcher(PaymentDbContext db, IPaymentR
             try
             {
                 if (message.Outcome == "Succeeded")
-                    await publisher.PublishAsync(new PaymentSucceededV1
+                    await publisher.PublishAsync(new PaymentSucceeded
                     {
                         MessageId = message.MessageId, CorrelationId = message.BookingId,
                         PaymentId = message.PaymentId, BookingId = message.BookingId,
@@ -27,7 +27,7 @@ public sealed class PaymentResultOutboxDispatcher(PaymentDbContext db, IPaymentR
                         OccurredAtUtc = message.OccurredAtUtc
                     }, token);
                 else if (message.Outcome is "Failed" or "TimedOut")
-                    await publisher.PublishAsync(new PaymentFailedV1
+                    await publisher.PublishAsync(new PaymentFailed
                     {
                         MessageId = message.MessageId, CorrelationId = message.BookingId,
                         PaymentId = message.PaymentId, BookingId = message.BookingId,

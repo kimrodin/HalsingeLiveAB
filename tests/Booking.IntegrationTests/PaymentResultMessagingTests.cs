@@ -82,7 +82,7 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
         try
         {
             var now = DateTimeOffset.UtcNow;
-            var message = new PaymentSucceededV1
+            var message = new PaymentSucceeded
             {
                 MessageId = Guid.NewGuid(), CorrelationId = bookingId, BookingId = bookingId, PaymentId = Guid.NewGuid(),
                 Amount = 125m, Currency = "SEK", PaidAtUtc = now, OccurredAtUtc = now
@@ -236,7 +236,7 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
                             NullLogger<PaymentResultOutboxDispatcher>.Instance).DispatchPendingAsync(token);
                     }
                     // An invalid following message acts as a barrier for the earlier duplicate.
-                    var invalid = new PaymentFailedV1
+                    var invalid = new PaymentFailed
                     {
                         MessageId = Guid.NewGuid(), CorrelationId = bookingId, PaymentId = result.PaymentId,
                         BookingId = bookingId, Amount = inventory.Price + 1, Currency = "SEK", FailureCode = "Failed",
@@ -297,7 +297,7 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
                     // A conflicting following request reaching DLQ proves the original
                     // queued request was consumed after cancellation, not merely left queued.
                     var barrierId = Guid.NewGuid();
-                    await requestPublisher.PublishAsync(new PaymentRequestedV1
+                    await requestPublisher.PublishAsync(new PaymentRequested
                     {
                         MessageId = barrierId, CorrelationId = lateBookingId, BookingId = lateBookingId,
                         Amount = lateRequest.Amount + 1, Currency = "SEK", OccurredAtUtc = lateRequest.CreatedAtUtc

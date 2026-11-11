@@ -5,7 +5,7 @@ namespace PaymentSimulator.Messaging.Requests;
 
 public sealed class PaymentRequestedHandler(ProcessPaymentHandler paymentHandler)
 {
-    public Task<ProcessPaymentResponse> HandleAsync(PaymentRequestedV1 message, CancellationToken cancellationToken = default)
+    public Task<ProcessPaymentResponse> HandleAsync(PaymentRequested message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         if (message.MessageId == Guid.Empty)

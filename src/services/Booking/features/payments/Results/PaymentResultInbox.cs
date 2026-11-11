@@ -7,14 +7,14 @@ namespace Booking.Features.Payments.Results;
 
 public sealed class PaymentResultInbox(BookingDbContext db, TimeProvider clock)
 {
-    public Task ReceiveAsync(PaymentSucceededV1 message, CancellationToken token = default) => ReceiveAsync(new PaymentResultInboxMessage
+    public Task ReceiveAsync(PaymentSucceeded message, CancellationToken token = default) => ReceiveAsync(new PaymentResultInboxMessage
     {
         MessageId = message.MessageId, CorrelationId = message.CorrelationId, PaymentId = message.PaymentId,
         BookingId = message.BookingId, Amount = message.Amount, Currency = message.Currency,
         Outcome = "Succeeded", PaidAtUtc = message.PaidAtUtc, OccurredAtUtc = message.OccurredAtUtc
     }, token);
 
-    public Task ReceiveAsync(PaymentFailedV1 message, CancellationToken token = default) => ReceiveAsync(new PaymentResultInboxMessage
+    public Task ReceiveAsync(PaymentFailed message, CancellationToken token = default) => ReceiveAsync(new PaymentResultInboxMessage
     {
         MessageId = message.MessageId, CorrelationId = message.CorrelationId, PaymentId = message.PaymentId,
         BookingId = message.BookingId, Amount = message.Amount, Currency = message.Currency,

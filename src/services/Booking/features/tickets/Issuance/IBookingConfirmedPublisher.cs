@@ -4,5 +4,5 @@ namespace Booking.Features.Tickets.Issuance;
 
 public interface IBookingConfirmedPublisher
 {
-    Task PublishAsync(BookingConfirmedV1 message, CancellationToken cancellationToken = default);
+    Task PublishAsync(BookingConfirmed message, CancellationToken cancellationToken = default);
 }

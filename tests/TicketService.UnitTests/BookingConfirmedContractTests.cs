@@ -7,19 +7,19 @@ namespace TicketService.UnitTests;
 public sealed class BookingConfirmedContractTests
 {
     [Theory]
-    [InlineData(nameof(BookingConfirmedV1.MessageId))]
-    [InlineData(nameof(BookingConfirmedV1.CorrelationId))]
-    [InlineData(nameof(BookingConfirmedV1.BookingId))]
-    [InlineData(nameof(BookingConfirmedV1.BookingItemId))]
-    [InlineData(nameof(BookingConfirmedV1.EventId))]
-    [InlineData(nameof(BookingConfirmedV1.EventName))]
-    [InlineData(nameof(BookingConfirmedV1.EventStartsAtUtc))]
-    [InlineData(nameof(BookingConfirmedV1.VenueName))]
-    [InlineData(nameof(BookingConfirmedV1.SectionName))]
-    [InlineData(nameof(BookingConfirmedV1.Quantity))]
-    [InlineData(nameof(BookingConfirmedV1.UnitPrice))]
-    [InlineData(nameof(BookingConfirmedV1.Currency))]
-    [InlineData(nameof(BookingConfirmedV1.OccurredAtUtc))]
+    [InlineData(nameof(BookingConfirmed.MessageId))]
+    [InlineData(nameof(BookingConfirmed.CorrelationId))]
+    [InlineData(nameof(BookingConfirmed.BookingId))]
+    [InlineData(nameof(BookingConfirmed.BookingItemId))]
+    [InlineData(nameof(BookingConfirmed.EventId))]
+    [InlineData(nameof(BookingConfirmed.EventName))]
+    [InlineData(nameof(BookingConfirmed.EventStartsAtUtc))]
+    [InlineData(nameof(BookingConfirmed.VenueName))]
+    [InlineData(nameof(BookingConfirmed.SectionName))]
+    [InlineData(nameof(BookingConfirmed.Quantity))]
+    [InlineData(nameof(BookingConfirmed.UnitPrice))]
+    [InlineData(nameof(BookingConfirmed.Currency))]
+    [InlineData(nameof(BookingConfirmed.OccurredAtUtc))]
     public void Deserialize_RejectsMissingFieldForRabbitMqAndHttp(string field)
     {
         foreach (var options in new[] { JsonSerializerOptions.Default, JsonSerializerOptions.Web })
@@ -29,7 +29,7 @@ public sealed class BookingConfirmedContractTests
             Assert.True(payload.Remove(propertyName));
 
             var exception = Assert.Throws<JsonException>(() =>
-                JsonSerializer.Deserialize<BookingConfirmedV1>(payload.ToJsonString(), options));
+                JsonSerializer.Deserialize<BookingConfirmed>(payload.ToJsonString(), options));
 
             Assert.Contains(propertyName, exception.Message);
         }
@@ -46,7 +46,7 @@ public sealed class BookingConfirmedContractTests
         {
             var payload = JsonSerializer.SerializeToUtf8Bytes(message, options);
 
-            Assert.Equal(message, JsonSerializer.Deserialize<BookingConfirmedV1>(payload, options));
+            Assert.Equal(message, JsonSerializer.Deserialize<BookingConfirmed>(payload, options));
         }
     }
 }

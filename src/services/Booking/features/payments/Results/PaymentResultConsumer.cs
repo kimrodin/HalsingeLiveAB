@@ -58,8 +58,8 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
         {
             message = delivery.RoutingKey switch
             {
-                PaymentResultMessagingTopology.Succeeded => JsonSerializer.Deserialize<PaymentSucceededV1>(delivery.Body.Span),
-                PaymentResultMessagingTopology.Failed => JsonSerializer.Deserialize<PaymentFailedV1>(delivery.Body.Span),
+                PaymentResultMessagingTopology.Succeeded => JsonSerializer.Deserialize<PaymentSucceeded>(delivery.Body.Span),
+                PaymentResultMessagingTopology.Failed => JsonSerializer.Deserialize<PaymentFailed>(delivery.Body.Span),
                 _ => throw new InvalidDataException("Unknown payment result routing key.")
             };
             if (message is null) throw new InvalidDataException("Payment result was empty.");
@@ -73,8 +73,8 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
 
         var messageContext = message switch
         {
-            PaymentSucceededV1 succeeded => (succeeded.MessageId, succeeded.BookingId, succeeded.CorrelationId),
-            PaymentFailedV1 failed => (failed.MessageId, failed.BookingId, failed.CorrelationId),
+            PaymentSucceeded succeeded => (succeeded.MessageId, succeeded.BookingId, succeeded.CorrelationId),
+            PaymentFailed failed => (failed.MessageId, failed.BookingId, failed.CorrelationId),
             _ => throw new InvalidDataException("Unknown payment result.")
         };
 
@@ -84,16 +84,16 @@ public sealed class PaymentResultConsumer(RabbitMqConnectionProvider connectionP
             {
                 await using var scope = scopes.CreateAsyncScope();
                 var inbox = scope.ServiceProvider.GetRequiredService<PaymentResultInbox>();
-                if (message is PaymentSucceededV1 succeeded) await inbox.ReceiveAsync(succeeded, token);
-                else await inbox.ReceiveAsync((PaymentFailedV1)message, token);
+                if (message is PaymentSucceeded succeeded) await inbox.ReceiveAsync(succeeded, token);
+                else await inbox.ReceiveAsync((PaymentFailed)message, token);
                 // The committed inbox owns retries, including refunds, after this acknowledgement.
                 await channel.BasicAckAsync(delivery.DeliveryTag, false, token);
-                if (message is PaymentSucceededV1 succeededMessage)
+                if (message is PaymentSucceeded succeededMessage)
                     logger.LogInformation(
                         "Received successful payment {PaymentId} for booking {BookingId}, correlation {CorrelationId} (message {MessageId}).",
                         succeededMessage.PaymentId, succeededMessage.BookingId, succeededMessage.CorrelationId,
                         succeededMessage.MessageId);
-                else if (message is PaymentFailedV1 failed)
+                else if (message is PaymentFailed failed)
                     logger.LogWarning(
                         "Received failed payment {PaymentId} for booking {BookingId}, correlation {CorrelationId}; reason {FailureCode} (message {MessageId}).",
                         failed.PaymentId, failed.BookingId, failed.CorrelationId, failed.FailureCode, failed.MessageId);

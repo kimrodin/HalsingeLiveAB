@@ -86,7 +86,7 @@ public sealed class TicketIssueOutboxDispatcher(
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static BookingConfirmedV1 ToContract(TicketIssueOutboxMessage message) => new()
+    private static BookingConfirmed ToContract(TicketIssueOutboxMessage message) => new()
     {
         MessageId = message.MessageId,
         CorrelationId = message.BookingId,

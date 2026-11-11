@@ -1,7 +1,7 @@
 namespace HalsingeLive.Contracts.Messaging;
 
 /// <summary>Snapshot of a paid booking item used to issue tickets.</summary>
-public sealed record BookingConfirmedV1
+public sealed record BookingConfirmed
 {
     public required Guid MessageId { get; init; }
     public required Guid CorrelationId { get; init; }

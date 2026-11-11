@@ -27,13 +27,13 @@ public sealed class PaymentResultInboxTests
         var now = DateTimeOffset.UtcNow;
 
         await Assert.ThrowsAsync<InvalidDataException>(() => succeeded
-            ? inbox.ReceiveAsync(new PaymentSucceededV1
+            ? inbox.ReceiveAsync(new PaymentSucceeded
             {
                 MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), BookingId = bookingId,
                 PaymentId = Guid.NewGuid(), Amount = 125.50m, Currency = "SEK",
                 PaidAtUtc = now, OccurredAtUtc = now
             })
-            : inbox.ReceiveAsync(new PaymentFailedV1
+            : inbox.ReceiveAsync(new PaymentFailed
             {
                 MessageId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), BookingId = bookingId,
                 PaymentId = Guid.NewGuid(), Amount = 125.50m, Currency = "SEK",

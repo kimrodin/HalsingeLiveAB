@@ -142,7 +142,7 @@ public sealed class IssueTicketsHandlerTests
 
     [Theory]
     [MemberData(nameof(InvalidMessages))]
-    public async Task HandleAsync_RejectsInvalidSnapshotWithoutSaving(BookingConfirmedV1 message, string field)
+    public async Task HandleAsync_RejectsInvalidSnapshotWithoutSaving(BookingConfirmed message, string field)
     {
         await using var db = CreateDbContext();
         var exception = await Assert.ThrowsAsync<TicketIssueValidationException>(

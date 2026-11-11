@@ -9,7 +9,7 @@ public sealed class RabbitMqBookingConfirmedPublisher(
     RabbitMqConnectionProvider connectionProvider,
     ILogger<RabbitMqBookingConfirmedPublisher> logger) : IBookingConfirmedPublisher
 {
-    public async Task PublishAsync(BookingConfirmedV1 message, CancellationToken cancellationToken = default)
+    public async Task PublishAsync(BookingConfirmed message, CancellationToken cancellationToken = default)
     {
         var connection = await connectionProvider.GetConnectionAsync(cancellationToken);
         await using var channel = await connection.CreateChannelAsync(

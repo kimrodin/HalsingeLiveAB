@@ -104,7 +104,7 @@ public sealed class HttpTicketServiceClientTests
         Assert.Contains("The ticket is for a different event.", exception.Message);
     }
 
-    private static BookingConfirmedV1 CreateMessage() => new()
+    private static BookingConfirmed CreateMessage() => new()
     {
         MessageId = Guid.NewGuid(),
         CorrelationId = Guid.NewGuid(),
@@ -141,9 +141,9 @@ public sealed class HttpTicketServiceClientTests
 
     private static async Task<HttpResponseMessage> VerifyBodyAndRespondAsync(
         HttpRequestMessage request,
-        BookingConfirmedV1 expected)
+        BookingConfirmed expected)
     {
-        var actual = await request.Content!.ReadFromJsonAsync<BookingConfirmedV1>();
+        var actual = await request.Content!.ReadFromJsonAsync<BookingConfirmed>();
         Assert.Equal(expected, actual);
         return new HttpResponseMessage(HttpStatusCode.OK);
     }

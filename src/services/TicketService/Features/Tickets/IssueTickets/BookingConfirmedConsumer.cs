@@ -81,10 +81,10 @@ public sealed class BookingConfirmedConsumer(
         BasicDeliverEventArgs delivery,
         CancellationToken stoppingToken)
     {
-        BookingConfirmedV1 message;
+        BookingConfirmed message;
         try
         {
-            message = JsonSerializer.Deserialize<BookingConfirmedV1>(delivery.Body.Span)
+            message = JsonSerializer.Deserialize<BookingConfirmed>(delivery.Body.Span)
                 ?? throw new InvalidDataException("The booking confirmation message was empty.");
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException)
