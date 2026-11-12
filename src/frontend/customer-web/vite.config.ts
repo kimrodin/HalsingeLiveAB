@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      allowedHosts: ['troy-agreed-wiley-campus.trycloudflare.com'],
       proxy: {
         '/api': {
           target: API_GATEWAY_PROXY_TARGET,

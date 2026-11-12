@@ -1,22 +1,25 @@
 # Seq
 
-Start the services from the repository root with
+Starta tjänsterna från repositoryts rotkatalog med
 `docker compose --env-file .env -f src/Compose.yaml up -d --build`.
-Open [http://localhost:5341](http://localhost:5341). Local Seq runs without
-authentication; do not expose it outside a trusted development environment.
+Öppna [http://localhost:5341](http://localhost:5341). Den lokala Seq-instansen
+körs utan autentisering. Gör den inte tillgänglig utanför en betrodd
+utvecklingsmiljö.
 
-The five .NET services send structured logs to `http://seq:5341` and also keep
-writing to their container console. Each event includes `ServiceName` and
-`Environment`. The published UI port defaults to `5341` and can be changed with
-`SEQ_PUBLISHED_PORT`. Configure the ingestion URL with
-`Serilog__SeqServerUrl` (Compose sets it to `http://seq:5341`).
+De fem .NET-tjänsterna skickar strukturerade loggar till `http://seq:5341` och
+fortsätter även att skriva till sina containrars konsol. Varje logghändelse
+innehåller `ServiceName` och `Environment`. Den publicerade porten för
+webbgränssnittet är som standard `5341` och kan ändras med `SEQ_PUBLISHED_PORT`.
+Konfigurera adressen för logginläsning med `Serilog__SeqServerUrl` (Compose
+anger `http://seq:5341`).
 
-Each successful reservation returns its ID in `X-Correlation-ID`; the gateway
-and Booking request-completion events include it as `BookingId` and
-`CorrelationId`. Payment and ticket messages use the same booking ID as
-`CorrelationId`.
+Varje lyckad reservation returnerar sitt ID i `X-Correlation-ID`. Gatewayens
+och Bookings logghändelser vid avslutade anrop innehåller det som `BookingId`
+och `CorrelationId`. Betalnings- och biljettmeddelanden använder samma
+boknings-ID som `CorrelationId`.
 
-To follow a purchase, create a reservation and complete `StartPayment`, then
-search `CorrelationId = 'booking-guid'`. For the failed path, set
-`PAYMENT_SIMULATION_OUTCOME=Failed` in `.env`, recreate `payment-simulator`, and
-use a new reservation. For detailed test-purchase steps, see [payments](payments.md).
+Följ ett köp genom att skapa en reservation och slutföra `StartPayment`. Sök
+sedan efter `CorrelationId = 'booking-guid'`. Om du vill testa ett misslyckat
+köp anger du `PAYMENT_SIMULATION_OUTCOME=Failed` i `.env`, återskapar
+`payment-simulator` och använder en ny reservation. Detaljerade steg för att
+testa köp finns i [betalningsguiden](payments.md).
