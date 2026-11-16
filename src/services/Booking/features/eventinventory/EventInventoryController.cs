@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Booking.Features.EventInventory;
 
@@ -58,6 +59,7 @@ public class EventInventoryController(
         return inventory is null ? NotFound() : Ok(inventory);
     }
 
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost("from-catalog/{eventId:guid}")]
     public async Task<IActionResult> CreateEventInventoryFromCatalog(
         Guid eventId,

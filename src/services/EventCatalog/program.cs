@@ -52,6 +52,7 @@ builder.Services.AddScoped<GetEventImageHandler>();
 builder.Services.AddScoped<DeleteEventImageHandler>();
 builder.Services.AddScoped<GetEventHandler>();
 builder.Services.AddScoped<CreateEventHandler>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient<IBookingInventoryClient, HttpBookingInventoryClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Booking:BaseUrl"]
