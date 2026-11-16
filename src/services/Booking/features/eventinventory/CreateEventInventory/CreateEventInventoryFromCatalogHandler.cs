@@ -72,3 +72,5 @@ public sealed class CreateEventInventoryFromCatalogHandler(
             inventory.Price)).ToArray();
     }
 }
+
+public sealed class InventoryConflictException(string message) : Exception(message);

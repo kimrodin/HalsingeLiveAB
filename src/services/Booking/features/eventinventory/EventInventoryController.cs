@@ -13,7 +13,6 @@ namespace Booking.Features.EventInventory;
 [ApiController]
 [Route("/[action]")]
 public class EventInventoryController(
-    CreateEventInventoryHandler createHandler,
     CreateEventInventoryFromCatalogHandler createFromCatalogHandler,
     GetEventInventoryHandler getHandler,
     ListEventInventoryHandler listHandler,
@@ -57,40 +56,6 @@ public class EventInventoryController(
 
         var inventory = await getHandler.Handle(inventoryId, cancellationToken);
         return inventory is null ? NotFound() : Ok(inventory);
-    }
-
-    [HttpPost("{eventId:guid}")]
-    public async Task<IActionResult> CreateEventInventory(
-        Guid eventId,
-        [FromBody] CreateEventInventoryRequest request,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var created = await createHandler.Handle(eventId, request, cancellationToken);
-            return CreatedAtAction(nameof(GetEventInventory), new { inventoryId = created.InventoryId }, created);
-        }
-        catch (BookingValidationException exception)
-        {
-            return RequestValidationProblem(exception);
-        }
-        catch (InventoryConflictException exception)
-        {
-            return Conflict(new ProblemDetails
-            {
-                Title = "Inventory already exists.",
-                Detail = exception.Message,
-                Status = StatusCodes.Status409Conflict
-            });
-        }
-        catch (DbUpdateException exception) when (IsDuplicateEventSection(exception))
-        {
-            return Conflict(new ProblemDetails
-            {
-                Title = "Inventory already exists for this event and section.",
-                Status = StatusCodes.Status409Conflict
-            });
-        }
     }
 
     [HttpPost("from-catalog/{eventId:guid}")]
