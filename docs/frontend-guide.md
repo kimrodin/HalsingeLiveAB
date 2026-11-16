@@ -141,6 +141,22 @@ Authorization: Bearer <token>
 
 Dashboardens flöde, statistik och uppdateringar beskrivs i [Admin-dashboarden](admin_dashboard.md). Adminsidorna använder mutationer för att spara ändringar, exempelvis när ett evenemang skapas eller redigeras.
 
+### Sparat evenemang utan färdigt biljettlager
+
+Om skapandet returnerar `inventoryProvisioned: false` öppnas det sparade
+evenemangets redigeringssida med en tydlig varning. Formuläret övergår till
+redigering av samma `eventId`, så ett nytt försök skapar inte ett nytt evenemang.
+Biljettlagrets status kontrolleras även när redigeringssidan laddas om eller öppnas
+från evenemangslistan.
+
+Knappen **Försök skapa biljettlagret igen** anropar Bookings befintliga
+`CreateEventInventoryFromCatalog` genom `/booking-api` med administratörens token.
+HTTP-hjälparen försöker förnya tokenen före anropet. Ett lyckat försök visar en
+bekräftelse; ett misslyckat försök behåller varningen och möjligheten att försöka
+igen. Vid `409` kontrolleras att alla sektioner faktiskt har lager innan försöket
+räknas som klart. Ett ofullständigt lager visas som ett fel och befintligt lager
+skrivs inte över.
+
 ## API-anrop och data
 
 API-funktioner ligger nära den feature som använder dem, till exempel `features/events/api/events.ts`. De ansvarar för att bygga URL:er, query-parametrar och request-typer. Den gemensamma HTTP-hjälparen ansvarar för själva nätverksanropet och grundläggande felhantering.

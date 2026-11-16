@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert, Box, Button, CircularProgress, MenuItem, Paper, Stack, TextField, Typography,
@@ -9,6 +9,7 @@ import { createEvent, getEvent, updateEvent } from '../api/events';
 import { getVenues } from '../../venues/api/venues';
 import type { EventDetails } from '../types';
 import EventImageManager from '../components/EventImageManager';
+import EventInventoryStatus from '../components/EventInventoryStatus';
 import VenueSeatingMapViewer from '../../seating-maps/components/VenueSeatingMapViewer';
 
 // Gränserna kommer från backend.
@@ -130,9 +131,14 @@ function EventForm({ event }: { event?: EventDetails }) {
         sectionPrices: sections.map((s) => ({ sectionId: s.id, price: Number(v.prices[s.id]) })),
       });
     },
-    onSuccess: async () => {
+    onSuccess: async result => {
       await queryClient.invalidateQueries({ queryKey: ['events'] });
-      navigate('/events');
+      if (result && !result.inventoryProvisioned) {
+        // Switch to the saved event so saving/reloading cannot submit CreateEvent again.
+        navigate(`/events/${result.eventId}?inventoryPending=1`, { replace: true });
+      } else {
+        navigate('/events');
+      }
     },
   });
 
@@ -311,6 +317,7 @@ function EventForm({ event }: { event?: EventDetails }) {
 
 export default function EventFormPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const isEdit = id !== undefined;
 
   const { data: event, isPending, isError } = useQuery({
@@ -322,5 +329,10 @@ export default function EventFormPage() {
   if (isEdit && isPending) return <CircularProgress />;
   if (isEdit && isError) return <Alert severity="error">Hittade inte evenemanget.</Alert>;
 
-  return <EventForm event={event} />;
+  return (
+    <>
+      {event && <EventInventoryStatus event={event} initialFailure={searchParams.get('inventoryPending') === '1'} />}
+      <EventForm key={event?.eventId ?? 'new'} event={event} />
+    </>
+  );
 }

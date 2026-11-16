@@ -1,4 +1,4 @@
-import { BASE_URL, request, sendJson } from '../../../shared/api/http';
+import { ApiError, BASE_URL, request, sendJson } from '../../../shared/api/http';
 import type {
   CreateEventRequest,
   EventDetails,
@@ -44,6 +44,38 @@ export interface ListEventsResult {
 
 interface CreateEventResponseDto {
   eventId: string;
+  inventoryProvisioned: boolean;
+}
+
+export interface EventInventorySection {
+  eventId: string;
+  sectionId: string;
+}
+
+export function hasCompleteEventInventory(
+  event: Pick<EventDetails, 'eventId' | 'sectionPrices'>,
+  inventory: EventInventorySection[],
+): boolean {
+  const sections = new Set(inventory.filter(row => row.eventId === event.eventId).map(row => row.sectionId));
+  return event.sectionPrices.length > 0 && event.sectionPrices.every(section => sections.has(section.sectionId));
+}
+
+export function getEventInventory(eventId: string): Promise<EventInventorySection[]> {
+  return request(`/ListEventInventory/${eventId}`, {}, '/booking-api');
+}
+
+export async function retryEventInventory(eventId: string): Promise<EventInventorySection[]> {
+  try {
+    return await request(`/CreateEventInventoryFromCatalog/from-catalog/${eventId}`, { method: 'POST' }, '/booking-api');
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 409) throw error;
+
+    // A previous attempt may have committed before its response was lost.
+    // A conflict alone does not prove that every section has inventory.
+    const [event, inventory] = await Promise.all([getEvent(eventId), getEventInventory(eventId)]);
+    if (hasCompleteEventInventory(event, inventory)) return inventory;
+    throw new Error('Biljettlagret är ofullständigt och behöver kontrolleras av en systemadministratör.', { cause: error });
+  }
 }
 
 function eventFromListItem(event: EventListItemDto): EventDetails {
