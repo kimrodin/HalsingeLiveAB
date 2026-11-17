@@ -30,6 +30,24 @@ Om adminport 5173 ändras behöver realmets `redirectUris`, `webOrigins` och
 `src/frontend/admin-web/src/app/auth/keycloak.ts`. I en befintlig installation
 ändras realmets adresser via Keycloak-konsolen. Använd `localhost` i webbläsaren.
 
+## Administratörstoken vid lagerinitiering
+
+Bookings `CreateEventInventoryFromCatalog` kräver den befintliga policyn
+`AdminOnly`. EventCatalog vidarebefordrar den inloggade administratörens
+Bearer-token vid skapande av evenemang och vid seedning. Booking validerar själv
+tokenens signatur, issuer, audience `eventcatalog`, giltighet och rollen `admin`.
+Anonyma anrop får `401`; autentiserade användare utan adminrollen får `403`.
+
+Ingen extra Keycloak-klient, klienthemlighet eller provisionering behövs.
+Tokenen läggs på varje utgående anrop och delas inte mellan administratörer.
+Lagerläsningar är fortsatt publika; endpointen för anroparstyrt pris och antal
+är borttagen och lagrets värden hämtas från katalogen.
+
+Lagerinitiering kräver en aktiv administratörsförfrågan med en giltig token och
+kan därför inte köras fristående i ett bakgrundsjobb. Om tokenen har gått ut under
+en lång seedkörning behöver administratören förnya inloggningen och köra seedningen
+igen. Ett `401` eller `403` från Booking avbryter det aktuella lagrets återförsök.
+
 ## Felsökning
 
 ```sh

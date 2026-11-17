@@ -1,5 +1,4 @@
 using Booking.Features.Bookings.Models;
-using Booking.Features.EventInventory.CreateEventInventory;
 using System.Net.Mail;
 
 namespace Booking.Features.Bookings;
@@ -59,26 +58,6 @@ public static class BookingValidation
         {
             errors["CustomerEmail"] = ["CustomerEmail must be a valid email address."];
         }
-    }
-
-    public static void ValidateCreateInventory(Guid eventId, CreateEventInventoryRequest request)
-    {
-        var errors = new Dictionary<string, string[]>();
-        if (request is null)
-        {
-            errors["Request"] = ["An inventory request is required."];
-            ThrowIfInvalid(errors);
-            return;
-        }
-
-        ValidateId(errors, eventId, "EventId");
-        ValidateId(errors, request.SectionId, "SectionId");
-
-        if (request.TotalQuantity <= 0)
-            errors["TotalQuantity"] = ["TotalQuantity must be greater than zero."];
-
-        ValidateMoney(errors, "Price", request.Price);
-        ThrowIfInvalid(errors);
     }
 
     public static void ValidatePriceAndTotal(decimal unitPrice, int quantity)

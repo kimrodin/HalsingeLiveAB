@@ -86,7 +86,7 @@ Kundnamn, e-post, åtkomsttoken, biljettuppgifter och betalningsresultat lagras 
 
 ### 1. Initiera lagret vid behov
 
-Lager skapas först i PostgreSQL genom exempelvis [CreateEventInventoryHandler](../src/services/Booking/features/eventinventory/CreateEventInventory/CreateEventInventoryHandler.cs). Redis fylls på vid första reservationen eller läsningen av tillgänglighet.
+Lager skapas först i PostgreSQL genom [CreateEventInventoryFromCatalogHandler](../src/services/Booking/features/eventinventory/CreateEventInventory/CreateEventInventoryFromCatalogHandler.cs), som hämtar pris och kapacitet från EventCatalog, eller genom utvecklingsverktyget [SeedInventoryHandler](../src/services/Booking/features/Seed/SeedInventoryHandler.cs), som använder fasta seeddefinitioner. Redis fylls på vid första reservationen eller läsningen av tillgänglighet.
 
 `InitializeInventoryAsync` använder `StringSetAsync` med `When.NotExists`. Ett saknat saldo får databasens `AvailableQuantity` som startvärde. Ett befintligt Redis-saldo skrivs inte över, eftersom det kan innehålla avdrag för andra kunders aktiva reservationer.
 

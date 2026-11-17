@@ -95,7 +95,6 @@ builder.Services.AddHostedService<PaymentResultInboxWorker>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<TicketIssueOutboxDispatcher>();
 builder.Services.AddHostedService<TicketIssueOutboxBackgroundService>();
-builder.Services.AddScoped<CreateEventInventoryHandler>();
 builder.Services.AddScoped<CreateEventInventoryFromCatalogHandler>();
 builder.Services.AddHttpClient<IEventCatalogClient, HttpEventCatalogClient>(client =>
 {
