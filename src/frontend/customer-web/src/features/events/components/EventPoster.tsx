@@ -6,9 +6,11 @@ interface EventPosterProps {
   eventName: string
   imageUrl?: string | null
   compact?: boolean
+  tile?: boolean
+  banner?: boolean
 }
 
-export default function EventPoster({ eventName, imageUrl, compact = false }: EventPosterProps) {
+export default function EventPoster({ eventName, imageUrl, compact = false, tile = false, banner = false }: EventPosterProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const hasImage = Boolean(imageUrl && failedUrl !== imageUrl)
 
@@ -20,10 +22,10 @@ export default function EventPoster({ eventName, imageUrl, compact = false }: Ev
       loading="lazy"
       onError={hasImage ? () => setFailedUrl(imageUrl!) : undefined}
       sx={{
-        width: compact ? { xs: 84, sm: 92 } : { xs: 100, sm: 142, md: 164 },
-        aspectRatio: '3 / 4',
+        width: tile ? '100%' : banner ? { xs: '100%', sm: 142, md: 164 } : compact ? { xs: 84, sm: 92 } : { xs: 100, sm: 142, md: 164 },
+        aspectRatio: banner ? { xs: '16 / 9', sm: '3 / 4' } : '3 / 4',
         objectFit: 'cover',
-        borderRadius: 2.5,
+        borderRadius: tile ? 2 : 2.5,
         flexShrink: 0,
         display: 'block',
       }}

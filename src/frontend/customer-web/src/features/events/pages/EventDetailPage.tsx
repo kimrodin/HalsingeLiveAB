@@ -85,10 +85,16 @@ export default function EventDetailPage() {
   return (
     <Stack spacing={3}>
       <Button component={RouterLink} to="/" sx={{ alignSelf: 'flex-start' }}>Tillbaka till evenemang</Button>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'center' }}>
-        <EventPoster imageUrl={event.imageUrl} eventName={event.name} />
-        <Box>
-          <Typography variant="h3" component="h1" sx={{ fontWeight: 700 }}>{event.name}</Typography>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
+        <EventPoster imageUrl={event.imageUrl} eventName={event.name} banner />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            variant="h3"
+            component="h1"
+            sx={{ fontWeight: 700, fontSize: { xs: '1.5rem', sm: '3rem' } }}
+          >
+            {event.name}
+          </Typography>
           <Typography color="text.secondary">{formatEventRange(event.startDate, event.endDate)}</Typography>
         </Box>
       </Stack>
