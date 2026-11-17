@@ -5,9 +5,9 @@ nedan. Ingen miljömall ingår. Värdena avser lokal utveckling med loopback-por
 
 ## Generera hemligheter
 
-Generera ett separat värde för varje `*_PASSWORD` och för
-`TICKET_SERVICE_INTERNAL_API_KEY`. Ersätt **eget genererat värde** i tabellen.
-Den interna nyckeln delas automatiskt av Booking och TicketService.
+Generera ett separat värde för varje `*_PASSWORD`, `TICKET_SERVICE_INTERNAL_API_KEY`
+och `PAYMENT_SIMULATOR_INTERNAL_API_KEY`. Ersätt **eget genererat värde** i tabellen.
+Compose delar respektive intern nyckel mellan Booking och den berörda tjänsten.
 
 PowerShell (även version 5):
 
@@ -51,6 +51,7 @@ Hexvärden behöver ingen extra escapning i anslutningssträngarna.
 | `TICKET_SERVICE_TIMEOUT_SECONDS` | `5` |
 | `PAYMENT_SIMULATOR_TIMEOUT_SECONDS` | `5` |
 | `TICKET_SERVICE_INTERNAL_API_KEY` | **eget genererat värde** |
+| `PAYMENT_SIMULATOR_INTERNAL_API_KEY` | **eget genererat värde** |
 | `API_GATEWAY_PUBLISHED_PORT` | `127.0.0.1:5212` |
 | `ADMIN_WEB_PUBLISHED_PORT` | `127.0.0.1:5173` |
 | `CUSTOMER_WEB_PUBLISHED_PORT` | `127.0.0.1:5174` |

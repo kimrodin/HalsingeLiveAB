@@ -30,34 +30,6 @@ public sealed class RedisReservationService(IConnectionMultiplexer connection)
             [ReservationKeyPrefix]);
     }
 
-    public async Task<long> ClearAllInventoryAsync()
-    {
-        long deletedKeyCount = 0;
-        foreach (var endpoint in connection.GetEndPoints())
-        {
-            var server = connection.GetServer(endpoint);
-            if (!server.IsConnected || server.IsReplica)
-                continue;
-
-            var keys = new[]
-                {
-                    "inventory:*",
-                    "reservation:*",
-                    "reservation-expired:*",
-                    "reservation-confirmed:*",
-                    "reservation-cancelled:*"
-                }
-                .SelectMany(pattern => server.Keys(database: _redis.Database, pattern: pattern))
-                .Distinct()
-                .ToArray();
-
-            if (keys.Length > 0)
-                deletedKeyCount += await _redis.KeyDeleteAsync(keys);
-        }
-
-        return deletedKeyCount;
-    }
-
     public async Task<int> GetAvailableQuantityAsync(Guid eventId, Guid sectionId, int initialQuantity)
     {
         await InitializeInventoryAsync(eventId, sectionId, initialQuantity);
