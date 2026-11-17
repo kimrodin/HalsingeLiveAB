@@ -136,8 +136,10 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
         }
     }
 
-    [PaymentResultMessagingFact]
-    public async Task Request_outbox_to_payment_consumer_and_result_inbox_survives_replay_and_applies_all_outcomes()
+    [PaymentResultMessagingTheory]
+    [InlineData(125)]
+    [InlineData(0)]
+    public async Task Request_outbox_to_payment_consumer_and_result_inbox_survives_replay_and_applies_all_outcomes(int price)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         var token = timeout.Token;
@@ -190,7 +192,7 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
                 foreach (var outcome in new[] { "Succeeded", "Failed", "TimedOut" })
                 {
                     simulation["PaymentSimulation:Outcome"] = outcome;
-                    var inventory = await fixture.CreateInventoryAsync();
+                    var inventory = await fixture.CreateInventoryAsync(price: price);
                     var bookingId = await fixture.ReserveAsync(inventory, gateway);
                     await using (var db = fixture.CreateContext())
                     {
@@ -275,7 +277,7 @@ public sealed class PaymentResultMessagingTests(BookingDatabaseFixture fixture) 
                 // Hold a real request in RabbitMQ until the reservation has expired and
                 // HTTP reconciliation has established a cancellation fence.
                 await requestConsumer.StopAsync(token);
-                var lateInventory = await fixture.CreateInventoryAsync();
+                var lateInventory = await fixture.CreateInventoryAsync(price: price);
                 var lateBookingId = await fixture.ReserveAsync(lateInventory, gateway);
                 PaymentRequestOutboxMessage lateRequest;
                 await using (var db = fixture.CreateContext())

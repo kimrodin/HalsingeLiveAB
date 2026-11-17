@@ -85,7 +85,7 @@ Följande metadata följer varje meddelande:
 - `CorrelationId` kopplar samman meddelanden i samma flöde. Projektets publicerare använder bokningens ID.
 - `OccurredAtUtc` anger när begäran eller utfallet inträffade. Tiden ändras inte när publiceringen görs om.
 
-Alla kontraktsfält är `required` och saknar genererade ID:n eller standardvärden för pengar. Mottagaren måste ändå kontrollera innehållet: ett angivet men tomt GUID eller ett ogiltigt belopp är fortfarande felaktigt. Valuta ska vara en uttrycklig kod med tre stora bokstäver. Betalningsbelopp måste vara positiva; ett uttryckligen angivet biljettpris på noll är tillåtet.
+Alla kontraktsfält är `required` och saknar genererade ID:n eller standardvärden för pengar. Mottagaren måste ändå kontrollera innehållet: ett angivet men tomt GUID eller ett ogiltigt belopp är fortfarande felaktigt. Valuta ska vara en uttrycklig kod med tre stora bokstäver. Betalningsbelopp och biljettpriser får vara noll men inte negativa. Nollbetalningar följer samma meddelandeflöde och simuleringsinställningar som övriga betalningar.
 
 `PaidAtUtc` anger när betalningen lyckades, medan `OccurredAtUtc` beskriver händelsens tidpunkt. En senare återbetalning ändrar inte det historiska framgångsmeddelandet. Ett nätverksavbrott eller en otillgänglig broker är inte ett slutligt betalningsfel och ska inte omvandlas till `PaymentFailed`.
 

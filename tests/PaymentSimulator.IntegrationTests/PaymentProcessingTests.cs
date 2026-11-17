@@ -48,11 +48,13 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         await command.ExecuteNonQueryAsync();
     }
 
-    [Fact]
-    public async Task SeedPayments_CreatesHistoricalPaymentsAndDeletesOnlySeedRows()
+    [Theory]
+    [InlineData(100)]
+    [InlineData(0)]
+    public async Task SeedPayments_CreatesHistoricalPaymentsAndDeletesOnlySeedRows(int amount)
     {
         var row = new PaymentSimulator.Features.Seed.SeedPayment(
-            Guid.Parse("51000000-0001-0001-0000-000000000001"), 100m,
+            Guid.Parse("51000000-0001-0001-0000-000000000001"), amount,
             new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero));
         var ordinaryId = Guid.NewGuid();
         await using var db = CreateDb();
@@ -318,10 +320,12 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         Assert.Equal(payment.PaidAt, outbox.PaidAtUtc);
     }
 
-    [Fact]
-    public async Task Cancel_fences_delayed_creation_and_pending_completion()
+    [Theory]
+    [InlineData(100)]
+    [InlineData(0)]
+    public async Task Cancel_fences_delayed_creation_and_pending_completion(int amount)
     {
-        var request = new ProcessPaymentRequest(Guid.NewGuid(), 100m, "SEK");
+        var request = new ProcessPaymentRequest(Guid.NewGuid(), amount, "SEK");
         await using var db = CreateDb();
         var cancelled = await Handler(db).Cancel(request, default);
         Assert.Equal(PaymentStatus.TimedOut, cancelled.Status);
@@ -330,7 +334,7 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
 
         var pending = new Payment
         {
-            Id = Guid.NewGuid(), BookingId = Guid.NewGuid(), Amount = 100m, Currency = "SEK",
+            Id = Guid.NewGuid(), BookingId = Guid.NewGuid(), Amount = amount, Currency = "SEK",
             CreatedAt = DateTimeOffset.UtcNow, CompleteAfter = DateTimeOffset.UtcNow.AddSeconds(-1),
             PlannedOutcome = PaymentStatus.Succeeded, Status = PaymentStatus.Pending
         };

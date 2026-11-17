@@ -12,6 +12,27 @@ namespace Booking.UnitTests;
 public sealed class SalesStatisticsTests
 {
     [Fact]
+    public async Task Free_tickets_count_in_sales_without_increasing_revenue()
+    {
+        await using var db = Db();
+        var gateway = new Payments();
+        Add(db, gateway, 0m, 7, "2026-10-02T12:00:00Z");
+        Add(db, gateway, 0m, 7, "2026-10-02T12:00:00Z");
+        Add(db, gateway, 0m, 7, "2026-10-02T12:00:00Z");
+        Add(db, gateway, 0m, 2, "2026-10-02T12:00:00Z", refunded: "2026-10-03T12:00:00Z");
+        await db.SaveChangesAsync();
+
+        var result = await new SalesStatistics(db, gateway).Get(new(new(2026, 10, 2), new(2026, 10, 2)), default);
+
+        Assert.Equal(new SalesSummary(0m, 0m, 0m, 21, 2), result.Summary);
+        var day = Assert.Single(result.Daily);
+        Assert.Equal(21, day.SoldTickets);
+        Assert.Equal(2, day.RefundedTickets);
+        Assert.Equal(0m, day.NetRevenue);
+        Assert.Null(result.Changes.NetRevenuePercent);
+    }
+
+    [Fact]
     public async Task AggregatesPaidDatesRefundsZeroDaysAndPreviousPeriod()
     {
         await using var db = Db();

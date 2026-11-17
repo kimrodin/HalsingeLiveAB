@@ -2,6 +2,8 @@
 
 Booking äger priset och reservationstiden (10 minuter). Klienten skickar ett boknings-ID till `POST /StartPayment/{bookingId}` med bokningens gästtoken i `X-Guest-Access-Token`. Booking sparar betalningsavsikten och en request-outbox med databasens `TotalPrice` och valutan `SEK` i samma transaktion. Den första accepterade starten returnerar `202 Accepted` med `Pending`; betalningen startas därefter via RabbitMQ. Bekräftelse kräver ett verifierat betalningsresultat med rätt bokning, belopp, valuta och status `Succeeded`, samt en fortfarande giltig reservation. PostgreSQLs villkorade lageruppdatering är slutlig kontroll mot dubbelförsäljning. Se [meddelandeflöden och kodreferenser](messaging.md).
 
+Nollbelopp är tillåtna och följer samma betalningsflöde och simuleringsinställningar som positiva belopp. En gratisbokning räknas i biljettantal och beläggning men bidrar med 0 kr i omsättning. Negativa belopp är inte tillåtna.
+
 `POST /ConfirmBooking/{bookingId}` returnerar `403 Forbidden` utan att ändra bokningen. Använd `StartPayment` för hela flödet.
 
 Svaret från `StartPayment` innehåller `bookingId`, `bookingStatus`, `paymentStatus` och `message`:

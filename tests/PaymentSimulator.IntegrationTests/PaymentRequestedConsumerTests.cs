@@ -119,7 +119,7 @@ public sealed class PaymentRequestedConsumerTests : IAsyncLifetime
                 JsonSerializer.SerializeToUtf8Bytes(invalid with { MessageId = Guid.Empty }),
                 JsonSerializer.SerializeToUtf8Bytes(invalid with { CorrelationId = Guid.Empty }),
                 JsonSerializer.SerializeToUtf8Bytes(invalid with { OccurredAtUtc = default }),
-                JsonSerializer.SerializeToUtf8Bytes(invalid with { Amount = 0m })
+                JsonSerializer.SerializeToUtf8Bytes(invalid with { Amount = -0.01m })
             })
             {
                 await PublishAsync(channel, payload, token);

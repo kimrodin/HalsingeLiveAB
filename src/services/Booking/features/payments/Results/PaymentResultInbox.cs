@@ -59,9 +59,9 @@ public sealed class PaymentResultInbox(BookingDbContext db, TimeProvider clock)
             throw new InvalidDataException("CorrelationId must match BookingId.");
         if (message.OccurredAtUtc == default || message.Outcome is not ("Succeeded" or "Failed" or "TimedOut"))
             throw new InvalidDataException("Payment result requires an occurrence time and a known terminal outcome.");
-        if (message.Amount <= 0 || message.Amount > 9999999999999999.99m || decimal.Round(message.Amount, 2) != message.Amount
+        if (message.Amount < 0 || message.Amount > 9999999999999999.99m || decimal.Round(message.Amount, 2) != message.Amount
             || message.Currency is not { Length: 3 } || message.Currency.Any(character => character is < 'A' or > 'Z'))
-            throw new InvalidDataException("Payment result requires a positive amount with at most two decimals and an uppercase currency code.");
+            throw new InvalidDataException("Payment result requires a non-negative amount with at most two decimals and an uppercase currency code.");
         if (message.Outcome == "Succeeded" && (message.PaidAtUtc is null || message.PaidAtUtc == default(DateTimeOffset)
             || message.PaidAtUtc > message.OccurredAtUtc))
             throw new InvalidDataException("Successful payment requires a valid PaidAtUtc no later than OccurredAtUtc.");

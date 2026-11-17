@@ -18,7 +18,7 @@ public sealed class PaymentRequestedHandlerTests
         yield return [message with { CorrelationId = Guid.Empty }, "CorrelationId"];
         yield return [message with { OccurredAtUtc = default }, "OccurredAtUtc"];
         yield return [message with { BookingId = Guid.Empty }, "BookingId"];
-        yield return [message with { Amount = 0m }, "Amount"];
+        yield return [message with { Amount = -0.01m }, "Amount"];
         yield return [message with { Amount = 1.001m }, "Amount"];
         foreach (var currency in new[] { null, "", "sek", " SEK ", "S3K" })
             yield return [message with { Currency = currency! }, "Currency"];
