@@ -134,6 +134,12 @@ Startkommandot finns i [snabbstarten](../README.md).
   motsvarande konto eller brokerkonfiguration har ändrats.
 - Lokal `dotnet run` och Vite på värddatorn läser inte rotens `.env` automatiskt.
 
+## Betrodda proxyer och klientadress
+
+Gateway och webbproxyer har fasta Compose-adresser. Tillit och adressnormalisering
+beskrivs i [klientadressguiden](client-addressing.md), inklusive valfria
+`PROXY_NETWORK_*`- och `*_PROXY_IP`-variabler samt uppdatering av befintliga nätverk.
+
 ## Kodreferenser
 
 - [Tjänster, miljövariabler, portar och volymer](../src/Compose.yaml)

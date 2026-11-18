@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
+import { createApiProxy } from './proxyHeaders.ts'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -14,24 +15,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       proxy: {
-        '/payment-api': {
-          target: API_GATEWAY_PROXY_TARGET,
-          changeOrigin: true,
-        },
+        '/payment-api': createApiProxy(API_GATEWAY_PROXY_TARGET),
         // Keep /api so it cannot conflict with React Router's /venues and /events pages.
-        '/api': {
-          target: API_GATEWAY_PROXY_TARGET,
-          changeOrigin: true,
-        },
-        '/booking-api': {
-          target: API_GATEWAY_PROXY_TARGET,
-          changeOrigin: true,
-          ws: true,
-        },
-        '/ticket-api': {
-          target: API_GATEWAY_PROXY_TARGET,
-          changeOrigin: true,
-        },
+        '/api': createApiProxy(API_GATEWAY_PROXY_TARGET),
+        '/booking-api': createApiProxy(API_GATEWAY_PROXY_TARGET, true),
+        '/ticket-api': createApiProxy(API_GATEWAY_PROXY_TARGET),
       },
     },
   }
