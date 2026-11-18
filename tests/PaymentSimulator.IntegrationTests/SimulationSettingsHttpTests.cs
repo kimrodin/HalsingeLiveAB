@@ -31,6 +31,7 @@ public sealed class SimulationSettingsHttpTests : IAsyncLifetime
 {
     private const string Path = "/api/admin/payment-simulation";
     private const string Issuer = "https://payment-tests.example/realms/halsingelive";
+    private const string InternalApiKey = "payment-integration-test-key";
     private static readonly SymmetricSecurityKey SigningKey = new(RandomNumberGenerator.GetBytes(32));
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -104,6 +105,51 @@ public sealed class SimulationSettingsHttpTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Internal_key_can_process_read_and_refund_a_payment()
+    {
+        client.DefaultRequestHeaders.Add("X-Internal-Api-Key", InternalApiKey);
+        var bookingId = Guid.NewGuid();
+        using var created = await client.PostAsJsonAsync("/api/payments", new { bookingId, amount = 125.50m, currency = "SEK" });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var payment = (await created.Content.ReadFromJsonAsync<ProcessPaymentResponse>(JsonOptions))!;
+        Assert.Equal(bookingId, payment.BookingId);
+        Assert.Equal(PaymentSimulator.Features.Payments.Models.PaymentStatus.Succeeded, payment.Status);
+
+        using var byBooking = await client.GetAsync($"/api/payments/by-booking/{bookingId}");
+        Assert.Equal(HttpStatusCode.OK, byBooking.StatusCode);
+        var found = (await byBooking.Content.ReadFromJsonAsync<ProcessPaymentResponse>(JsonOptions))!;
+        Assert.Equal(payment.PaymentId, found.PaymentId);
+        using var byId = await client.GetAsync($"/api/payments/{payment.PaymentId}");
+        Assert.Equal(HttpStatusCode.OK, byId.StatusCode);
+
+        using var refunded = await client.PostAsync($"/api/payments/{payment.PaymentId}/refund", null);
+        Assert.Equal(HttpStatusCode.OK, refunded.StatusCode);
+        Assert.NotNull((await refunded.Content.ReadFromJsonAsync<ProcessPaymentResponse>(JsonOptions))!.RefundedAt);
+    }
+
+    [Fact]
+    public async Task Internal_key_can_cancel_a_payment_by_booking()
+    {
+        client.DefaultRequestHeaders.Add("X-Internal-Api-Key", InternalApiKey);
+        using var response = await client.PostAsJsonAsync("/api/payments/cancel",
+            new { bookingId = Guid.NewGuid(), amount = 125.50m, currency = "SEK" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull((await response.Content.ReadFromJsonAsync<ProcessPaymentResponse>(JsonOptions))!.RefundedAt);
+    }
+
+    [Theory]
+    [InlineData("/health")]
+    [InlineData("/health/ready")]
+    [InlineData("/health/live")]
+    public async Task Health_checks_remain_anonymous(string path)
+    {
+        using var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private static HttpRequestMessage CreateRequest(string method)
     {
         var request = new HttpRequestMessage(new HttpMethod(method), Path);
@@ -139,6 +185,7 @@ public sealed class SimulationSettingsHttpTests : IAsyncLifetime
             builder.UseEnvironment("Development");
             builder.UseSetting("ConnectionStrings:PaymentSimulator", ConnectionString);
             builder.UseSetting("Authentication:Authority", Issuer);
+            builder.UseSetting("PaymentSimulator:InternalApiKey", InternalApiKey);
             builder.UseSetting("PaymentSimulation:Outcome", "Succeeded");
             builder.UseSetting("PaymentSimulation:DelayMs", "500");
             builder.UseSetting("PaymentSimulation:TimeoutMs", "5000");

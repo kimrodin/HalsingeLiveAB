@@ -192,9 +192,8 @@ Seedverktygen använder samma Redis-tjänst men bygger om saldo direkt från dat
 | [SeedPurchasesHandler](../src/services/Booking/features/Seed/SeedPurchases/SeedPurchasesHandler.cs) | Sparar bekräftade seedköp och databaslager först. Raderar sedan berörda Redis-lager och initierar dem från de committade antalen. |
 | [DeleteSeedPurchasesHandler](../src/services/Booking/features/Seed/SeedPurchases/DeleteSeedPurchasesHandler.cs) | Återställer databaslager vid seedradering och laddar därefter om berörda Redis-lager. |
 | [DeleteSeedInventoryHandler](../src/services/Booking/features/Seed/DeleteSeedInventoryHandler.cs) | Raderar berörda Redis-lager när seedlager utan bokningsreferenser tas bort. |
-| [ClearBookingDatabaseHandler](../src/services/Booking/features/Seed/ClearBookingDatabaseHandler.cs) | Raderar Bookings bokningar och lager och kör därefter `ClearAllInventoryAsync`. |
 
-`DeleteInventoryAsync` tar bort sektionssaldot, reservationsindexet och de aktiva reservationshashar som indexet pekar på. Den tar inte bort samtliga slutmarkörer. `ClearAllInventoryAsync` tar däremot bort alla nycklar som matchar `inventory:*`, `reservation:*`, `reservation-expired:*`, `reservation-confirmed:*` och `reservation-cancelled:*` i den använda Redis-databasen.
+`DeleteInventoryAsync` tar bort sektionssaldot, reservationsindexet och de aktiva reservationshashar som indexet pekar på. Den tar inte bort samtliga slutmarkörer.
 
 Prefixen har ingen miljö- eller tjänsteinstansidentifierare. Flera Booking-miljöer som delar samma Redis-databas delar därför också dessa nyckelutrymmen. Se även [seedköp och återställning](seed-purchases.md).
 

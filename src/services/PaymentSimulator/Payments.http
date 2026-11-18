@@ -1,5 +1,6 @@
 @baseUrl = http://localhost:5111
 @accessToken = replace-with-keycloak-admin-access-token
+@internalApiKey = replace-with-payment-simulator-internal-api-key
 
 ### Read settings (Keycloak access token with admin role)
 GET {{baseUrl}}/api/admin/payment-simulation
@@ -19,6 +20,7 @@ Content-Type: application/json
 ### Process a simulated payment
 # @name processPayment
 POST {{baseUrl}}/api/payments
+X-Internal-Api-Key: {{internalApiKey}}
 Content-Type: application/json
 
 {
@@ -29,15 +31,19 @@ Content-Type: application/json
 
 ### Retrieve the payment created above
 GET {{baseUrl}}/api/payments/{{processPayment.response.body.$.paymentId}}
+X-Internal-Api-Key: {{internalApiKey}}
 
 ### Recover the result after an HTTP timeout before retrying POST
 GET {{baseUrl}}/api/payments/by-booking/a6fbc50d-e6bd-4a8f-b635-e37f7a01dd11
+X-Internal-Api-Key: {{internalApiKey}}
 
 ### Compensate a late payment (idempotent)
 POST {{baseUrl}}/api/payments/{{processPayment.response.body.$.paymentId}}/refund
+X-Internal-Api-Key: {{internalApiKey}}
 
 ### Cancel by booking even when the original POST result is unknown
 POST {{baseUrl}}/api/payments/cancel
+X-Internal-Api-Key: {{internalApiKey}}
 Content-Type: application/json
 
 {
@@ -48,3 +54,4 @@ Content-Type: application/json
 
 ### Verify a missing payment returns 404
 GET {{baseUrl}}/api/payments/00000000-0000-0000-0000-000000000001
+X-Internal-Api-Key: {{internalApiKey}}

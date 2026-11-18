@@ -3,11 +3,11 @@ using System.Text.Json;
 
 namespace Booking.Features.Payments.Gateway;
 
-public sealed class HttpPaymentGateway(HttpClient client) : IPaymentGateway
+public sealed class HttpPaymentGateway(HttpClient client, IConfiguration configuration) : IPaymentGateway
 {
     public async Task<PaymentResult> GetByBookingAsync(Guid bookingId, CancellationToken cancellationToken)
     {
-        using var response = await client.GetAsync($"api/payments/by-booking/{bookingId}", cancellationToken);
+        using var response = await SendAsync(HttpMethod.Get, $"api/payments/by-booking/{bookingId}", null, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
         return await ReadAsync(response, cancellationToken);
@@ -15,20 +15,34 @@ public sealed class HttpPaymentGateway(HttpClient client) : IPaymentGateway
 
     public async Task<PaymentResult> ProcessAsync(Guid bookingId, decimal amount, string currency, CancellationToken cancellationToken)
     {
-        using var response = await client.PostAsJsonAsync("api/payments", new { bookingId, amount, currency }, cancellationToken);
+        using var response = await SendAsync(HttpMethod.Post, "api/payments", new { bookingId, amount, currency }, cancellationToken);
         return await ReadAsync(response, cancellationToken);
     }
 
     public async Task<PaymentResult> RefundAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        using var response = await client.PostAsync($"api/payments/{paymentId}/refund", null, cancellationToken);
+        using var response = await SendAsync(HttpMethod.Post, $"api/payments/{paymentId}/refund", null, cancellationToken);
         return await ReadAsync(response, cancellationToken);
     }
 
     public async Task<PaymentResult> CancelAsync(Guid bookingId, decimal amount, string currency, CancellationToken cancellationToken)
     {
-        using var response = await client.PostAsJsonAsync("api/payments/cancel", new { bookingId, amount, currency }, cancellationToken);
+        using var response = await SendAsync(HttpMethod.Post, "api/payments/cancel", new { bookingId, amount, currency }, cancellationToken);
         return await ReadAsync(response, cancellationToken);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object content,
+        CancellationToken cancellationToken)
+    {
+        var apiKey = configuration["PaymentSimulator:InternalApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new PaymentContractException("PaymentSimulator:InternalApiKey is not configured.");
+
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Add("X-Internal-Api-Key", apiKey);
+        if (content is not null)
+            request.Content = JsonContent.Create(content);
+        return await client.SendAsync(request, cancellationToken);
     }
 
     private static async Task<PaymentResult> ReadAsync(HttpResponseMessage response, CancellationToken cancellationToken)

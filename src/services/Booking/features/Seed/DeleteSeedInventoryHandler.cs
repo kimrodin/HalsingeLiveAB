@@ -29,7 +29,7 @@ public sealed class DeleteSeedInventoryHandler(
                 .AnyAsync(item => inventoryIds.Contains(item.InventoryId), cancellationToken);
             if (hasBookings)
                 throw new SeedInventoryDeleteConflictException(
-                    "Seed inventory is referenced by bookings. Delete or clear those bookings before deleting the seed inventory.");
+                    "Seed inventory is referenced by bookings and cannot be deleted.");
         }
 
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
