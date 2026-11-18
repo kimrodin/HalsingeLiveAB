@@ -28,12 +28,8 @@ Första bygget och Vites installation av beroenden kan ta en stund.
 ## Kontrollera och gör ett testköp
 
 ```sh
-docker compose ps
-curl --fail http://localhost:5212/api/health/ready
+docker compose up -d --build
 ```
-
-Health-anropet ska ge HTTP 200 och `Healthy`. I Windows PowerShell 5 använder
-du `curl.exe`. Se [health-guiden](docs/health-checks.md) för övriga tjänster.
 
 1. Öppna adminappen och logga in som `testadmin` med lösenordet i
    `KEYCLOAK_APP_ADMIN_PASSWORD`. [Keycloak och inloggning](docs/keycloak.md).
@@ -47,10 +43,9 @@ du `curl.exe`. Se [health-guiden](docs/health-checks.md) för övriga tjänster.
 Platskartor och evenemangsbilder laddas upp i adminappen och sparas automatiskt
 i Compose-volymer. Gör ingen seedradering under pågående kundköp.
 
-## Loggar och stopp
+## Stopp
 
 ```sh
-docker compose logs --tail=100
 docker compose down
 ```
 

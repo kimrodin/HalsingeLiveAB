@@ -33,18 +33,18 @@ public sealed class PaymentValidationTests
         new(Guid.Parse("11111111-1111-1111-1111-111111111111"), amount, currency);
 
     [Theory]
+    [InlineData("0")]
     [InlineData("0.01")]
     [InlineData("9999999999999999.99")]
-    public void Validate_AcceptsSmallestAndLargestAllowedAmount(string amount) =>
+    public void Validate_AcceptsZeroAndPositiveAmountsWithinLimits(string amount) =>
         Assert.Equal("SEK", PaymentValidation.ValidateAndNormalizeCurrency(
             Request(decimal.Parse(amount, CultureInfo.InvariantCulture))));
 
     [Theory]
-    [InlineData("0")]
     [InlineData("-0.01")]
     [InlineData("1.001")]
     [InlineData("10000000000000000")]
-    public void Validate_RejectsNonPositiveOverpreciseOrExcessiveAmount(string amount)
+    public void Validate_RejectsNegativeOverpreciseOrExcessiveAmount(string amount)
     {
         var exception = Assert.Throws<ArgumentException>(() => PaymentValidation.ValidateAndNormalizeCurrency(
             Request(decimal.Parse(amount, CultureInfo.InvariantCulture))));

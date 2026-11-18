@@ -9,9 +9,9 @@ public static class PaymentValidation
     {
         if (request.BookingId == Guid.Empty)
             throw new ArgumentException("Invalid BookingId");
-        if (request.Amount <= 0 || request.Amount != decimal.Round(request.Amount, 2)
+        if (request.Amount < 0 || request.Amount != decimal.Round(request.Amount, 2)
             || request.Amount > 9999999999999999.99m)
-            throw new ArgumentException("Amount must be positive and have at most two decimal places.");
+            throw new ArgumentException("Amount must be non-negative and have at most two decimal places.");
         var currency = request.Currency?.Trim().ToUpperInvariant();
         if (currency is null || currency.Length != 3 || !currency.All(char.IsAsciiLetter))
             throw new ArgumentException("Currency must be a three-letter code.");

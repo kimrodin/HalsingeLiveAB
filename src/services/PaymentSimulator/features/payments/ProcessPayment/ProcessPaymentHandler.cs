@@ -102,7 +102,7 @@ public class ProcessPaymentHandler(PaymentDbContext dbContext, SimulationSetting
 
     public async Task<ProcessPaymentResponse> Cancel(ProcessPaymentRequest request, CancellationToken cancellationToken)
     {
-        if (request.BookingId == Guid.Empty || request.Amount <= 0
+        if (request.BookingId == Guid.Empty || request.Amount < 0
             || request.Amount != decimal.Round(request.Amount, 2)
             || request.Amount > 9999999999999999.99m
             || request.Currency?.Trim().ToUpperInvariant() != "SEK")

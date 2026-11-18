@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.Models;
@@ -21,7 +22,7 @@ public sealed class SeedPaymentsHandler(PaymentDbContext db)
         if (rows is null || rows.Count is < 1 or > 1000 || rows.Any(row => row is null)
             || rows.Select(row => row.BookingId).Distinct().Count() != rows.Count
             || rows.Any(row => !row.BookingId.ToString().StartsWith("51000000-", StringComparison.Ordinal)
-                || row.Amount <= 0 || row.PaidAt.Offset != TimeSpan.Zero))
+                || row.Amount < 0 || row.PaidAt.Offset != TimeSpan.Zero))
             throw new ArgumentException("Provide valid deterministic seed payments.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(51000001)", ct);
@@ -52,4 +53,4 @@ public sealed class SeedPaymentsHandler(PaymentDbContext db)
     }
 }
 
-public sealed record SeedPayment(Guid BookingId, decimal Amount, DateTimeOffset PaidAt);
+public sealed record SeedPayment(Guid BookingId, [property: JsonRequired] decimal Amount, DateTimeOffset PaidAt);
