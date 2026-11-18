@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PaymentSimulator.Authentication;
 using PaymentSimulator.Features.Payments.GetPayment;
 using PaymentSimulator.Features.Payments.ProcessPayment;
 using PaymentSimulator.Features.Payments.RefundPayment;
@@ -6,6 +8,7 @@ using PaymentSimulator.Features.Payments.RefundPayment;
 namespace PaymentSimulator.Features.Payments;
 
 [ApiController]
+[Authorize(Policy = InternalApiKeyAuthenticationHandler.PolicyName)]
 [Route("api/payments")]
 public sealed class PaymentsController(
     GetPaymentHandler getPaymentHandler,

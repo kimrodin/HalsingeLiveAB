@@ -7,6 +7,7 @@ x-app-environment: &app-environment
   RabbitMq__UserName: loadtest
   RabbitMq__Password: loadtest
   TicketService__InternalApiKey: loadtest-only
+  PaymentSimulator__InternalApiKey: loadtest-payments-only
   Logging__LogLevel__Default: Warning
   Logging__LogLevel__Microsoft.AspNetCore: Warning
 

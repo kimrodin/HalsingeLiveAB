@@ -7,7 +7,6 @@ namespace Booking.Features.Seed;
 public sealed class SeedInventoryController(
     SeedInventoryHandler handler,
     DeleteSeedInventoryHandler deleteSeedInventoryHandler,
-    ClearBookingDatabaseHandler clearBookingDatabaseHandler,
     IWebHostEnvironment environment,
     ILogger<SeedInventoryController> logger) : ControllerBase
 {
@@ -79,32 +78,6 @@ public sealed class SeedInventoryController(
             logger.LogError(exception, "Failed to delete Booking seed inventory.");
             return Problem(
                 title: "An error occurred while deleting Booking seed inventory.",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
-    }
-
-    [HttpDelete]
-    [ProducesResponseType(typeof(ClearBookingDatabaseResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> ClearBookingDatabase(CancellationToken cancellationToken)
-    {
-        if (!environment.IsDevelopment())
-            return NotFound();
-
-        try
-        {
-            return Ok(await clearBookingDatabaseHandler.Handle(cancellationToken));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            logger.LogError(exception, "Failed to empty the Booking database.");
-            return Problem(
-                title: "An error occurred while emptying the Booking database.",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }

@@ -48,7 +48,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Beroenden, inklusive PostgreSQL, Redis och RabbitMQ, startas också. Ange `TICKET_SERVICE_INTERNAL_API_KEY` för Booking och TicketService innan Compose-kommandot körs. Tjänsterna initierar sina databaser vid uppstart i utvecklingsmiljön. Kontrollera loggarna om databasen eller API:t ännu inte är redo:
+Beroenden, inklusive PostgreSQL, Redis och RabbitMQ, startas också. Ange separata `TICKET_SERVICE_INTERNAL_API_KEY` och `PAYMENT_SIMULATOR_INTERNAL_API_KEY` i rotens `.env` innan Compose-kommandot körs. Tjänsterna initierar sina databaser vid uppstart i utvecklingsmiljön. Kontrollera loggarna om databasen eller API:t ännu inte är redo:
 
 ```powershell
 docker compose logs booking payment-simulator
@@ -66,8 +66,26 @@ Skapa först rotens lokala `.env` enligt [konfigurationsguiden](configuration.md
 Tabellens värdportar följer den guidens värden; API-portarna publiceras inte direkt.
 Compose läser `PAYMENT_SIMULATOR_BASE_URL` och `PAYMENT_SIMULATOR_TIMEOUT_SECONDS`
 för Bookings interna HTTP-uppslag. Databaserna använder port 5432 internt.
-Frontendens `/payment-api/api/payments/...` går genom gatewayen, som tar bort
-`/payment-api` men behåller simulatorns eget `/api`.
+Gatewayen tar bort `/payment-api` men behåller simulatorns eget `/api`.
+Kundwebben använder Booking för betalningar; den interna nyckeln skickas aldrig till webbläsaren.
+
+### Autentisering
+
+Betalningsendpoints för skapande, uppslag, återbetalning och avbrytning kräver
+`X-Internal-Api-Key`. Nyckeln konfigureras som `PaymentSimulator:InternalApiKey`
+i både Booking och PaymentSimulator; Compose hämtar värdet från
+`PAYMENT_SIMULATOR_INTERNAL_API_KEY`. Booking lägger till headern på varje internt
+HTTP-anrop, även från bakgrundsjobb. Saknad eller felaktig nyckel ger `401`.
+Om serverns nyckel inte har konfigurerats nekas också anropen.
+
+Admininställningar, försäljningsstatistik och seedfunktioner kräver fortsatt en
+giltig Keycloak-token med rollen `admin`. Den interna nyckeln ger inte
+adminbehörighet, och en admin-token ger inte åtkomst till de interna
+betalningsendpoints som beskrivs nedan. Hälsokontroller kan anropas anonymt.
+
+För lokal körning utan Compose behöver `PaymentSimulator__InternalApiKey` sättas
+i båda tjänsternas processmiljöer. Skydda tjänstekommunikationen med TLS om
+trafiken lämnar det betrodda lokala nätverket.
 
 ### Befintlig PaymentSimulator-databas
 
