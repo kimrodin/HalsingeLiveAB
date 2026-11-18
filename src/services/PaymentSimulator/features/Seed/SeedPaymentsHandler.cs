@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using PaymentSimulator.Data;
 using PaymentSimulator.Features.Payments.Models;
@@ -52,4 +53,4 @@ public sealed class SeedPaymentsHandler(PaymentDbContext db)
     }
 }
 
-public sealed record SeedPayment(Guid BookingId, decimal Amount, DateTimeOffset PaidAt);
+public sealed record SeedPayment(Guid BookingId, [property: JsonRequired] decimal Amount, DateTimeOffset PaidAt);
