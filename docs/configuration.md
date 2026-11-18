@@ -6,8 +6,12 @@ nedan. Ingen miljömall ingår. Värdena avser lokal utveckling med loopback-por
 ## Generera hemligheter
 
 Generera ett separat värde för varje `*_PASSWORD` och för
-`TICKET_SERVICE_INTERNAL_API_KEY`. Ersätt **eget genererat värde** i tabellen.
-Den interna nyckeln delas automatiskt av Booking och TicketService.
+`TICKET_SERVICE_INTERNAL_API_KEY` och `PAYMENT_SIMULATOR_INTERNAL_API_KEY`.
+Ersätt **eget genererat värde** i tabellen. Biljettnyckeln delas automatiskt av
+Booking och TicketService. I versioner med intern betalningsautentisering delar
+Booking och PaymentSimulator betalningsnyckeln via Compose. Äldre brancher kan
+ha variabeln i `.env` utan att använda den; kontrollera att `src/Compose.yaml`
+skickar `PaymentSimulator__InternalApiKey` till båda tjänsterna.
 
 PowerShell (även version 5):
 
@@ -51,6 +55,7 @@ Hexvärden behöver ingen extra escapning i anslutningssträngarna.
 | `TICKET_SERVICE_TIMEOUT_SECONDS` | `5` |
 | `PAYMENT_SIMULATOR_TIMEOUT_SECONDS` | `5` |
 | `TICKET_SERVICE_INTERNAL_API_KEY` | **eget genererat värde** |
+| `PAYMENT_SIMULATOR_INTERNAL_API_KEY` | **eget genererat värde**, separat från biljettnyckeln |
 | `API_GATEWAY_PUBLISHED_PORT` | `127.0.0.1:5212` |
 | `ADMIN_WEB_PUBLISHED_PORT` | `127.0.0.1:5173` |
 | `CUSTOMER_WEB_PUBLISHED_PORT` | `127.0.0.1:5174` |
@@ -121,6 +126,12 @@ Startkommandot finns i [snabbstarten](../README.md).
   unikt `COMPOSE_PROJECT_NAME` för [isolerad verifiering](quickstart-verification.md).
 - `down` behåller data. Ändrade bootstrap-lösenord uppdaterar inte befintliga
   PostgreSQL-, RabbitMQ- eller Keycloak-konton; en befintlig realm importeras inte om.
+- Tabellen anger värden för en ny installation. Vid uppdatering av en befintlig
+  `.env`, behåll databasnamn, användarnamn och lösenord som matchar de sparade
+  volymerna. Exempelvis kan en befintlig betalningsdatabas heta
+  `payment_simulator` i stället för tabellens `payment_simulator_dev`.
+  Behåll även RabbitMQ-kontot och dess tillhörande serverinställningar tills
+  motsvarande konto eller brokerkonfiguration har ändrats.
 - Lokal `dotnet run` och Vite på värddatorn läser inte rotens `.env` automatiskt.
 
 ## Kodreferenser
