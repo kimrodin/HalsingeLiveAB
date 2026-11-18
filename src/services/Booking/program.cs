@@ -76,7 +76,7 @@ builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
     client.BaseAddress = new Uri(builder.Configuration["PaymentSimulator:BaseUrl"]
         ?? throw new InvalidOperationException("PaymentSimulator base URL is missing."));
     client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("PaymentSimulator:TimeoutSeconds", 5));
-});
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddHttpClient<ITicketServiceClient, HttpTicketServiceClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["TicketService:BaseUrl"]
@@ -120,7 +120,6 @@ builder.Services.AddHttpClient<Booking.Features.Seed.SeedPurchases.ISeedPayments
 });
 builder.Services.AddScoped<SeedInventoryHandler>();
 builder.Services.AddScoped<DeleteSeedInventoryHandler>();
-builder.Services.AddScoped<ClearBookingDatabaseHandler>();
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services

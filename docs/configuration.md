@@ -55,7 +55,7 @@ Hexvärden behöver ingen extra escapning i anslutningssträngarna.
 | `TICKET_SERVICE_TIMEOUT_SECONDS` | `5` |
 | `PAYMENT_SIMULATOR_TIMEOUT_SECONDS` | `5` |
 | `TICKET_SERVICE_INTERNAL_API_KEY` | **eget genererat värde** |
-| `PAYMENT_SIMULATOR_INTERNAL_API_KEY` | **eget genererat värde**, separat från biljettnyckeln |
+| `PAYMENT_SIMULATOR_INTERNAL_API_KEY` | **eget genererat värde** |
 | `API_GATEWAY_PUBLISHED_PORT` | `127.0.0.1:5212` |
 | `ADMIN_WEB_PUBLISHED_PORT` | `127.0.0.1:5173` |
 | `CUSTOMER_WEB_PUBLISHED_PORT` | `127.0.0.1:5174` |

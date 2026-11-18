@@ -303,6 +303,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
+        builder.Configuration["PaymentSimulator:InternalApiKey"] = "payment-http-test-key";
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
         builder.Services.AddControllers().AddApplicationPart(typeof(BookingsController).Assembly);
         builder.Services.AddScoped(_ => fixture.CreateContext());

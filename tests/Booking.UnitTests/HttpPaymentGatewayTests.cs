@@ -2,11 +2,14 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Booking.Features.Payments.Gateway;
+using Microsoft.Extensions.Configuration;
 
 namespace Booking.UnitTests;
 
 public sealed class HttpPaymentGatewayTests
 {
+    private const string ApiKey = "payment-gateway-test-key";
+
     [Fact]
     public async Task ProcessAsync_SendsServerSuppliedBookingAmountAndCurrency()
     {
@@ -23,7 +26,7 @@ public sealed class HttpPaymentGatewayTests
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(expected) };
         });
 
-        var result = await new HttpPaymentGateway(client).ProcessAsync(bookingId, 299.50m, "SEK", default);
+        var result = await Gateway(client).ProcessAsync(bookingId, 299.50m, "SEK", default);
 
         Assert.Equal(expected, result);
     }
@@ -39,7 +42,7 @@ public sealed class HttpPaymentGatewayTests
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         });
 
-        Assert.Null(await new HttpPaymentGateway(client).GetByBookingAsync(bookingId, default));
+        Assert.Null(await Gateway(client).GetByBookingAsync(bookingId, default));
     }
 
     [Fact]
@@ -48,7 +51,7 @@ public sealed class HttpPaymentGatewayTests
         using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)));
 
         await Assert.ThrowsAsync<HttpRequestException>(() =>
-            new HttpPaymentGateway(client).GetByBookingAsync(Guid.NewGuid(), default));
+            Gateway(client).GetByBookingAsync(Guid.NewGuid(), default));
     }
 
     [Fact]
@@ -62,7 +65,7 @@ public sealed class HttpPaymentGatewayTests
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(payment) });
         });
 
-        Assert.Equal(payment, await new HttpPaymentGateway(client).RefundAsync(payment.PaymentId, default));
+        Assert.Equal(payment, await Gateway(client).RefundAsync(payment.PaymentId, default));
     }
 
     [Fact]
@@ -80,7 +83,7 @@ public sealed class HttpPaymentGatewayTests
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(payment) };
         });
 
-        Assert.Equal(payment, await new HttpPaymentGateway(client).CancelAsync(
+        Assert.Equal(payment, await Gateway(client).CancelAsync(
             payment.BookingId, payment.Amount, payment.Currency, default));
     }
 
@@ -90,7 +93,7 @@ public sealed class HttpPaymentGatewayTests
         using var client = CreateClient(_ => throw new HttpRequestException("Connection closed before response."));
 
         await Assert.ThrowsAsync<HttpRequestException>(() =>
-            new HttpPaymentGateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
+            Gateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
     }
 
     [Theory]
@@ -104,13 +107,15 @@ public sealed class HttpPaymentGatewayTests
             Content = JsonContent.Create(payment)
         }));
 
-        var result = await new HttpPaymentGateway(client).ProcessAsync(payment.BookingId, payment.Amount, "SEK", default);
+        var result = await Gateway(client).ProcessAsync(payment.BookingId, payment.Amount, "SEK", default);
 
         Assert.Equal(status, result.Status);
     }
 
     [Theory]
     [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
     [InlineData(HttpStatusCode.NotFound)]
     [InlineData(HttpStatusCode.Conflict)]
     public async Task ProcessAsync_MapsRejectedRequestsToContractErrors(HttpStatusCode status)
@@ -118,7 +123,7 @@ public sealed class HttpPaymentGatewayTests
         using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(status)));
 
         var error = await Assert.ThrowsAsync<PaymentContractException>(() =>
-            new HttpPaymentGateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
+            Gateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
 
         Assert.Equal(status, error.StatusCode);
     }
@@ -129,7 +134,7 @@ public sealed class HttpPaymentGatewayTests
         using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
 
         var error = await Assert.ThrowsAsync<PaymentContractException>(() =>
-            new HttpPaymentGateway(client).RefundAsync(Guid.NewGuid(), default));
+            Gateway(client).RefundAsync(Guid.NewGuid(), default));
 
         Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
     }
@@ -144,7 +149,7 @@ public sealed class HttpPaymentGatewayTests
         using var client = CreateClient(_ => Task.FromResult(new HttpResponseMessage(status)));
 
         var error = await Assert.ThrowsAsync<HttpRequestException>(() =>
-            new HttpPaymentGateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
+            Gateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
 
         Assert.Equal(status, error.StatusCode);
     }
@@ -161,8 +166,24 @@ public sealed class HttpPaymentGatewayTests
         }));
 
         await Assert.ThrowsAsync<PaymentContractException>(() =>
-            new HttpPaymentGateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
+            Gateway(client).ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
     }
+
+    [Fact]
+    public async Task Missing_internal_key_does_not_send_a_payment_request()
+    {
+        using var client = CreateClient(_ => throw new Xunit.Sdk.XunitException("An unauthenticated request was sent."));
+        var gateway = new HttpPaymentGateway(client, new ConfigurationBuilder().Build());
+
+        await Assert.ThrowsAsync<PaymentContractException>(() =>
+            gateway.ProcessAsync(Guid.NewGuid(), 299.50m, "SEK", default));
+    }
+
+    private static HttpPaymentGateway Gateway(HttpClient client) => new(client,
+        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["PaymentSimulator:InternalApiKey"] = ApiKey
+        }).Build());
 
     private static PaymentResult Payment(Guid bookingId) => new(Guid.NewGuid(), bookingId, 299.50m, "SEK",
         "Succeeded", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null);
@@ -172,7 +193,10 @@ public sealed class HttpPaymentGatewayTests
 
     private sealed class StubHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> handle) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            handle(request);
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Assert.Equal(ApiKey, Assert.Single(request.Headers.GetValues("X-Internal-Api-Key")));
+            return handle(request);
+        }
     }
 }
