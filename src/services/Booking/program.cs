@@ -13,6 +13,7 @@ using Booking.Features.Payments.Requests;
 using Booking.Features.Payments.Results;
 using Booking.Features.Tickets.Issuance;
 using Booking.Features.Tickets;
+using Booking.Features.Privacy;
 using Booking.Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -64,6 +65,8 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 builder.Services.AddSingleton<Booking.Features.BookingHolds.RedisReservationService>();
 builder.Services.AddScoped<Booking.Features.Bookings.BookingService>();
+builder.Services.AddScoped<IPrivacyOperationsService, PrivacyOperationsService>();
+builder.Services.AddHostedService<PersonalDataRetentionWorker>();
 builder.Services.AddHttpClient<Booking.Features.Bookings.Occupancy.VenueOccupancyReport>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["EventCatalog:BaseUrl"]
@@ -82,6 +85,12 @@ builder.Services.AddHttpClient<Booking.Features.Statistics.IStatisticsPayments, 
     client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("PaymentSimulator:TimeoutSeconds", 5));
 });
 builder.Services.AddHttpClient<IPaymentGateway, HttpPaymentGateway>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["PaymentSimulator:BaseUrl"]
+        ?? throw new InvalidOperationException("PaymentSimulator base URL is missing."));
+    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("PaymentSimulator:TimeoutSeconds", 5));
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddHttpClient<IPaymentPrivacyDataClient, HttpPaymentPrivacyDataClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["PaymentSimulator:BaseUrl"]
         ?? throw new InvalidOperationException("PaymentSimulator base URL is missing."));

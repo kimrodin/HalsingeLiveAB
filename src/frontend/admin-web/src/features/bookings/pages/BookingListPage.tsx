@@ -129,7 +129,7 @@ export default function BookingListPage() {
           }}
         >
           <TextField
-            label="Sök bokningsnummer, e-post, namn eller evenemang"
+            label="Sök boknings-ID, e-post, namn eller evenemang"
             value={search}
             fullWidth
             onChange={(event) => setFilter(() => setSearch(event.target.value))}

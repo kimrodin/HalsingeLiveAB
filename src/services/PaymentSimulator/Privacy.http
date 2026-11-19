@@ -1,0 +1,11 @@
+@paymentBaseUrl = http://localhost:5111
+@internalApiKey = {{paymentSimulatorInternalApiKey}}
+@bookingId = 00000000-0000-0000-0000-000000000001
+
+### Retrieve persisted result-outbox metadata for a booking
+GET {{paymentBaseUrl}}/api/payments/by-booking/{{bookingId}}/result-outbox
+X-Internal-Api-Key: {{internalApiKey}}
+
+### Invalid empty booking IDs are rejected
+GET {{paymentBaseUrl}}/api/payments/by-booking/00000000-0000-0000-0000-000000000000/result-outbox
+X-Internal-Api-Key: {{internalApiKey}}

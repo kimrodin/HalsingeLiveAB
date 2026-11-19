@@ -22,7 +22,9 @@ import {
   checkInTicket,
   getBookingDetails,
   getBookingTickets,
+  getPersonalDataSummary,
   getTicketPdf,
+  pseudonymizeBookingPersonalData,
   updateBookingCustomer,
 } from '../api/bookings';
 
@@ -80,6 +82,33 @@ export default function BookingDetailsPage() {
         customerName: customerName.current?.value.trim() ?? '',
         customerEmail: customerEmail.current?.value.trim() ?? '',
       });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['booking', id] }),
+        queryClient.invalidateQueries({ queryKey: ['bookings'] }),
+      ]);
+    },
+  });
+  const exportPersonalData = useMutation({
+    mutationFn: () => {
+      if (!id) throw new Error('Bokningsnummer saknas.');
+      return getPersonalDataSummary(id);
+    },
+    onSuccess: (summary) => {
+      const file = new Blob([JSON.stringify(summary, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `personal-data-${summary.bookingId}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    },
+  });
+  const pseudonymizePersonalData = useMutation({
+    mutationFn: () => {
+      if (!id) throw new Error('Bokningsnummer saknas.');
+      return pseudonymizeBookingPersonalData(id);
     },
     onSuccess: async () => {
       await Promise.all([
@@ -150,11 +179,16 @@ export default function BookingDetailsPage() {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>Kunduppgifter</Typography>
+        {booking.personalDataPseudonymizedAtUtc && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Direktidentifierare är borttagna. Boknings-ID och relaterade poster finns kvar; uppgifterna är därför pseudonymiserade, inte anonymiserade.
+          </Alert>
+        )}
         {updateCustomer.isError && (
           <Alert severity="error" sx={{ mb: 2 }}>{updateCustomer.error.message}</Alert>
         )}
         {updateCustomer.isSuccess && <Alert severity="success" sx={{ mb: 2 }}>Kunduppgifter sparade.</Alert>}
-        <Box component="form" onSubmit={(event) => {
+        <Box key={booking.personalDataPseudonymizedAtUtc ? 'pseudonymized' : 'active'} component="form" onSubmit={(event) => {
           event.preventDefault();
           updateCustomer.mutate();
         }} sx={{
@@ -163,17 +197,63 @@ export default function BookingDetailsPage() {
           gap: 2,
           alignItems: 'start',
         }}>
-          <TextField label="Namn" defaultValue={booking.customerName} inputRef={customerName} required fullWidth />
+          <TextField label="Namn" defaultValue={booking.customerName} inputRef={customerName}
+            required fullWidth disabled={Boolean(booking.personalDataPseudonymizedAtUtc)} />
           <TextField label="E-post" type="email" defaultValue={booking.customerEmail}
-            inputRef={customerEmail} required fullWidth />
+            inputRef={customerEmail} required fullWidth disabled={Boolean(booking.personalDataPseudonymizedAtUtc)} />
           <Button
             variant="contained"
             type="submit"
-            disabled={updateCustomer.isPending}
+            disabled={updateCustomer.isPending || Boolean(booking.personalDataPseudonymizedAtUtc)}
           >
             Spara kunduppgifter
           </Button>
         </Box>
+      </Paper>
+
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" gutterBottom>Begäran om personuppgifter</Typography>
+        <Typography color="text.secondary" sx={{ mb: 2 }}>
+          Verifiera personens identitet och begäran enligt rutinen innan du hämtar eller pseudonymiserar uppgifter.
+          Exportfilen innehåller personuppgifter.
+        </Typography>
+        {exportPersonalData.isError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Kunde inte hämta uppgiftssammanställningen: {exportPersonalData.error.message}
+          </Alert>
+        )}
+        {pseudonymizePersonalData.isError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Kunde inte pseudonymisera uppgifterna: {pseudonymizePersonalData.error.message}
+          </Alert>
+        )}
+        {pseudonymizePersonalData.isSuccess && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Direktidentifierare har tagits bort från bokningar med samma e-post. Bokningar, kundkoppling och gästtoken är bevarade.
+          </Alert>
+        )}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Button
+            variant="outlined"
+            disabled={exportPersonalData.isPending}
+            onClick={() => exportPersonalData.mutate()}
+          >
+            Hämta uppgiftssammanställning
+          </Button>
+          <Button
+            color="error"
+            variant="outlined"
+            disabled={pseudonymizePersonalData.isPending || Boolean(booking.personalDataPseudonymizedAtUtc)}
+            onClick={() => {
+              const confirmed = window.confirm(
+                'Detta tar bort namn och e-post från alla bokningar med samma e-post. Boknings-ID, den gemensamma pseudonymiserade kundkopplingen, gästtokenhash, betalningar, biljetter och meddelandekopplingar finns kvar. Uppgifterna blir pseudonymiserade, inte anonymiserade. Fortsätta?',
+              );
+              if (confirmed) pseudonymizePersonalData.mutate();
+            }}
+          >
+            Radera direktidentifierare
+          </Button>
+        </Stack>
       </Paper>
 
       <Paper sx={{ p: 2 }}>
@@ -278,7 +358,9 @@ export default function BookingDetailsPage() {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>Tidigare bokningar för kunden</Typography>
-        {history.length === 0 && <Typography>Inga tidigare bokningar hittades.</Typography>}
+        {history.length === 0 && (
+          <Typography>Inga tidigare bokningar hittades.</Typography>
+        )}
         {history.map((item) => (
           <Box key={item.bookingId} sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, py: 0.5 }}>
             <Button component={RouterLink} to={`/bookings/${item.bookingId}`}>
@@ -289,6 +371,7 @@ export default function BookingDetailsPage() {
           </Box>
         ))}
       </Paper>
+
     </Stack>
   );
 }

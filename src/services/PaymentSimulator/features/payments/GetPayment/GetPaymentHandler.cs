@@ -37,4 +37,25 @@ public class GetPaymentHandler(PaymentDbContext dbContext)
             payment.Amount, payment.Currency, payment.Status, payment.CreatedAt,
             payment.CompletedAt, payment.PaidAt, payment.RefundedAt);
     }
+
+    public async Task<IReadOnlyList<PaymentResultOutboxResponse>> GetResultOutboxByBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.PaymentResultOutboxMessages.AsNoTracking()
+            .Where(message => message.BookingId == bookingId)
+            .OrderBy(message => message.OccurredAtUtc)
+            .Select(message => new PaymentResultOutboxResponse(
+                message.MessageId,
+                message.PaymentId,
+                message.BookingId,
+                message.Amount,
+                message.Currency,
+                message.Outcome,
+                message.PaidAtUtc,
+                message.OccurredAtUtc,
+                message.DeliveredAtUtc,
+                message.AttemptCount))
+            .ToListAsync(cancellationToken);
+    }
 }

@@ -25,6 +25,24 @@ public sealed class PaymentsController(
         return response is null ? NotFound() : Ok(response);
     }
 
+    /// <summary>Returns payment-result outbox records associated with one booking.</summary>
+    [HttpGet("by-booking/{bookingId:guid}/result-outbox")]
+    [ProducesResponseType(typeof(IReadOnlyList<PaymentResultOutboxResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<PaymentResultOutboxResponse>>> GetResultOutboxByBooking(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        if (bookingId == Guid.Empty)
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Booking ID must be a non-empty UUID.",
+                Status = StatusCodes.Status400BadRequest
+            });
+
+        return Ok(await getPaymentHandler.GetResultOutboxByBooking(bookingId, cancellationToken));
+    }
+
     [HttpPost("{paymentId:guid}/refund")]
     public async Task<ActionResult<ProcessPaymentResponse>> Refund(Guid paymentId,
         CancellationToken cancellationToken)

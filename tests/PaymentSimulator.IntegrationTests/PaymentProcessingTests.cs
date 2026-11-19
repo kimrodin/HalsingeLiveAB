@@ -183,6 +183,12 @@ public sealed class PaymentProcessingTests : IAsyncLifetime
         Assert.Equal(result.PaidAt, outbox.PaidAtUtc);
         Assert.Equal(result.CompletedAt, outbox.OccurredAtUtc);
         Assert.Null(outbox.DeliveredAtUtc);
+        var privacyOutbox = Assert.Single(await new GetPaymentHandler(db)
+            .GetResultOutboxByBooking(request.BookingId, default));
+        Assert.Equal(outbox.MessageId, privacyOutbox.MessageId);
+        Assert.Equal(outbox.PaymentId, privacyOutbox.PaymentId);
+        Assert.Equal(outbox.BookingId, privacyOutbox.BookingId);
+        Assert.Equal(outbox.Outcome, privacyOutbox.Outcome);
     }
 
     [Fact]

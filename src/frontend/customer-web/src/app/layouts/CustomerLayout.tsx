@@ -55,7 +55,10 @@ export default function CustomerLayout() {
       <Box component="footer" sx={{ borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Container maxWidth={false} sx={{ maxWidth: 1120, py: 2.5 }}>
           <Typography variant="body2" color="text.secondary">
-            Hälsinge Live
+            Hälsinge Live ·{' '}
+            <Link component={RouterLink} to="/integritetspolicy" color="inherit">
+              Integritetspolicy
+            </Link>
           </Typography>
         </Container>
       </Box>

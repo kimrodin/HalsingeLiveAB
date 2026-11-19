@@ -12,23 +12,28 @@ public sealed class PaymentRequestMigrationTests(BookingDatabaseFixture fixture)
         await using var db = fixture.CreateContext();
         var migrator = db.GetService<IMigrator>();
         await migrator.MigrateAsync("20261103125909_PaymentResultInbox");
-        var inventory = await fixture.CreateInventoryAsync();
-        var pending = await fixture.ReserveAsync(inventory, null!);
-        var settled = await fixture.ReserveAsync(inventory, null!);
-        var confirmed = await fixture.ReserveAsync(inventory, null!);
-        var unrequested = await fixture.ReserveAsync(inventory, null!);
-        await db.Bookings.Where(row => row.BookingId != unrequested)
-            .ExecuteUpdateAsync(update => update.SetProperty(row => row.PaymentRequested, true));
-        await db.Bookings.Where(row => row.BookingId == settled)
-            .ExecuteUpdateAsync(update => update.SetProperty(row => row.PaymentSettled, true));
-        await db.Bookings.Where(row => row.BookingId == confirmed)
-            .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, "Confirmed"));
+        var pending = Guid.NewGuid();
+        var settled = Guid.NewGuid();
+        var confirmed = Guid.NewGuid();
+        var unrequested = Guid.NewGuid();
+        var createdAt = DateTime.UtcNow;
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "Bookings"
+                ("BookingId", "CustomerId", "CustomerName", "CustomerEmail", "Status", "TotalPrice",
+                 "CreatedAt", "ExpiresAt", "CancelledAt", "PaymentRequested", "PaymentSettled",
+                 "GuestAccessTokenHash")
+            VALUES
+                ({pending}, NULL, 'Pending', 'pending@example.com', 'Reserved', 125.50, {createdAt}, NULL, NULL, TRUE, FALSE, NULL),
+                ({settled}, NULL, 'Settled', 'settled@example.com', 'Reserved', 125.50, {createdAt}, NULL, NULL, TRUE, TRUE, NULL),
+                ({confirmed}, NULL, 'Confirmed', 'confirmed@example.com', 'Confirmed', 125.50, {createdAt}, NULL, NULL, TRUE, FALSE, NULL),
+                ({unrequested}, NULL, 'Unrequested', 'unrequested@example.com', 'Reserved', 125.50, {createdAt}, NULL, NULL, FALSE, FALSE, NULL)
+            """);
 
         await migrator.MigrateAsync();
 
         var request = Assert.Single(await db.PaymentRequestOutboxMessages.ToListAsync());
         Assert.Equal(pending, request.BookingId);
-        Assert.Equal(inventory.Price, request.Amount);
+        Assert.Equal(125.50m, request.Amount);
         Assert.Equal("SEK", request.Currency);
         Assert.Null(request.DeliveredAtUtc);
         Assert.Equal(4, await db.Bookings.CountAsync());

@@ -62,7 +62,10 @@ public sealed class BookingsController(
         }
 
         var history = await bookingService.GetBookingHistoryAsync(
-            booking.BookingId, booking.CustomerEmail, cancellationToken);
+            booking.BookingId,
+            booking.PseudonymizedCustomerId,
+            booking.CustomerEmail,
+            cancellationToken);
         return Ok(new AdminBookingDetailsResponse(
             ToAdminListResponse(booking),
             history.Select(item => new BookingHistoryItem(
@@ -89,9 +92,18 @@ public sealed class BookingsController(
         if (!ModelState.IsValid)
             return ValidationProblem(ModelState);
 
-        var updated = await bookingService.UpdateBookingCustomerAsync(
+        var result = await bookingService.UpdateBookingCustomerAsync(
             bookingId, request.CustomerName, request.CustomerEmail, cancellationToken);
-        return updated ? NoContent() : NotFound();
+        return result switch
+        {
+            BookingCustomerUpdateResult.Updated => NoContent(),
+            BookingCustomerUpdateResult.Pseudonymized => Conflict(new ProblemDetails
+            {
+                Title = "Pseudonymized customer data cannot be restored.",
+                Status = StatusCodes.Status409Conflict
+            }),
+            _ => NotFound()
+        };
     }
 
     [HttpGet("{bookingId:guid}")]
@@ -425,6 +437,7 @@ public sealed class BookingsController(
             booking.Status,
             booking.TotalPrice,
             booking.CreatedAt,
+            booking.PersonalDataPseudonymizedAtUtc,
             booking.ExpiresAt,
             booking.CancelledAt,
             booking.PaymentRequested,
@@ -466,6 +479,7 @@ public sealed record AdminBookingListItemResponse(
     string Status,
     decimal TotalPrice,
     DateTime CreatedAt,
+    DateTimeOffset? PersonalDataPseudonymizedAtUtc,
     DateTime? ExpiresAt,
     DateTime? CancelledAt,
     bool PaymentRequested,
