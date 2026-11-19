@@ -1,0 +1,23 @@
+@bookingBaseUrl = http://localhost:5081
+@adminAccessToken = {{adminAccessToken}}
+@bookingId = 00000000-0000-0000-0000-000000000001
+
+### Preview bookings that have passed the two-year retention period
+GET {{bookingBaseUrl}}/privacy/bookings/retention-preview
+Authorization: Bearer {{adminAccessToken}}
+
+### Export booking-linked personal data after verifying the requester's identity
+GET {{bookingBaseUrl}}/privacy/bookings/{{bookingId}}/export
+Authorization: Bearer {{adminAccessToken}}
+
+### Missing bookings return 404
+GET {{bookingBaseUrl}}/privacy/bookings/00000000-0000-0000-0000-000000000099/export
+Authorization: Bearer {{adminAccessToken}}
+
+### Pseudonymize direct identifiers after an approved erasure request
+DELETE {{bookingBaseUrl}}/privacy/bookings/{{bookingId}}/personal-data
+Authorization: Bearer {{adminAccessToken}}
+
+### Missing bookings return 404
+DELETE {{bookingBaseUrl}}/privacy/bookings/00000000-0000-0000-0000-000000000099/personal-data
+Authorization: Bearer {{adminAccessToken}}

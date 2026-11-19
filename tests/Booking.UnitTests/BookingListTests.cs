@@ -8,7 +8,7 @@ namespace Booking.UnitTests;
 public sealed class BookingListTests
 {
     [Fact]
-    public async Task ListBookings_FiltersSearchAndReturnsSortedPage()
+    public async Task ListBookings_SearchMatchesBookingIdNameEmailAndEvent()
     {
         await using var db = CreateDbContext();
         var firstId = Guid.NewGuid();
@@ -51,14 +51,23 @@ public sealed class BookingListTests
         Assert.Equal(2, result.Page);
         Assert.Equal(1, result.PageSize);
         Assert.Equal(secondId, Assert.Single(result.Bookings).BookingId);
-        Assert.Equal(
-            new[] { BookingStatuses.Confirmed, BookingStatuses.Reserved },
-            result.Statuses);
 
+        var idResult = await service.ListBookingsAsync(
+            new ListBookingsRequest(Search: secondId.ToString()[..8]));
+        var nameResult = await service.ListBookingsAsync(
+            new ListBookingsRequest(Search: "Other Customer"));
+        var emailResult = await service.ListBookingsAsync(
+            new ListBookingsRequest(Search: "sara@example.com"));
         var eventResult = await service.ListBookingsAsync(
             new ListBookingsRequest(Search: "summer"));
 
+        Assert.Equal(secondId, Assert.Single(idResult.Bookings).BookingId);
+        Assert.Equal(secondId, Assert.Single(nameResult.Bookings).BookingId);
+        Assert.Equal(firstId, Assert.Single(emailResult.Bookings).BookingId);
         Assert.Equal(firstId, Assert.Single(eventResult.Bookings).BookingId);
+        Assert.Equal(
+            new[] { BookingStatuses.Confirmed, BookingStatuses.Reserved },
+            result.Statuses);
     }
 
     [Fact]
@@ -75,9 +84,51 @@ public sealed class BookingListTests
             bookingId, " New Name ", " new@example.com ");
         var booking = await db.Bookings.SingleAsync();
 
-        Assert.True(updated);
+        Assert.Equal(BookingCustomerUpdateResult.Updated, updated);
         Assert.Equal("New Name", booking.CustomerName);
         Assert.Equal("new@example.com", booking.CustomerEmail);
+    }
+
+    [Fact]
+    public async Task UpdateBookingCustomer_DoesNotRestorePseudonymizedIdentifiers()
+    {
+        await using var db = CreateDbContext();
+        var booking = CreateBooking(
+            Guid.NewGuid(), string.Empty, string.Empty, BookingStatuses.Confirmed, DateTime.UtcNow);
+        booking.PersonalDataPseudonymizedAtUtc = DateTimeOffset.UtcNow;
+        db.Bookings.Add(booking);
+        await db.SaveChangesAsync();
+
+        var service = new BookingService(db, null!, null!, null!);
+        var result = await service.UpdateBookingCustomerAsync(
+            booking.BookingId, "New Name", "new@example.com");
+
+        Assert.Equal(BookingCustomerUpdateResult.Pseudonymized, result);
+        Assert.Empty(booking.CustomerName);
+        Assert.Empty(booking.CustomerEmail);
+    }
+
+    [Fact]
+    public async Task GetBookingHistoryAsync_UsesPseudonymizedCustomerLink()
+    {
+        await using var db = CreateDbContext();
+        var customerLink = Guid.NewGuid();
+        var current = CreateBooking(
+            Guid.NewGuid(), string.Empty, string.Empty, BookingStatuses.Confirmed, DateTime.UtcNow);
+        var previous = CreateBooking(
+            Guid.NewGuid(), string.Empty, string.Empty, BookingStatuses.Cancelled, DateTime.UtcNow.AddDays(-1));
+        current.PseudonymizedCustomerId = customerLink;
+        previous.PseudonymizedCustomerId = customerLink;
+        current.PersonalDataPseudonymizedAtUtc = DateTimeOffset.UtcNow;
+        previous.PersonalDataPseudonymizedAtUtc = DateTimeOffset.UtcNow;
+        db.Bookings.AddRange(current, previous);
+        await db.SaveChangesAsync();
+
+        var service = new BookingService(db, null!, null!, null!);
+        var history = await service.GetBookingHistoryAsync(
+            current.BookingId, customerLink, string.Empty);
+
+        Assert.Equal(previous.BookingId, Assert.Single(history).BookingId);
     }
 
     private static BookingDbContext CreateDbContext()

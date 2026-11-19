@@ -59,6 +59,12 @@ namespace Booking.data.Migrations
                     b.Property<bool>("PaymentSettled")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTimeOffset?>("PersonalDataPseudonymizedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("PseudonymizedCustomerId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -68,6 +74,10 @@ namespace Booking.data.Migrations
                         .HasColumnType("numeric(12,2)");
 
                     b.HasKey("BookingId");
+
+                    b.HasIndex("PseudonymizedCustomerId");
+
+                    b.HasIndex("CreatedAt", "PersonalDataPseudonymizedAtUtc");
 
                     b.ToTable("Bookings", (string)null);
                 });

@@ -110,16 +110,35 @@ public sealed partial class BookingService(
 
     public Task<List<BookingModel>> GetBookingHistoryAsync(
         Guid bookingId,
+        Guid? pseudonymizedCustomerId,
         string customerEmail,
-        CancellationToken cancellationToken = default) =>
-        dbContext.Bookings.AsNoTracking()
+        CancellationToken cancellationToken = default)
+    {
+        if (pseudonymizedCustomerId.HasValue)
+        {
+            return dbContext.Bookings.AsNoTracking()
+                .Where(booking => booking.BookingId != bookingId
+                    && booking.PseudonymizedCustomerId == pseudonymizedCustomerId)
+                .OrderByDescending(booking => booking.CreatedAt)
+                .Take(10)
+                .ToListAsync(cancellationToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(customerEmail))
+            return Task.FromResult(new List<BookingModel>());
+
+        var normalizedEmail = customerEmail.Trim().ToLower();
+        return dbContext.Bookings.AsNoTracking()
             .Where(booking => booking.BookingId != bookingId
-                && booking.CustomerEmail.ToLower() == customerEmail.ToLower())
+                && booking.PersonalDataPseudonymizedAtUtc == null
+                && booking.CustomerEmail != string.Empty
+                && booking.CustomerEmail.Trim().ToLower() == normalizedEmail)
             .OrderByDescending(booking => booking.CreatedAt)
             .Take(10)
             .ToListAsync(cancellationToken);
+    }
 
-    public async Task<bool> UpdateBookingCustomerAsync(
+    public async Task<BookingCustomerUpdateResult> UpdateBookingCustomerAsync(
         Guid bookingId,
         string customerName,
         string customerEmail,
@@ -128,12 +147,14 @@ public sealed partial class BookingService(
         var booking = await dbContext.Bookings
             .SingleOrDefaultAsync(item => item.BookingId == bookingId, cancellationToken);
         if (booking is null)
-            return false;
+            return BookingCustomerUpdateResult.NotFound;
+        if (booking.PersonalDataPseudonymizedAtUtc is not null)
+            return BookingCustomerUpdateResult.Pseudonymized;
 
         booking.CustomerName = customerName.Trim();
         booking.CustomerEmail = customerEmail.Trim();
         await dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+        return BookingCustomerUpdateResult.Updated;
     }
 
     public async Task<BookingModel> GetBookingForGuestAsync(
@@ -435,6 +456,13 @@ public sealed record BookingPage(
     int Page,
     int PageSize,
     IReadOnlyList<string> Statuses);
+
+public enum BookingCustomerUpdateResult
+{
+    Updated,
+    NotFound,
+    Pseudonymized
+}
 
 public enum ReservationStatus
 {

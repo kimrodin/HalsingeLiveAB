@@ -50,6 +50,9 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
             entity.Property(booking => booking.Status).IsRequired();
             entity.Property(booking => booking.TotalPrice).HasPrecision(12, 2);
             entity.Property(booking => booking.GuestAccessTokenHash).IsRequired(false);
+            entity.Property(booking => booking.PersonalDataPseudonymizedAtUtc);
+            entity.HasIndex(booking => booking.PseudonymizedCustomerId);
+            entity.HasIndex(booking => new { booking.CreatedAt, booking.PersonalDataPseudonymizedAtUtc });
             entity.HasMany(booking => booking.Items)
                 .WithOne(item => item.Booking)
                 .HasForeignKey(item => item.BookingId)

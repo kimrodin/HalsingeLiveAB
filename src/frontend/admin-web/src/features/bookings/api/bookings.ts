@@ -1,5 +1,11 @@
 import { request, requestBlob, sendJson } from '../../../shared/api/http';
-import type { Booking, BookingDetails, BookingTicket, TicketStatusChange } from '../types';
+import type {
+  Booking,
+  BookingDetails,
+  BookingTicket,
+  PersonalDataSummary,
+  TicketStatusChange,
+} from '../types';
 
 export interface ListBookingsParams {
   search?: string;
@@ -32,6 +38,22 @@ export function getBookings(params: ListBookingsParams): Promise<ListBookingsRes
 
 export function getBookingDetails(bookingId: string): Promise<BookingDetails> {
   return request<BookingDetails>(`/GetAdminBookingDetails/${bookingId}`, {}, '/booking-api');
+}
+
+export function getPersonalDataSummary(bookingId: string): Promise<PersonalDataSummary> {
+  return request<PersonalDataSummary>(
+    `/privacy/bookings/${bookingId}/export`,
+    {},
+    '/booking-api',
+  );
+}
+
+export function pseudonymizeBookingPersonalData(bookingId: string): Promise<void> {
+  return request<void>(
+    `/privacy/bookings/${bookingId}/personal-data`,
+    { method: 'DELETE' },
+    '/booking-api',
+  );
 }
 
 export function getBookingTickets(bookingId: string): Promise<BookingTicket[]> {

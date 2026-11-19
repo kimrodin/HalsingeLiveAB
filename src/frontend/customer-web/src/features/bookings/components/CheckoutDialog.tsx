@@ -8,11 +8,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Link,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
-import { useNavigate } from 'react-router'
+import { Link as RouterLink, useNavigate } from 'react-router'
 import { ApiError } from '../../../shared/api/http'
 import { createBooking, type EventInventory } from '../api/bookings'
 
@@ -98,6 +99,14 @@ export default function CheckoutDialog({
             <Typography sx={{ fontWeight: 700 }}>
               Totalt {priceFormatter.format(inventory.price * quantity)}
             </Typography>
+            <Alert severity="info">
+              Testprojekt: använd inte riktiga personuppgifter. I simuleringen pseudonymiseras
+              namn och e-post efter två år; bokningshistorik kan finnas kvar.{' '}
+              <Link component={RouterLink} to="/integritetspolicy" underline="hover">
+                Läs mer
+              </Link>
+              .
+            </Alert>
             {bookingMutation.isError && !apiError?.errors && (
               <Alert severity="error">
                 {errorMessage ?? 'Bokningen kunde inte skapas. Försök igen.'}

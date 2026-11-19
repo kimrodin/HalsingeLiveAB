@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { CircularProgress } from '@mui/material'
 import { createBrowserRouter } from 'react-router'
 import CustomerLayout from './layouts/CustomerLayout'
-import { BookingPage, EventDetailPage, HomePage } from './routePages'
+import { BookingPage, EventDetailPage, HomePage, PrivacyPolicyPage } from './routePages'
 
 export const router = createBrowserRouter([
   {
@@ -16,6 +16,7 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'events/:eventId', element: <EventDetailPage /> },
       { path: 'bookings/:bookingId', element: <BookingPage /> },
+      { path: 'integritetspolicy', element: <PrivacyPolicyPage /> },
     ],
   },
 ])

@@ -12,6 +12,8 @@ public class Booking
     public DateTime CreatedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public DateTime? CancelledAt { get; set; }
+    public DateTimeOffset? PersonalDataPseudonymizedAtUtc { get; set; }
+    public Guid? PseudonymizedCustomerId { get; set; }
     // Saved atomically with the payment request outbox so delivery survives restarts.
     public bool PaymentRequested { get; set; }
     public bool PaymentSettled { get; set; }
