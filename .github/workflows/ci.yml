@@ -148,6 +148,20 @@ jobs:
       - name: Build EventCatalog image
         run: docker build -f src/services/EventCatalog/Dockerfile src/services/EventCatalog
 
+      - name: Verify real reservation proxy chain
+        # The runner always tears down its uniquely named project.
+        shell: pwsh
+        run: ./tests/reservation-chain/run.ps1
+
+      - name: Save reservation chain evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reservation-chain-evidence
+          path: tests/reservation-chain/results/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Build PaymentSimulator image
         run: docker build -f src/services/PaymentSimulator/Dockerfile src
 

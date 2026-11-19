@@ -70,7 +70,25 @@ lagerläsningar städar också relevanta utgångna reservationer. Ordinarie
 
 Klientnyckeln är HMAC-SHA256 över den normaliserade IP-adressen. Rå IP och
 klientnyckel skrivs inte till bokningen eller de nya reservationsloggarna.
-Detta ändrar inte eventuell åtkomstloggning i andra komponenter.
+HMAC-värdet är stabilt med samma hemlighet; TTL begränsar lagringen, inte hur
+länge samma indata ger samma identifierare. Nyckeln roteras inte automatiskt,
+eftersom ett okoordinerat byte skulle återställa klienternas kvoter.
+
+Båda Nginx-proxyernas rutinmässiga accessloggar använder JSON med enbart metod,
+sökväg utan querysträng, status, antal bytes och svarstid. Klientadress,
+forwarding-headers, referrer och user agent ingår inte. Bokningskoden och
+gatewayens rutinmässiga requestloggar lägger inte till klientadress.
+
+Nginx felloggar är separat diagnostik och kan innehålla klientadress vid exempelvis
+anslutningsfel. Åtkomst till dem kräver behörighet till Docker-värden eller
+containerloggarna. Compose använder loggdrivern `local` för båda webbapparna med
+rotation vid 10 MB och högst tre filer per container. Det begränsar volymen,
+men är ingen tidsbaserad gallring. Loggarna tas bort när containern tas bort;
+äldre loggar från tidigare containrar rensas inte retroaktivt av ändringen.
+Exporterad feldiagnostik ska hållas åtkomstbegränsad och raderas när felsökningen
+är avslutad. CI sparar verifieringsartefakter i sju dagar; lokala testloggar
+raderas manuellt efter granskningen. Externa ingressproxyer och loggsamlare behöver motsvarande egna
+regler. Kravet att inte rutinlogga klientadress avser access- och reservationsloggar.
 
 Med `p` som `KeyPrefix` används följande tillägg till de befintliga lagernycklarna:
 
@@ -110,3 +128,13 @@ riktig Redis och PostgreSQL. `ReservationLimitTests` kontrollerar bland annat
 sektioner, betalning, idempotent frigöring, orphan-städning, kompensation och
 Redis-avbrott. Tre samtidighetsscenarier skickar vardera 20 HTTP-anrop till två
 separata värdar med egna Redis-anslutningar och gemensamma kvoter.
+
+503-testet skapar först en riktig reservation och verifierar sedan att ett
+avvisat anrop inte ändrar dess status, sluttid, antal, kvot, försöksräknare eller
+Redis-/databaslager. Ett friskt anrop fungerar därefter igen.
+
+[Verifieringen genom hela proxykedjan](../tests/reservation-chain/README.md)
+kör riktiga `CreateBooking` genom både frontendproxyer, gateway och Booking med
+Redis och PostgreSQL. Den sparar konfiguration, anropsresultat, lager-/kvotsnapshots,
+databasläge före/efter och kontrollerade accessloggar. Katalogens syntetiska
+evenemangssvar ersätts med en testserver; betalningsflöden startas inte.

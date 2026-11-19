@@ -227,7 +227,19 @@ public sealed class ReservationLimitTests(BookingDatabaseFixture fixture) : ICla
     {
         var limits = Limits();
         var inventory = await fixture.CreateInventoryAsync();
-        await fixture.Reservations.InitializeInventoryAsync(inventory.EventId, inventory.SectionId, 10);
+        await using var healthy = await StartHostAsync(limits);
+        using var accepted = await PostAsync(healthy.Client, inventory, 3);
+        Assert.Equal(HttpStatusCode.Accepted, accepted.StatusCode);
+        var existing = (await accepted.Content.ReadFromJsonAsync<CreateBookingResponse>())!;
+        await using var beforeDb = fixture.CreateContext();
+        var before = await beforeDb.Bookings.AsNoTracking().SingleAsync(b => b.BookingId == existing.BookingId);
+        var redis = fixture.Redis.GetDatabase();
+        var client = new ReservationClientIdentity(Options.Create(limits)).GetKey(IPAddress.Loopback);
+        var quotaKey = $"{limits.KeyPrefix}:active:{client}:{inventory.EventId:N}";
+        var holdKey = $"reservation:{existing.BookingId:N}";
+        var attemptKey = $"{limits.KeyPrefix}:attempts:{client}";
+        var deadline = await redis.SortedSetScoreAsync(quotaKey, existing.BookingId.ToString("N"));
+        var attempts = await redis.SortedSetLengthAsync(attemptKey);
         var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
@@ -243,11 +255,22 @@ public sealed class ReservationLimitTests(BookingDatabaseFixture fixture) : ICla
             Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
             Assert.Equal(503, (await response.Content.ReadFromJsonAsync<ProblemDetails>())!.Status);
         }
-        Assert.Equal(0, await BookingCountAsync(inventory));
-        Assert.Equal(10, await StockAsync(inventory));
-        await using var healthy = await StartHostAsync(limits);
+        Assert.Equal(1, await BookingCountAsync(inventory));
+        Assert.Equal(7, await StockAsync(inventory));
+        Assert.Equal(1, await redis.SortedSetLengthAsync(quotaKey));
+        Assert.Equal(deadline, await redis.SortedSetScoreAsync(quotaKey, existing.BookingId.ToString("N")));
+        Assert.Equal(3, (int)await redis.HashGetAsync(holdKey, "quantity"));
+        Assert.Equal(attempts, await redis.SortedSetLengthAsync(attemptKey));
+        await using var afterDb = fixture.CreateContext();
+        var after = await afterDb.Bookings.AsNoTracking().SingleAsync(b => b.BookingId == existing.BookingId);
+        Assert.Equal(before.Status, after.Status);
+        Assert.Equal(before.ExpiresAt, after.ExpiresAt);
+        Assert.Equal(before.TotalPrice, after.TotalPrice);
+        Assert.Equal(10, (await afterDb.EventInventory.SingleAsync(i => i.InventoryId == inventory.InventoryId)).AvailableQuantity);
         using var recovered = await PostAsync(healthy.Client, inventory);
         Assert.Equal(HttpStatusCode.Accepted, recovered.StatusCode);
+        Assert.Equal(2, await BookingCountAsync(inventory));
+        Assert.Equal(6, await StockAsync(inventory));
     }
 
     [BookingIntegrationFact]

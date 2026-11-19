@@ -44,3 +44,8 @@ takes at least one minute. Other payment/stock suites intentionally configure
 high IP limits so their existing 200-request stock race still tests inventory.
 Defaults, NAT considerations and rollout are in
 [the reservation limit guide](../../docs/reservation-limits.md).
+
+The Redis outage test starts with an existing three-ticket hold and checks its
+status, deadline, quantity, active quota, attempt count and both stock values
+after the rejected request. Real Booking requests through both frontend proxies
+and the gateway are covered by [the proxy-chain suite](../reservation-chain/README.md).

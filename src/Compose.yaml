@@ -277,6 +277,11 @@ services:
         condition: service_healthy
 
   admin-web:
+    logging: &web-logging
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
     build:
       context: ./frontend/admin-web
       dockerfile: Dockerfile
@@ -291,6 +296,7 @@ services:
       - api-gateway
 
   customer-web:
+    logging: *web-logging
     build:
       context: ./frontend/customer-web
       dockerfile: Dockerfile

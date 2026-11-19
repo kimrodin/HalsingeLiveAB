@@ -127,3 +127,8 @@ beständiga datavolymer och kräver att Docker stöder IPv6.
 
 Se även [Microsofts proxyguide](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0)
 och [YARP:s forwardingtransformer](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/yarp/transforms-request).
+
+Riktiga bokningsanrop, 429 och kvoter genom frontendproxy → gateway → Booking
+verifieras separat av [reservationskedjans test](../tests/reservation-chain/README.md).
+Proxyernas accessloggar och avgränsningen mot feldiagnostik beskrivs i
+[reservationsguiden](reservation-limits.md).

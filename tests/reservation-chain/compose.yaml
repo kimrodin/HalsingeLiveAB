@@ -1,0 +1,146 @@
+# Disposable stack; no application .env, host ports or persistent volumes.
+x-client: &client
+  image: python:3-alpine
+  profiles: [verify]
+  volumes:
+    - ./verify.py:/verify.py:ro
+    - ./results:/results
+  command: ["python", "-u", "/verify.py"]
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: reservationtest
+      POSTGRES_PASSWORD: reservationtest
+      POSTGRES_DB: booking
+    tmpfs: [/var/lib/postgresql]
+    volumes:
+      - ./fixture.sql:/fixture.sql:ro
+      - ./state.sql:/state.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reservationtest -d booking"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    tmpfs: [/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: reservationtest
+      RABBITMQ_DEFAULT_PASS: reservationtest
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: +S 2:2
+    tmpfs: [/var/lib/rabbitmq]
+    healthcheck:
+      test: ["CMD", "su-exec", "rabbitmq", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 30
+  catalog:
+    image: python:3-alpine
+    volumes:
+      - ./catalog.py:/catalog.py:ro
+    command: ["python", "/catalog.py"]
+  booking:
+    build:
+      context: ../../src
+      dockerfile: services/Booking/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      InitializeDatabase: "true"
+      ClientAddressing__TrustedProxies__0: 172.30.153.2
+      ConnectionStrings__Booking: Host=postgres;Database=booking;Username=reservationtest;Password=reservationtest
+      ConnectionStrings__Redis: redis:6379
+      ReservationLimits__AttemptsPerWindow: "3"
+      ReservationLimits__WindowSeconds: "60"
+      ReservationLimits__MaxActiveReservationsPerEvent: "2"
+      ReservationLimits__MaxReservedQuantityPerEvent: "10"
+      ReservationLimits__HmacKey: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      EventCatalog__BaseUrl: http://catalog:8080/
+      # No payment is requested in this suite; adapters and workers remain real.
+      PaymentSimulator__BaseUrl: http://catalog:8080/
+      PaymentSimulator__InternalApiKey: reservation-test-only
+      TicketService__BaseUrl: http://catalog:8080/
+      TicketService__InternalApiKey: reservation-test-only
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__UserName: reservationtest
+      RabbitMq__Password: reservationtest
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      catalog: {condition: service_started}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health/ready"]
+      interval: 2s
+      timeout: 5s
+      retries: 40
+  gateway:
+    build:
+      context: ../../src
+      dockerfile: ApiGateway/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ClientAddressing__TrustedProxies__0: 172.30.153.3
+      ClientAddressing__TrustedProxies__1: 172.30.153.4
+      ReverseProxy__Clusters__booking__Destinations__primary__Address: http://booking:8080/
+    networks:
+      default: {ipv4_address: 172.30.153.2}
+    depends_on:
+      booking: {condition: service_healthy}
+  customer:
+    image: nginx:alpine
+    environment:
+      API_GATEWAY_PROXY_TARGET: http://gateway:8080
+      NGINX_ENVSUBST_FILTER: ^API_GATEWAY_PROXY_TARGET$
+    volumes:
+      - ../../src/frontend/customer-web/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      default: {ipv4_address: 172.30.153.3}
+    depends_on: [gateway]
+  admin:
+    image: nginx:alpine
+    environment:
+      API_GATEWAY_PROXY_TARGET: http://gateway:8080
+      NGINX_ENVSUBST_FILTER: ^API_GATEWAY_PROXY_TARGET$
+    volumes:
+      - ../../src/frontend/admin-web/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      default: {ipv4_address: 172.30.153.4}
+    depends_on: [gateway]
+  client:
+    <<: *client
+    environment: {CASE: frequency}
+    networks:
+      default: {ipv4_address: 172.30.153.100}
+  other:
+    <<: *client
+    environment: {CASE: other}
+    networks:
+      default: {ipv4_address: 172.30.153.101}
+  active:
+    <<: *client
+    environment: {CASE: active}
+    networks:
+      default: {ipv4_address: 172.30.153.102}
+  quantity:
+    <<: *client
+    environment: {CASE: quantity}
+    networks:
+      default: {ipv4_address: 172.30.153.103}
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.153.0/24
+          ip_range: 172.30.153.128/25
