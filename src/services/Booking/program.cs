@@ -21,9 +21,15 @@ using StackExchange.Redis;
 using Serilog;
 using Serilog.Events;
 using HalsingeLive.ClientAddressing;
+using Booking.Features.BookingHolds;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddClientAddressing(builder.Configuration);
+builder.Services.AddOptions<ReservationLimitOptions>()
+    .BindConfiguration("ReservationLimits")
+    .ValidateDataAnnotations().ValidateOnStart();
+builder.Services.AddSingleton<ReservationClientIdentity>();
+builder.Services.AddSingleton<RedisReservationAttemptLimiter>();
 builder.Host.UseSerilog((_, loggerConfiguration) =>
     loggerConfiguration
         .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning)
@@ -53,6 +59,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     var options = ConfigurationOptions.Parse(connectionString);
     // Keep the shared connection available for readiness checks and reconnect after an outage.
     options.AbortOnConnectFail = false;
+    options.BacklogPolicy = BacklogPolicy.FailFast;
     return ConnectionMultiplexer.Connect(options);
 });
 builder.Services.AddSingleton<Booking.Features.BookingHolds.RedisReservationService>();
@@ -64,6 +71,7 @@ builder.Services.AddHttpClient<Booking.Features.Bookings.Occupancy.VenueOccupanc
     client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("EventCatalog:TimeoutSeconds", 5));
 });
 builder.Services.AddHostedService<Booking.Features.Bookings.BookingExpirationService>();
+builder.Services.AddHostedService<RedisReservationCleanupService>();
 builder.Services.AddHostedService<Booking.Features.Bookings.Payments.PaymentReconciliationService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Booking.Features.Statistics.SalesStatistics>();

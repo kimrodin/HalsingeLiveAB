@@ -10,7 +10,8 @@ egna `-p` och `-f` för isolerade testmiljöer.
 - **Frontend:** [Utvecklarguide](frontend-guide.md), [arkitektur och kontrakt](frontend-architecture.md).
 - **Bokning:** [Betalningar](payments.md), [betalningssimulering](payment-simulation-admin.md),
   [testdata](seed-purchases.md), [RabbitMQ](messaging.md), [Redis](redis.md),
-  [Seq-loggar](seq.md), [säker klientadress](client-addressing.md).
+  [Seq-loggar](seq.md), [säker klientadress](client-addressing.md),
+  [reservationsgränser per IP](reservation-limits.md).
 - **Biljetter:** [TicketService](ticketservice-guide.md), [entréskanner](entreskanner-guide.md).
 - **Administration:** [Evenemangsbilder](event-images.md),
   [försäljningsstatistik](sales-statistics.md), [beläggning](dashboard-occupancy.md).

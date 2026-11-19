@@ -101,6 +101,9 @@ export default function CheckoutDialog({
             {bookingMutation.isError && !apiError?.errors && (
               <Alert severity="error">
                 {errorMessage ?? 'Bokningen kunde inte skapas. Försök igen.'}
+                {apiError?.status === 429 && apiError.retryAfterSeconds !== undefined && (
+                  <> Försök igen om cirka {apiError.retryAfterSeconds} sekunder.</>
+                )}
               </Alert>
             )}
             <TextField

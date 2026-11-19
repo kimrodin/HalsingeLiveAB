@@ -107,6 +107,11 @@ jobs:
         working-directory: src/frontend/${{ matrix.app }}
         run: npm run lint
 
+      - name: Test HTTP error handling
+        if: matrix.app == 'customer-web'
+        working-directory: src/frontend/${{ matrix.app }}
+        run: npm test
+
       - name: Build
         working-directory: src/frontend/${{ matrix.app }}
         run: npm run build

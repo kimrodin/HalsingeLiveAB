@@ -52,6 +52,11 @@ services:
       dockerfile: services/Booking/Dockerfile
     environment:
       ClientAddressing__TrustedProxies__0: "${GATEWAY_PROXY_IP:-172.30.151.2}"
+      ReservationLimits__AttemptsPerWindow: "${BOOKING_RESERVATION_ATTEMPTS:-10}"
+      ReservationLimits__WindowSeconds: "${BOOKING_RESERVATION_WINDOW_SECONDS:-60}"
+      ReservationLimits__MaxActiveReservationsPerEvent: "${BOOKING_RESERVATION_MAX_ACTIVE:-2}"
+      ReservationLimits__MaxReservedQuantityPerEvent: "${BOOKING_RESERVATION_MAX_QUANTITY:-10}"
+      ReservationLimits__HmacKey: "${BOOKING_RESERVATION_HMAC_KEY:?Set BOOKING_RESERVATION_HMAC_KEY}"
       ConnectionStrings__Booking: "Host=${BOOKING_DB_HOST:?Set BOOKING_DB_HOST};Port=${BOOKING_DB_PORT:?Set BOOKING_DB_PORT};Database=${BOOKING_DB_NAME:?Set BOOKING_DB_NAME};Username=${BOOKING_DB_USER:?Set BOOKING_DB_USER};Password=${BOOKING_DB_PASSWORD:?Set BOOKING_DB_PASSWORD}"
       ConnectionStrings__Redis: "${REDIS_CONNECTION_STRING:?Set REDIS_CONNECTION_STRING}"
       EventCatalog__BaseUrl: "${EVENTCATALOG_BASE_URL:?Set EVENTCATALOG_BASE_URL}"

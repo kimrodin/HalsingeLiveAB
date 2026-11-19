@@ -17,7 +17,7 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
             inventory.InventoryId, 2, "  Integration Customer  ", "  customer@example.com  ");
         await using var db = fixture.CreateContext();
 
-        var result = await fixture.CreateService(db, new FakePaymentGateway()).CreateReservationAsync(request);
+        var result = await fixture.CreateService(db, new FakePaymentGateway()).CreateReservationAsync(request, fixture.ClientAddress);
 
         Assert.Equal(ReservationStatus.Reserved, result.Status);
         Assert.NotNull(result.BookingId);
@@ -55,7 +55,7 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
         await using var db = fixture.CreateContext();
         var service = fixture.CreateService(db, new FakePaymentGateway());
 
-        var second = await service.CreateReservationAsync(request);
+        var second = await service.CreateReservationAsync(request, fixture.ClientAddress);
 
         Assert.NotEqual(Guid.Empty, firstBookingId);
         Assert.Equal(ReservationStatus.InsufficientInventory, second.Status);
@@ -372,7 +372,7 @@ public sealed class BookingPaymentTests(BookingDatabaseFixture fixture) : IClass
             .Select(row => row.AvailableQuantity).SingleAsync();
     }
 
-    private sealed class FakePaymentGateway : IPaymentGateway
+    internal sealed class FakePaymentGateway : IPaymentGateway
     {
         private int processCalls;
         private int lookupCalls;

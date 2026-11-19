@@ -6,7 +6,8 @@ nedan. Ingen miljömall ingår. Värdena avser lokal utveckling med loopback-por
 ## Generera hemligheter
 
 Generera ett separat värde för varje `*_PASSWORD` och för
-`TICKET_SERVICE_INTERNAL_API_KEY` och `PAYMENT_SIMULATOR_INTERNAL_API_KEY`.
+`TICKET_SERVICE_INTERNAL_API_KEY`, `PAYMENT_SIMULATOR_INTERNAL_API_KEY` och
+`BOOKING_RESERVATION_HMAC_KEY` (64 hextecken).
 Ersätt **eget genererat värde** i tabellen. Biljettnyckeln delas automatiskt av
 Booking och TicketService. I versioner med intern betalningsautentisering delar
 Booking och PaymentSimulator betalningsnyckeln via Compose. Äldre brancher kan
@@ -85,6 +86,11 @@ Hexvärden behöver ingen extra escapning i anslutningssträngarna.
 | `PAYMENT_SIMULATOR_DB_PASSWORD` | **eget genererat värde** |
 | `PAYMENT_SIMULATOR_DB_PUBLISHED_PORT` | `127.0.0.1:5434` |
 | `REDIS_CONNECTION_STRING` | `booking-redis:6379` |
+| `BOOKING_RESERVATION_HMAC_KEY` | **eget genererat värde**, 64 hextecken, samma för alla Booking-instanser |
+| `BOOKING_RESERVATION_ATTEMPTS` | `10` |
+| `BOOKING_RESERVATION_WINDOW_SECONDS` | `60` |
+| `BOOKING_RESERVATION_MAX_ACTIVE` | `2` per IP och evenemang |
+| `BOOKING_RESERVATION_MAX_QUANTITY` | `10` biljetter per IP och evenemang |
 | `REDIS_PUBLISHED_PORT` | `127.0.0.1:6379` |
 | `RABBITMQ_HOST` | `rabbitmq` |
 | `RABBITMQ_PORT` | `5672` |
@@ -135,6 +141,9 @@ Startkommandot finns i [snabbstarten](../README.md).
 - Lokal `dotnet run` och Vite på värddatorn läser inte rotens `.env` automatiskt.
 
 ## Betrodda proxyer och klientadress
+
+Reservationsgränser, NAT och utrullning beskrivs i
+[reservationsguiden](reservation-limits.md). HMAC-nyckeln måste behållas mellan starter.
 
 Gateway och webbproxyer har fasta Compose-adresser. Tillit och adressnormalisering
 beskrivs i [klientadressguiden](client-addressing.md), inklusive valfria
