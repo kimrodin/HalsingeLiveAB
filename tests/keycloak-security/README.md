@@ -1,8 +1,7 @@
 # Keycloak security integration tests
 
-```sh
-docker compose -p halsingelive-keycloak-tests -f tests/keycloak-security/compose.yaml up --abort-on-container-exit --exit-code-from client
-docker compose -p halsingelive-keycloak-tests -f tests/keycloak-security/compose.yaml down
+```powershell
+./tests/keycloak-security/run.ps1
 ```
 
 Uses the production realm import and Nginx template with real Keycloak 26.8.2.
@@ -10,7 +9,9 @@ Runs `start --import-realm` with explicit HTTP and `dev-file`, matching the
 local Compose configuration; it does not require TLS certificates.
 No application `.env`, host ports or persistent volumes. Credentials are public
 fixture values. Uses subnet `172.30.154.0/24`; run only one copy at a time.
-Always run `down` after local verification, including after a failure.
+The runner uses a unique project and always removes its containers, including on failure.
+It warms the proxy DNS cache, changes Keycloak's IP and runs all checks without
+restarting the proxy. This catches stale upstream addresses after container recreation.
 
 Checks browser authorization code login with PKCE, token refresh, five failed
 passwords followed by temporary account lock, recovery after the real 60-second

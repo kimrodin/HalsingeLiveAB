@@ -14,6 +14,9 @@ limit_req_zone $keycloak_token_key zone=keycloak_token:10m rate=${KEYCLOAK_TOKEN
 log_format keycloak_privacy escape=json '{"method":"$request_method","path":"$uri","status":$status,"bytes":$body_bytes_sent,"duration":$request_time}';
 
 server {
+    # Docker DNS must be queried again when the Keycloak container changes IP.
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    resolver_timeout 2s;
     listen 80;
     listen [::]:80;
     server_name _;
@@ -31,7 +34,10 @@ server {
     }
 
     location / {
-        proxy_pass ${KEYCLOAK_PROXY_TARGET};
+        # A variable defers resolution to the resolver instead of caching at startup.
+        set $keycloak_backend ${KEYCLOAK_PROXY_TARGET};
+        proxy_pass $keycloak_backend;
+        proxy_connect_timeout 3s;
         # Public host/port must survive e.g. localhost:8180; ignore incoming claims.
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Host $http_host;

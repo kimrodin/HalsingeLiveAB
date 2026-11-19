@@ -85,6 +85,8 @@ Keycloak litar bara på `KEYCLOAK_PROXY_IP` (standard `172.30.151.5`). Ändras
 Compose-subnätet måste denna adress också väljas inom nätverket och utanför
 den dynamiska poolen. En extra ingress/CDN framför proxyn kräver separat
 konfiguration och verifiering; annars delar kunder ingressens IP-kvot.
+Proxyn slår upp Keycloak via Dockers DNS med fem sekunders cache, så att den
+återhämtar sig vid byte av intern Keycloak-adress utan omstart av proxyn.
 
 Realm-filen aktiverar tillfällig kontolåsning efter fem misslyckade inloggningar:
 60 sekunders ökande väntan, högst 900 sekunder. Snabba upprepade fel kan ge
