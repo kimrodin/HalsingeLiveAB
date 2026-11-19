@@ -142,6 +142,15 @@ jobs:
         shell: pwsh
         run: ./tests/keycloak-security/run.ps1
 
+      - name: Save Keycloak test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keycloak-security-diagnostics
+          path: tests/keycloak-security/results/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Verify Nginx and gateway client address chain
         run: docker compose -p halsingelive-proxy-tests -f tests/proxy-chain/compose.yaml up --build --abort-on-container-exit --exit-code-from client
 
