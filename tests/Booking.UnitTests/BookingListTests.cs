@@ -36,7 +36,7 @@ public sealed class BookingListTests
                 new DateTime(2026, 10, 22, 10, 0, 0, DateTimeKind.Utc)));
         await db.SaveChangesAsync();
 
-        var service = new BookingService(db, null!, null!, null!);
+        var service = new BookingService(db, null!, null!, null!, null!, null!);
         var request = new ListBookingsRequest(
             Search: "sara",
             Status: BookingStatuses.Reserved,
@@ -79,7 +79,7 @@ public sealed class BookingListTests
             bookingId, "Old Name", "old@example.com", BookingStatuses.Reserved, DateTime.UtcNow));
         await db.SaveChangesAsync();
 
-        var service = new BookingService(db, null!, null!, null!);
+        var service = new BookingService(db, null!, null!, null!, null!, null!);
         var updated = await service.UpdateBookingCustomerAsync(
             bookingId, " New Name ", " new@example.com ");
         var booking = await db.Bookings.SingleAsync();

@@ -11,6 +11,13 @@ miljö, uppmätta tider och återstående arbete för
 [ärende #126](https://github.com/kimrodin/HalsingeLiveAB/issues/126).
 Dessa små lokala körningar fastställer inte kapaciteten i produktion.
 
+Den isolerade stacken använder en publik testnyckel för reservations-HMAC och
+höjda IP-gränser: 10 000 försök/sekund, 1 000 aktiva reservationer och 100 000
+biljetter per IP/evenemang. k6-anropen delar käll-IP. Dessa värden sparas i
+`run.json`; större körningar kan fortfarande nå gränserna. Lasttesterna mäter
+lager och betalning. [Reservationsgränserna](../../docs/reservation-limits.md)
+och ordinarie standardvärden verifieras separat av `ReservationLimitTests`.
+
 1. Kör det lilla testet:
 
    ```powershell

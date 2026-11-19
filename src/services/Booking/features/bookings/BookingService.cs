@@ -5,6 +5,7 @@ using Booking.Features.EventCatalog;
 using Booking.Features.Payments.Gateway;
 using Booking.Features.Tickets.Issuance;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 using BookingModel = Booking.Features.Bookings.Models.Booking;
 
 namespace Booking.Features.Bookings;
@@ -13,15 +14,24 @@ public sealed partial class BookingService(
     BookingDbContext dbContext,
     RedisReservationService reservations,
     IPaymentGateway payments,
-    IEventSnapshotProvider eventCatalog)
+    IEventSnapshotProvider eventCatalog,
+    RedisReservationAttemptLimiter attemptLimiter,
+    ReservationClientIdentity clientIdentity)
 {
     public static readonly TimeSpan ReservationDuration = TimeSpan.FromMinutes(10);
 
     public async Task<ReservationResult> CreateReservationAsync(
         CreateBookingRequest request,
+        IPAddress clientAddress,
         CancellationToken cancellationToken = default)
     {
         BookingValidation.ValidateCreateBooking(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        var clientKey = clientIdentity.GetKey(clientAddress);
+        var attempt = await attemptLimiter.TryAcquireAsync(clientKey);
+        if (!attempt.Allowed)
+            return new ReservationResult(ReservationStatus.AttemptLimitExceeded, null, null,
+                RetryAfterSeconds: attempt.RetryAfterSeconds);
         var customerName = request.CustomerName.Trim();
         var customerEmail = request.CustomerEmail.Trim();
 
@@ -47,15 +57,28 @@ public sealed partial class BookingService(
         var bookingId = Guid.NewGuid();
         var guestAccessToken = GuestAccessToken.Create();
         var expiresAt = DateTimeOffset.UtcNow.Add(ReservationDuration);
+        cancellationToken.ThrowIfCancellationRequested();
         var reserved = await reservations.TryReserveAsync(
             bookingId,
             inventory.EventId,
             inventory.SectionId,
             request.Quantity,
-            expiresAt);
+            expiresAt,
+            clientKey);
 
-        if (!reserved)
-            return new ReservationResult(ReservationStatus.InsufficientInventory, null, null);
+        if (reserved.Status != RedisReservationStatus.Reserved)
+        {
+            var status = reserved.Status switch
+            {
+                RedisReservationStatus.InsufficientInventory => ReservationStatus.InsufficientInventory,
+                RedisReservationStatus.ActiveReservationLimitExceeded => ReservationStatus.ActiveReservationLimitExceeded,
+                RedisReservationStatus.ReservedQuantityLimitExceeded => ReservationStatus.ReservedQuantityLimitExceeded,
+                RedisReservationStatus.QuantityNotAllowed => ReservationStatus.QuantityNotAllowed,
+                _ => throw new ReservationControlUnavailableException()
+            };
+            return new ReservationResult(status, null, null, RetryAfterSeconds:
+                Math.Max(attempt.RetryAfterSeconds, reserved.RetryAfterSeconds));
+        }
 
         var booking = new BookingModel
         {
@@ -91,7 +114,15 @@ public sealed partial class BookingService(
         }
         catch
         {
-            await reservations.ReleaseReservationAsync(inventory.EventId, inventory.SectionId, bookingId);
+            try
+            {
+                await reservations.ReleaseReservationAsync(inventory.EventId, inventory.SectionId, bookingId);
+            }
+            catch (StackExchange.Redis.RedisException)
+            {
+                // Preserve the original save error. Redis expiry cleanup also finds this
+                // hold without requiring a corresponding database row.
+            }
             throw;
         }
 
@@ -468,14 +499,19 @@ public enum ReservationStatus
 {
     Reserved,
     InventoryNotFound,
-    InsufficientInventory
+    InsufficientInventory,
+    AttemptLimitExceeded,
+    ActiveReservationLimitExceeded,
+    ReservedQuantityLimitExceeded,
+    QuantityNotAllowed
 }
 
 public sealed record ReservationResult(
     ReservationStatus Status,
     Guid? BookingId,
     DateTimeOffset? ExpiresAt,
-    string GuestAccessToken = "");
+    string GuestAccessToken = "",
+    int RetryAfterSeconds = 0);
 
 public static class BookingStatuses
 {

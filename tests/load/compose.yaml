@@ -122,6 +122,13 @@ services:
       <<: *app-environment
       ConnectionStrings__Booking: Host=postgres;Database=booking;Username=loadtest;Password=loadtest;Maximum Pool Size=20;Application Name=load-booking
       ConnectionStrings__Redis: redis:6379
+      # Isolated inventory/payment load tests share one source IP. IP policy is
+      # covered separately by ReservationLimitTests; these limits remain finite.
+      ReservationLimits__HmacKey: "1111111111111111111111111111111111111111111111111111111111111111"
+      ReservationLimits__AttemptsPerWindow: "10000"
+      ReservationLimits__WindowSeconds: "1"
+      ReservationLimits__MaxActiveReservationsPerEvent: "1000"
+      ReservationLimits__MaxReservedQuantityPerEvent: "100000"
       EventCatalog__BaseUrl: http://eventcatalog:8080
       PaymentSimulator__BaseUrl: http://payment-simulator:8080
       TicketService__BaseUrl: http://ticketservice:8080
@@ -141,7 +148,8 @@ services:
   api-gateway:
     image: halsingelive-load-api-gateway:local
     build:
-      context: ../../src/ApiGateway
+      context: ../../src
+      dockerfile: ApiGateway/Dockerfile
     environment:
       ASPNETCORE_HTTP_PORTS: "8080"
       ReverseProxy__Clusters__eventCatalog__Destinations__primary__Address: http://eventcatalog:8080

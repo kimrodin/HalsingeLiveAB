@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using StackExchange.Redis;
+using Microsoft.Extensions.Options;
+using System.Net;
 using Inventory = Booking.Features.EventInventory.Models.EventInventory;
 
 namespace Booking.IntegrationTests;
@@ -30,7 +32,14 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
     private string? adminConnectionString;
     private NpgsqlDataSource? dataSource;
     public IConnectionMultiplexer Redis { get; private set; } = null!;
-    public RedisReservationService Reservations => new(Redis);
+    // These suites test stock/payment behavior rather than IP policy (including a 200-request race).
+    public ReservationLimitOptions Limits { get; } = new()
+    {
+        AttemptsPerWindow = 10000, MaxActiveReservationsPerEvent = 1000, MaxReservedQuantityPerEvent = 100000,
+        HmacKey = new string('a', 64), KeyPrefix = $"booking:limits:tests:{Guid.NewGuid():N}"
+    };
+    public IPAddress ClientAddress { get; } = IPAddress.Parse("192.0.2.50");
+    public RedisReservationService Reservations => new(Redis, Options.Create(Limits));
     public IEventSnapshotProvider EventSnapshots => new TestEventSnapshotProvider();
     public string GetGuestAccessToken(Guid bookingId) => guestAccessTokens[bookingId];
 
@@ -63,14 +72,18 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
         .AddInterceptors(interceptors)
         .Options);
 
-    public BookingService CreateService(BookingDbContext db, IPaymentGateway gateway) =>
-        new(db, Reservations, gateway, new TestEventSnapshotProvider());
+    public BookingService CreateService(BookingDbContext db, IPaymentGateway gateway, ReservationLimitOptions? limits = null)
+    {
+        var options = Options.Create(limits ?? Limits);
+        return new(db, new RedisReservationService(Redis, options), gateway, new TestEventSnapshotProvider(),
+            new RedisReservationAttemptLimiter(Redis, options), new ReservationClientIdentity(options));
+    }
 
-    public async Task<Inventory> CreateInventoryAsync(int stock = 10, decimal price = 125.50m)
+    public async Task<Inventory> CreateInventoryAsync(int stock = 10, decimal price = 125.50m, Guid? eventId = null)
     {
         var inventory = new Inventory
         {
-            InventoryId = Guid.NewGuid(), EventId = Guid.NewGuid(), SectionId = Guid.NewGuid(),
+            InventoryId = Guid.NewGuid(), EventId = eventId ?? Guid.NewGuid(), SectionId = Guid.NewGuid(),
             TotalQuantity = stock, AvailableQuantity = stock, Price = price
         };
         await using var db = CreateContext();
@@ -84,7 +97,7 @@ public sealed class BookingDatabaseFixture : IAsyncLifetime
     {
         await using var db = CreateContext();
         var result = await CreateService(db, gateway).CreateReservationAsync(new CreateBookingRequest(
-            inventory.InventoryId, quantity, "Integration Customer", "customer@example.com"));
+            inventory.InventoryId, quantity, "Integration Customer", "customer@example.com"), ClientAddress);
         Assert.Equal(ReservationStatus.Reserved, result.Status);
         var id = result.BookingId!.Value;
         bookingIds.Add(id);

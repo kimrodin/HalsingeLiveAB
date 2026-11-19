@@ -1,0 +1,11 @@
+**
+!src/
+!src/Shared/
+!src/Shared/ClientAddressing/
+!src/Shared/ClientAddressing/**
+!tests/
+!tests/proxy-chain/
+!tests/proxy-chain/probe/
+!tests/proxy-chain/probe/**
+**/bin/
+**/obj/

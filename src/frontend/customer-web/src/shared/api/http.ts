@@ -2,13 +2,15 @@ export class ApiError extends Error {
   readonly status: number
   readonly errors?: Record<string, string[]>
   readonly body?: unknown
+  readonly retryAfterSeconds?: number
 
-  constructor(message: string, status: number, errors?: Record<string, string[]>, body?: unknown) {
+  constructor(message: string, status: number, errors?: Record<string, string[]>, body?: unknown, retryAfterSeconds?: number) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.errors = errors
     this.body = body
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
@@ -18,17 +20,20 @@ interface ApiProblem {
   errors?: Record<string, string[]>
 }
 
-function toApiError(problem: ApiProblem | null, status: number, fallback: string): ApiError {
+function toApiError(problem: ApiProblem | null, status: number, fallback: string, retryAfterSeconds?: number): ApiError {
   const errors = problem?.errors
   const fieldMessages = errors ? Object.values(errors).flat().join(' ') : undefined
-  return new ApiError(problem?.detail ?? fieldMessages ?? problem?.title ?? fallback, status, errors, problem)
+  return new ApiError(problem?.detail ?? fieldMessages ?? problem?.title ?? fallback, status, errors, problem, retryAfterSeconds)
 }
 
 async function readError(response: Response, fallback: string): Promise<ApiError> {
+  const retryAfter = response.headers.get('Retry-After')
+  const seconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : undefined
+  const retryAfterSeconds = Number.isSafeInteger(seconds) ? seconds : undefined
   try {
-    return toApiError((await response.json()) as ApiProblem, response.status, fallback)
+    return toApiError((await response.json()) as ApiProblem, response.status, fallback, retryAfterSeconds)
   } catch {
-    return toApiError(null, response.status, fallback)
+    return toApiError(null, response.status, fallback, retryAfterSeconds)
   }
 }
 
