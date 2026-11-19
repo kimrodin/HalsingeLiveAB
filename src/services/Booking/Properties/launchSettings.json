@@ -7,6 +7,8 @@
       "applicationUrl": "http://localhost:5081",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
+        "ClientAddressing__TrustedProxies__0": "127.0.0.1",
+        "ClientAddressing__TrustedProxies__1": "::1",
         "ConnectionStrings__Booking": "Host=localhost;Port=5433;Database=booking_dev;Username=postgres;Password=postgres",
         "ConnectionStrings__Redis": "localhost:6379",
         "InitializeDatabase": "true"

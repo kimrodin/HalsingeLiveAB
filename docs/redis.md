@@ -19,9 +19,10 @@ sequenceDiagram
     participant D as Booking PostgreSQL
 
     C->>B: HTTP POST /CreateBooking
+    B->>R: Kontrollera och räkna reservationsförsök per klient
     B->>D: Läs lager, pris och sektion
     B->>R: Initiera saldo om nyckeln saknas
-    B->>R: Lua: kontrollera saldo och reservera atomärt
+    B->>R: Lua: kontrollera saldo och klientkvoter, reservera atomärt
     R-->>B: Reservation skapad eller otillräckligt saldo
     opt Reservationen skapades
         B->>D: Spara bokning med status Reserved och ExpiresAt
@@ -65,13 +66,16 @@ Betalningsbehandling och biljettutfärdande ligger utanför Redis. Redis använd
 
 ## Nycklar och lagrat innehåll
 
-All Redis-logik finns i [RedisReservationService](../src/services/Booking/features/bookingholds/RedisReservationService.cs). Tjänsten använder följande nycklar:
+Lagerövergångar finns i [RedisReservationService](../src/services/Booking/features/bookingholds/RedisReservationService.cs)
+och den gemensamma `ReservationLua`. `RedisReservationAttemptLimiter` räknar
+försök. Klientkvoter, ytterligare nycklar och städning beskrivs i
+[reservationsguiden](reservation-limits.md). Lagertjänsten använder följande nycklar:
 
 | Nyckel | Datatyp och innehåll | Livslängd |
 | --- | --- | --- |
 | `inventory:{eventId:N}:{sectionId:N}:available` | String med det tillgängliga antalet platser. | Ingen TTL. |
 | `inventory:{eventId:N}:{sectionId:N}:reservations` | Sorted set med reservations-ID som medlem och sluttid i Unix-millisekunder som `score`. | Ingen TTL; medlemmar tas bort när reservationer avslutas. |
-| `reservation:{reservationId:N}` | Hash med `eventId`, `sectionId` och `quantity`. | Ingen TTL; tas bort av reservationslogiken. |
+| `reservation:{reservationId:N}` | Hash med `eventId`, `sectionId`, `quantity` och referenser till lagerindex, ägarpost och städindex. | Ingen TTL; tas bort av reservationslogiken. |
 | `reservation-expired:{reservationId:N}` | String med värdet `1`. Visar att reservationen har gått ut. | 86 400 sekunder från att markören skapas. |
 | `reservation-confirmed:{reservationId:N}` | Hash med `quantity`. Visar att reservationen har bekräftats och möjliggör kompensation. | 86 400 sekunder från bekräftelsen. |
 | `reservation-cancelled:{reservationId:N}` | String med värdet `1`. Visar att reservationen har frigjorts eller kompenserats. | 86 400 sekunder från att markören skapas. |
@@ -99,11 +103,11 @@ Initieringen är alltså inte en löpande synkronisering från PostgreSQL. Om Re
 `TryReserveAsync` kör sedan ett Lua-skript som:
 
 1. Hämtar utgångna reservationer för samma evenemang och sektion och återför deras antal.
-2. Kontrollerar att saldot finns, att reservations-ID:t inte redan används av en aktiv reservation och att antalet räcker.
+2. Städar klientens utgångna reservationer i andra sektioner och kontrollerar aktiva kvoter per evenemang. Kontrollerar sedan att saldot finns, att reservations-ID:t inte redan används och att antalet räcker.
 3. Minskar saldot med `DECRBY`.
-4. Sparar reservationshashen och lägger till ID och sluttid i reservationsindexet.
+4. Sparar reservationshashen och lägger till ID, antal och sluttid i lager-, klient- och städindex.
 
-Hela skriptet körs atomärt. Om två kunder försöker reservera den sista platsen kan bara en av dem minska saldot från ett till noll. Den andra får ingen reservation. `TryReserveAsync` returnerar `true` endast när en ny reservation faktiskt har skapats.
+Hela skriptet körs atomärt. Om två kunder försöker reservera den sista platsen kan bara en av dem minska saldot från ett till noll. Den andra får ingen reservation. `TryReserveAsync` returnerar `RedisReservationResult` med status `Reserved` endast när en ny reservation har skapats; kvotfel har även en väntetid.
 
 När Redis har accepterat reservationen sparar Booking bokningen och dess bokningsrad i PostgreSQL med status `Reserved`. Om databaslagringen kastar ett fel försöker Booking frigöra Redis-reservationen innan felet skickas vidare. Ett avbrott mellan Redis och databaslagring kan lämna en reservation utan bokningsrad; den kan städas vid nästa läsning eller reservationsförsök för samma sektion när sluttiden har passerat.
 
@@ -155,6 +159,7 @@ Utgång hanteras på två kompletterande sätt:
 
 - **Vid Redis-anrop:** `GetAvailableQuantityAsync` och `TryReserveAsync` städar utgångna reservationer i den aktuella sektionen. Bekräftelse och frigöring kontrollerar också den berörda reservationens sluttid.
 - **I bakgrunden:** [BookingExpirationService](../src/services/Booking/features/bookings/BookingExpirationService.cs) söker ungefär var 15:e sekund efter utgångna `Reserved`-bokningar och bokningar som redan har status `Expiring`.
+- **Utan databasrad:** `RedisReservationCleanupService` städar Redis eget förfalloindex var 15:e sekund, även efter en processkrasch före databaslagring. Se [reservationsgränser](reservation-limits.md).
 
 Bakgrundstjänsten använder övergången `Reserved → Expiring → Expired`. Den återställer eventuella kvarvarande Redis-bekräftelser, frigör reservationerna och markerar därefter bokningen som utgången. Vid ett fel loggas orsaken; en bokning med status `Expiring` kan tas upp igen vid nästa körning.
 

@@ -107,9 +107,21 @@ jobs:
         working-directory: src/frontend/${{ matrix.app }}
         run: npm run lint
 
+      - name: Test HTTP error handling
+        if: matrix.app == 'customer-web'
+        working-directory: src/frontend/${{ matrix.app }}
+        run: npm test
+
       - name: Build
         working-directory: src/frontend/${{ matrix.app }}
         run: npm run build
+
+      - name: Verify Vite client headers
+        # This test starts the actual Vite configuration for both applications.
+        if: matrix.app == 'customer-web'
+        run: |
+          npm ci --prefix src/frontend/admin-web
+          node --test tests/proxy-chain/vite.test.mjs
 
   containers:
     name: Container build and Compose validation
@@ -126,8 +138,29 @@ jobs:
       - name: Build Booking image
         run: docker build -f src/services/Booking/Dockerfile src
 
+      - name: Verify Nginx and gateway client address chain
+        run: docker compose -p halsingelive-proxy-tests -f tests/proxy-chain/compose.yaml up --build --abort-on-container-exit --exit-code-from client
+
+      - name: Stop proxy test containers
+        if: always()
+        run: docker compose -p halsingelive-proxy-tests -f tests/proxy-chain/compose.yaml down
+
       - name: Build EventCatalog image
         run: docker build -f src/services/EventCatalog/Dockerfile src/services/EventCatalog
+
+      - name: Verify real reservation proxy chain
+        # The runner always tears down its uniquely named project.
+        shell: pwsh
+        run: ./tests/reservation-chain/run.ps1
+
+      - name: Save reservation chain evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reservation-chain-evidence
+          path: tests/reservation-chain/results/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Build PaymentSimulator image
         run: docker build -f src/services/PaymentSimulator/Dockerfile src

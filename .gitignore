@@ -4,6 +4,7 @@
 [Aa]rtifacts/
 TestResults/
 tests/load/results/
+tests/reservation-chain/results/
 *.user
 *.suo
 *.cache

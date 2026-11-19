@@ -1,7 +1,9 @@
 using Serilog;
 using Serilog.Events;
+using HalsingeLive.ClientAddressing;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddClientAddressing(builder.Configuration);
 builder.Host.UseSerilog((_, loggerConfiguration) =>
     loggerConfiguration
         .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Warning)
@@ -17,6 +19,7 @@ builder.Services
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
+app.UseClientAddressing();
 app.UseSerilogRequestLogging(options =>
 {
     options.EnrichDiagnosticContext = (diagnosticContext, context) =>

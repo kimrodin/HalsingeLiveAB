@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
+import { createApiProxy } from './proxyHeaders.ts'
 
 export default defineConfig(({ mode }) => {
   // Preserve API prefixes; ApiGateway handles routing and prefix removal.
@@ -14,18 +15,9 @@ export default defineConfig(({ mode }) => {
     server: {
       allowedHosts: ['troy-agreed-wiley-campus.trycloudflare.com'],
       proxy: {
-        '/api': {
-          target: API_GATEWAY_PROXY_TARGET,
-          changeOrigin: true,
-        },
-        '/booking-api': {
-          target: API_GATEWAY_PROXY_TARGET,
-          changeOrigin: true,
-        },
-        '/ticket-api': {
-          target: API_GATEWAY_PROXY_TARGET,
-          changeOrigin: true,
-        },
+        '/api': createApiProxy(API_GATEWAY_PROXY_TARGET),
+        '/booking-api': createApiProxy(API_GATEWAY_PROXY_TARGET),
+        '/ticket-api': createApiProxy(API_GATEWAY_PROXY_TARGET),
       },
     },
   }

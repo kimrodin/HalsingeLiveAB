@@ -4,6 +4,9 @@ using System.ComponentModel.DataAnnotations;
 using Booking.Features.EventCatalog;
 using Booking.Features.Payments.Gateway;
 using Booking.Features.Tickets;
+using Booking.Features.BookingHolds;
+using StackExchange.Redis;
+using System.Globalization;
 
 namespace Booking.Features.Bookings;
 
@@ -193,6 +196,7 @@ public sealed class BookingsController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> CreateBooking(
         [FromBody] CreateBookingRequest request,
@@ -200,7 +204,22 @@ public sealed class BookingsController(
     {
         try
         {
-            var result = await bookingService.CreateReservationAsync(request, cancellationToken);
+            var result = await bookingService.CreateReservationAsync(request,
+                HttpContext.Connection.RemoteIpAddress, cancellationToken);
+            if (result.Status is ReservationStatus.AttemptLimitExceeded
+                or ReservationStatus.ActiveReservationLimitExceeded or ReservationStatus.ReservedQuantityLimitExceeded)
+            {
+                Response.Headers.RetryAfter = Math.Max(1, result.RetryAfterSeconds).ToString(CultureInfo.InvariantCulture);
+                return StatusCode(StatusCodes.Status429TooManyRequests, new ProblemDetails
+                {
+                    Title = "Reservation limit reached.",
+                    Detail = result.Status == ReservationStatus.AttemptLimitExceeded
+                        ? "För många reservationsförsök från din nätverksadress. Vänta och försök igen."
+                        : "Gränsen för aktiva reservationer eller reserverade biljetter från din nätverksadress har nåtts. Avsluta en befintlig reservation eller vänta tills den löper ut.",
+                    Status = StatusCodes.Status429TooManyRequests,
+                    Extensions = { ["code"] = result.Status.ToString() }
+                });
+            }
             if (result.Status == ReservationStatus.Reserved)
             {
                 Response.Headers["X-Correlation-ID"] = result.BookingId!.Value.ToString("D");
@@ -224,16 +243,34 @@ public sealed class BookingsController(
                     Title = "Not enough tickets are available.",
                     Status = StatusCodes.Status409Conflict
                 }),
-                _ => Accepted(new CreateBookingResponse(
+                ReservationStatus.QuantityNotAllowed => BadRequest(new ProblemDetails
+                {
+                    Title = "Too many tickets requested.",
+                    Detail = "Antalet biljetter överstiger den konfigurerade gränsen per nätverksadress och evenemang. Välj ett lägre antal.",
+                    Status = StatusCodes.Status400BadRequest
+                }),
+                ReservationStatus.Reserved => Accepted(new CreateBookingResponse(
                     result.BookingId!.Value,
                     result.ExpiresAt!.Value,
                     "Tickets are temporarily reserved.",
-                    result.GuestAccessToken))
+                    result.GuestAccessToken)),
+                _ => throw new ReservationControlUnavailableException()
             };
         }
         catch (BookingValidationException exception)
         {
             return RequestValidationProblem(exception);
+        }
+        catch (Exception exception) when (exception is RedisException or ReservationControlUnavailableException)
+        {
+            // Do not log the client address, identifier or Redis key/command details.
+            logger.LogWarning("Reservation control is unavailable while creating a booking.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Reservations are temporarily unavailable.",
+                Detail = "Det går inte att reservera biljetter just nu. Försök igen om en stund.",
+                Status = StatusCodes.Status503ServiceUnavailable
+            });
         }
         catch (EventCatalogSnapshotNotFoundException)
         {

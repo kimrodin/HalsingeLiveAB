@@ -74,6 +74,7 @@ foreach ($file in (Get-ChildItem -LiteralPath $PSScriptRoot -File | Where-Object
     paymentOutcome = $PaymentOutcome; paymentDelayMs = $PaymentDelayMs; paymentTimeoutMs = $PaymentTimeoutMs
     verificationTimeoutSeconds = $VerificationTimeoutSeconds; storage = 'disk-backed isolated volumes (Redis AOF enabled)'
     databaseMaxConnections = 100; serviceMaxPoolSize = 20; composeProject = $project
+    reservationLimits = @{ attempts = 10000; windowSeconds = 1; maxActive = 1000; maxQuantity = 100000 }
     httpP95Ms = $HttpP95Ms; httpP99Ms = $HttpP99Ms; checkoutP95Ms = $CheckoutP95Ms; checkoutP99Ms = $CheckoutP99Ms
     maxHttpErrorRate = $MaxHttpErrorRate; sourceSha256 = $sourceHashes
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $resultPath 'run.json') -Encoding utf8

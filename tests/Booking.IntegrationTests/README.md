@@ -30,3 +30,22 @@ For issues #25 and #52, the concurrency tests cover:
 These tests use real PostgreSQL and Redis and separate request contexts. Barriers
 have bounded waits and require no sleeps. Inventory currently represents ticket
 quantities per event section; a stock of one models the last available place.
+
+For issue #151, `ReservationLimitTests` covers the shared IP attempt window and
+active reservation/ticket quotas across event sections. It uses real HTTP source
+addresses (not a trusted test header), checks forged forwarding headers, and
+sends 20 concurrent requests across two hosts with independent Redis connections
+for each policy. It also checks confirmation, idempotent release, orphan expiry,
+failed-save compensation, bounded client-key TTLs and a Redis outage returning
+503 without a new booking or stock deduction.
+
+The 3-attempt/60-second test waits for the real window to expire, so this suite
+takes at least one minute. Other payment/stock suites intentionally configure
+high IP limits so their existing 200-request stock race still tests inventory.
+Defaults, NAT considerations and rollout are in
+[the reservation limit guide](../../docs/reservation-limits.md).
+
+The Redis outage test starts with an existing three-ticket hold and checks its
+status, deadline, quantity, active quota, attempt count and both stock values
+after the rejected request. Real Booking requests through both frontend proxies
+and the gateway are covered by [the proxy-chain suite](../reservation-chain/README.md).

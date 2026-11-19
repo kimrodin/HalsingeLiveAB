@@ -308,6 +308,10 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         builder.Services.AddControllers().AddApplicationPart(typeof(BookingsController).Assembly);
         builder.Services.AddScoped(_ => fixture.CreateContext());
         builder.Services.AddSingleton(fixture.Reservations);
+        builder.Services.AddSingleton(new Booking.Features.BookingHolds.RedisReservationAttemptLimiter(
+            fixture.Redis, Microsoft.Extensions.Options.Options.Create(fixture.Limits)));
+        builder.Services.AddSingleton(new Booking.Features.BookingHolds.ReservationClientIdentity(
+            Microsoft.Extensions.Options.Options.Create(fixture.Limits)));
         builder.Services.AddSingleton(snapshots ?? fixture.EventSnapshots);
         builder.Services.AddScoped<BookingService>();
         builder.Services.AddSingleton<ITicketServiceClient, StubTicketServiceClient>();
@@ -356,7 +360,7 @@ public sealed class BookingPaymentHttpTests(BookingDatabaseFixture fixture) : IC
         }
     }
 
-    private sealed class StubTicketServiceClient : ITicketServiceClient
+    internal sealed class StubTicketServiceClient : ITicketServiceClient
     {
         public Task IssueTicketsAsync(
             BookingConfirmed message,

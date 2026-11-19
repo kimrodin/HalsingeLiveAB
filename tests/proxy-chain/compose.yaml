@@ -1,0 +1,63 @@
+services:
+  gateway:
+    build:
+      context: ../../src
+      dockerfile: ApiGateway/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ClientAddressing__TrustedProxies__0: 172.30.152.3
+      ClientAddressing__TrustedProxies__1: 172.30.152.4
+      ReverseProxy__Clusters__booking__Destinations__primary__Address: http://172.30.152.5:8080/
+    networks:
+      default:
+        ipv4_address: 172.30.152.2
+        ipv6_address: fd00:151:152::2
+  customer:
+    image: nginx:alpine
+    environment:
+      API_GATEWAY_PROXY_TARGET: http://172.30.152.2:8080
+      NGINX_ENVSUBST_FILTER: ^API_GATEWAY_PROXY_TARGET$
+    volumes:
+      - ../../src/frontend/customer-web/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      default:
+        ipv4_address: 172.30.152.3
+        ipv6_address: fd00:151:152::3
+  admin:
+    image: nginx:alpine
+    environment:
+      API_GATEWAY_PROXY_TARGET: http://172.30.152.2:8080
+      NGINX_ENVSUBST_FILTER: ^API_GATEWAY_PROXY_TARGET$
+    volumes:
+      - ../../src/frontend/admin-web/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      default:
+        ipv4_address: 172.30.152.4
+        ipv6_address: fd00:151:152::4
+  probe:
+    build:
+      context: ../..
+      dockerfile: tests/proxy-chain/Dockerfile
+    environment:
+      ClientAddressing__TrustedProxies__0: 172.30.152.2
+    networks:
+      default:
+        ipv4_address: 172.30.152.5
+        ipv6_address: fd00:151:152::5
+  client:
+    image: python:3-alpine
+    depends_on: [gateway, customer, admin, probe]
+    volumes:
+      - ./verify.py:/verify.py:ro
+    command: ["python", "/verify.py"]
+    networks:
+      default:
+        ipv4_address: 172.30.152.100
+        ipv6_address: fd00:151:152::100
+networks:
+  default:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.30.152.0/24
+        - subnet: fd00:151:152::/64
