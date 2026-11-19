@@ -99,7 +99,7 @@ public sealed class BookingListTests
         db.Bookings.Add(booking);
         await db.SaveChangesAsync();
 
-        var service = new BookingService(db, null!, null!, null!);
+        var service = new BookingService(db, null!, null!, null!, null!, null!);
         var result = await service.UpdateBookingCustomerAsync(
             booking.BookingId, "New Name", "new@example.com");
 
@@ -124,7 +124,7 @@ public sealed class BookingListTests
         db.Bookings.AddRange(current, previous);
         await db.SaveChangesAsync();
 
-        var service = new BookingService(db, null!, null!, null!);
+        var service = new BookingService(db, null!, null!, null!, null!, null!);
         var history = await service.GetBookingHistoryAsync(
             current.BookingId, customerLink, string.Empty);
 
