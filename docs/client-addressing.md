@@ -40,9 +40,10 @@ tillitslistorna:
 | `GATEWAY_PROXY_IP` | `172.30.151.2` | Gatewayens adress; betrodd av Booking. |
 | `ADMIN_PROXY_IP` | `172.30.151.3` | Adminproxyns adress; betrodd av gateway. |
 | `CUSTOMER_PROXY_IP` | `172.30.151.4` | Kundproxyns adress; betrodd av gateway. |
+| `KEYCLOAK_PROXY_IP` | `172.30.151.5` | Keycloak-proxyns adress; betrodd av Keycloak. |
 
 Variablerna är valfria i `.env`. Vid konflikt med ett befintligt nätverk måste
-samtliga fem värden väljas tillsammans. Proxyadresserna ska vara olika, ligga
+samtliga sex värden väljas tillsammans. Proxyadresserna ska vara olika, ligga
 i subnätet och utanför den dynamiska poolen. Adresserna behålls vid omstart.
 Övriga containrar i nätverket är inte betrodda proxyer.
 

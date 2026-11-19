@@ -1,0 +1,50 @@
+# Empty keys exempt discovery, static assets, admin APIs and unrelated paths.
+# Use normalized URI, not query strings or client-supplied forwarding headers.
+map $uri $keycloak_login_key {
+    default "";
+    ~^/realms/[^/]+/login-actions/ $binary_remote_addr;
+    ~^/realms/[^/]+/protocol/openid-connect/auth/?$ $binary_remote_addr;
+}
+map $uri $keycloak_token_key {
+    default "";
+    ~^/realms/[^/]+/protocol/openid-connect/token/?$ $binary_remote_addr;
+}
+limit_req_zone $keycloak_login_key zone=keycloak_login:10m rate=${KEYCLOAK_LOGIN_RATE};
+limit_req_zone $keycloak_token_key zone=keycloak_token:10m rate=${KEYCLOAK_TOKEN_RATE};
+log_format keycloak_privacy escape=json '{"method":"$request_method","path":"$uri","status":$status,"bytes":$body_bytes_sent,"duration":$request_time}';
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+    access_log /var/log/nginx/access.log keycloak_privacy;
+    limit_req_status 429;
+    # Keep routine denials out of error logs, which include client addresses.
+    limit_req_log_level info;
+    limit_req zone=keycloak_login burst=20 nodelay;
+    limit_req zone=keycloak_token burst=20 nodelay;
+    error_page 429 = @limited;
+
+    location @limited {
+        default_type application/problem+json;
+        return 429 '{"title":"Too many authentication requests","status":429,"detail":"Vänta en stund och försök logga in igen."}';
+    }
+
+    location / {
+        proxy_pass ${KEYCLOAK_PROXY_TARGET};
+        # Public host/port must survive e.g. localhost:8180; ignore incoming claims.
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Keycloak gives this precedence over X-Forwarded-Host's port.
+        proxy_set_header X-Forwarded-Port "";
+        proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header Forwarded "";
+        proxy_set_header X-Real-IP "";
+        proxy_set_header X-Original-For "";
+        proxy_set_header X-Original-Proto "";
+        proxy_set_header X-Original-Host "";
+        proxy_set_header X-Original-Prefix "";
+    }
+}

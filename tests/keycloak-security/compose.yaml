@@ -1,0 +1,56 @@
+# Disposable fixture. All credentials below are public test values.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: fixture-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: fixture-password
+      KEYCLOAK_APP_ADMIN_PASSWORD: fixture-password
+      KC_HOSTNAME: http://proxy
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_PROXY_TRUSTED_ADDRESSES: 172.30.154.2
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ../../infrastructure/keycloak/halsingelive-realm.json:/opt/keycloak/data/import/halsingelive-realm.json:ro
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+  proxy:
+    image: nginx:alpine
+    environment:
+      KEYCLOAK_PROXY_TARGET: http://keycloak:8080
+      KEYCLOAK_LOGIN_RATE: 30r/m
+      KEYCLOAK_TOKEN_RATE: 60r/m
+      NGINX_ENVSUBST_FILTER: ^(KEYCLOAK_PROXY_TARGET|KEYCLOAK_LOGIN_RATE|KEYCLOAK_TOKEN_RATE)$
+    volumes:
+      - ../../infrastructure/keycloak/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      default: {ipv4_address: 172.30.154.2}
+    depends_on:
+      keycloak: {condition: service_healthy}
+  client:
+    image: python:3-alpine
+    volumes:
+      - ./verify.py:/verify.py:ro
+    command: ["python", "-u", "/verify.py"]
+    networks:
+      default: {ipv4_address: 172.30.154.100}
+    depends_on: [proxy, other]
+  other:
+    image: python:3-alpine
+    volumes:
+      - ./other.py:/other.py:ro
+    command: ["python", "-u", "/other.py"]
+    networks:
+      default: {ipv4_address: 172.30.154.101}
+    depends_on: [proxy]
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.154.0/24
+          ip_range: 172.30.154.128/25

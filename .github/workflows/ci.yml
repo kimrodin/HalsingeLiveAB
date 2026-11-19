@@ -138,6 +138,13 @@ jobs:
       - name: Build Booking image
         run: docker build -f src/services/Booking/Dockerfile src
 
+      - name: Verify Keycloak login protection
+        run: docker compose -p halsingelive-keycloak-tests -f tests/keycloak-security/compose.yaml up --abort-on-container-exit --exit-code-from client
+
+      - name: Stop Keycloak test containers
+        if: always()
+        run: docker compose -p halsingelive-keycloak-tests -f tests/keycloak-security/compose.yaml down
+
       - name: Verify Nginx and gateway client address chain
         run: docker compose -p halsingelive-proxy-tests -f tests/proxy-chain/compose.yaml up --build --abort-on-container-exit --exit-code-from client
 
