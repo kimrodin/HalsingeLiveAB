@@ -39,9 +39,10 @@ for each policy. It also checks confirmation, idempotent release, orphan expiry,
 failed-save compensation, bounded client-key TTLs and a Redis outage returning
 503 without a new booking or stock deduction.
 
-The 3-attempt/60-second test waits for the real window to expire, so this suite
-takes at least one minute. Other payment/stock suites intentionally configure
-high IP limits so their existing 200-request stock race still tests inventory.
+The attempt-window test uses a ten-second fixture window and waits for real Redis
+expiry. The [reservation-chain suite](../reservation-chain/README.md) retains the
+full sixty-second end-to-end recovery check. Other payment/stock suites intentionally
+configure high IP limits so their existing 200-request stock race still tests inventory.
 Defaults, NAT considerations and rollout are in
 [the reservation limit guide](../../docs/reservation-limits.md).
 
