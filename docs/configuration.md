@@ -107,6 +107,9 @@ Hexvärden behöver ingen extra escapning i anslutningssträngarna.
 | `KEYCLOAK_APP_ADMIN_PASSWORD` | **eget genererat värde** (för appkontot `testadmin`) |
 | `KC_HOSTNAME` | `http://localhost:8180` |
 | `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` | `true` |
+| `KEYCLOAK_PROXY_IP` | `172.30.151.5`, fast adress utanför nätverkets dynamiska pool |
+| `KEYCLOAK_LOGIN_RATE` | `30r/m`, separat IP-kvot för auth och login-actions, burst 20 |
+| `KEYCLOAK_TOKEN_RATE` | `60r/m`, separat IP-kvot för tokenanrop, burst 20 |
 | `VENUE_MAP_STORAGE_ROOT_PATH` | `/app/uploads/venue-maps` |
 | `EVENT_IMAGE_STORAGE_ROOT_PATH` | `/app/uploads/event-images` |
 | `PAYMENT_SIMULATION_OUTCOME` | `Succeeded` |

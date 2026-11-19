@@ -51,13 +51,61 @@ igen. Ett `401` eller `403` från Booking avbryter det aktuella lagrets återfö
 ## Felsökning
 
 ```sh
-docker compose logs --tail=100 keycloak api-gateway
+docker compose logs --tail=100 keycloak keycloak-proxy api-gateway
 curl --fail http://localhost:8180/realms/halsingelive/.well-known/openid-configuration
 ```
 
 Använd `curl.exe` i Windows PowerShell 5. Vid `401`, kontrollera issuer och
 discovery; vid `403`, adminrollen. Redirect-fel kräver att appens adress matchar
 klientinställningarna.
+
+## Skydd av inloggning
+
+Keycloak kör `start --import-realm` med `KC_HTTP_ENABLED=true` för lokal HTTP
+bakom proxyn. `KC_DB=dev-file` behåller utvecklingsdatabasen i `keycloak-data`.
+Detta är fortfarande en lokal utvecklingskonfiguration: inför publik drift
+behövs PostgreSQL och HTTPS. Att byta startkommando aktiverar inte kryptering.
+
+Porten `KEYCLOAK_PUBLISHED_PORT` (normalt `127.0.0.1:8180`) går till
+`keycloak-proxy`. Keycloak har ingen publicerad port. Den publika adressen,
+issuer, adminwebbens inställning och intern discovery på `keycloak:8080` behålls.
+Vid lokal körning ska även webbläsarens Keycloak-anrop gå genom proxyn.
+
+Nginx begränsar per anslutande IP med två separata buckets: auth/login-actions
+med 30 anrop/minut och tokenanrop med 60 anrop/minut. Båda tillåter burst 20
+utan väntan och svarar sedan 429. Det är en leaky bucket, inte ett rullande
+minutfönster som i Bookings Redis-limiter. Gränserna kan ändras med
+`KEYCLOAK_LOGIN_RATE` och `KEYCLOAK_TOKEN_RATE`. Discovery, statiska resurser
+och admin-API omfattas inte av dessa IP-kvoter. Tokenförnyelser räknas i tokenkvoten.
+NAT-användare delar kvot. En proxyinstans delar räknare mellan sina workers;
+flera proxyinstanser delar inte räknare. Omstart av proxyn återställer IP-kvoterna.
+
+Proxyn ersätter forwardingheaders med anslutningens adress och protokoll.
+Keycloak litar bara på `KEYCLOAK_PROXY_IP` (standard `172.30.151.5`). Ändras
+Compose-subnätet måste denna adress också väljas inom nätverket och utanför
+den dynamiska poolen. En extra ingress/CDN framför proxyn kräver separat
+konfiguration och verifiering; annars delar kunder ingressens IP-kvot.
+Proxyn slår upp Keycloak via Dockers DNS med fem sekunders cache, så att den
+återhämtar sig vid byte av intern Keycloak-adress utan omstart av proxyn.
+
+Realm-filen aktiverar tillfällig kontolåsning efter fem misslyckade inloggningar:
+60 sekunders ökande väntan, högst 900 sekunder. Snabba upprepade fel kan ge
+60 sekunders väntan redan tidigare. Felräknaren har ett återställningsintervall
+på 12 timmar. Kontolåsning kompletterar IP-gränsen även vid byte av IP.
+Skyddet gäller appens realm `halsingelive`; master-realmens kontoskydd
+konfigureras separat. Dess inloggningsanrop omfattas av proxykvoterna.
+
+Inställningarna importeras i en ny utvecklingsrealm. Befintliga realms importeras
+inte om. Ingen uppdateringsmigration för befintliga realms ingår.
+Vid tillfällig låsning: vänta ut låsningen eller häv den via Keycloaks
+administration för användaren. IP-begränsning kräver att bucket återhämtas.
+
+Rutinaccessloggar följer PR 152:s format utan IP, querysträng eller user agent.
+Nginx fel- och Keycloak-diagnostik kan innehålla IP; containerloggar kräver
+behörighet till Docker-värden. Proxyloggar roteras med samma Compose-inställning
+som webbproxyernas. Keycloaks egen loggning har separat retention.
+
+Verifiering: [Keycloak-säkerhetstester](../tests/keycloak-security/README.md).
 
 ## Kodreferenser
 

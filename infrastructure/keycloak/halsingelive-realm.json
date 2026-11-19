@@ -6,6 +6,13 @@
   "resetPasswordAllowed": false,
   "loginWithEmailAllowed": true,
   "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
   "accessTokenLifespan": 300,
   "roles": {
     "realm": [
@@ -81,6 +88,23 @@
     }
   ],
   "users": [
+    {
+      "username": "admintest",
+      "enabled": true,
+      "firstName": "Local",
+      "lastName": "Administrator",
+      "email": "admintest@example.test",
+      "emailVerified": true,
+      "realmRoles": ["admin"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_APP_ADMIN_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "requiredActions": []
+    },
     {
       "username": "testadmin",
       "enabled": true,

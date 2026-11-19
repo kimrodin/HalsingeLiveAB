@@ -5,6 +5,7 @@
 TestResults/
 tests/load/results/
 tests/reservation-chain/results/
+tests/keycloak-security/results/
 *.user
 *.suo
 *.cache
