@@ -123,20 +123,90 @@ jobs:
           npm ci --prefix src/frontend/admin-web
           node --test tests/proxy-chain/vite.test.mjs
 
-  containers:
-    name: Container build and Compose validation
+  container-builds:
+    name: Container builds and proxy checks
     runs-on: ubuntu-latest
-    needs: [dotnet, frontend]
     timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Validate development Compose structure
         run: docker compose -f src/Compose.yaml -f src/Compose.dev.yaml config --no-interpolate --no-normalize --quiet
 
       - name: Build Booking image
-        run: docker build -f src/services/Booking/Dockerfile src
+        uses: docker/build-push-action@v7
+        with:
+          context: src
+          file: src/services/Booking/Dockerfile
+          load: true
+          cache-from: type=gha,scope=ci-booking
+          cache-to: type=gha,mode=max,scope=ci-booking,ignore-error=true
+
+      - name: Verify Nginx and gateway client address chain
+        env:
+          # Compose shares the builder and layers used by the image builds.
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
+        run: docker compose -p halsingelive-proxy-tests -f tests/proxy-chain/compose.yaml up --build --abort-on-container-exit --exit-code-from client
+
+      - name: Stop proxy test containers
+        if: always()
+        run: docker compose -p halsingelive-proxy-tests -f tests/proxy-chain/compose.yaml down
+
+      - name: Build EventCatalog image
+        uses: docker/build-push-action@v7
+        with:
+          context: src/services/EventCatalog
+          file: src/services/EventCatalog/Dockerfile
+          load: true
+          cache-from: type=gha,scope=ci-eventcatalog
+          cache-to: type=gha,mode=max,scope=ci-eventcatalog,ignore-error=true
+
+      - name: Verify real reservation proxy chain
+        # The runner always tears down its uniquely named project.
+        shell: pwsh
+        env:
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
+        run: ./tests/reservation-chain/run.ps1
+
+      - name: Save reservation chain evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reservation-chain-evidence
+          path: tests/reservation-chain/results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Build PaymentSimulator image
+        uses: docker/build-push-action@v7
+        with:
+          context: src
+          file: src/services/PaymentSimulator/Dockerfile
+          load: true
+          cache-from: type=gha,scope=ci-paymentsimulator
+          cache-to: type=gha,mode=max,scope=ci-paymentsimulator,ignore-error=true
+
+      - name: Build TicketService image
+        uses: docker/build-push-action@v7
+        with:
+          context: src
+          file: src/services/TicketService/Dockerfile
+          load: true
+          cache-from: type=gha,scope=ci-ticketservice
+          cache-to: type=gha,mode=max,scope=ci-ticketservice,ignore-error=true
+
+  keycloak-security:
+    name: Keycloak login protection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
 
       - name: Verify Keycloak login protection
         shell: pwsh
@@ -151,32 +221,18 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Verify Nginx and gateway client address chain
-        run: docker compose -p halsingelive-proxy-tests -f tests/proxy-chain/compose.yaml up --build --abort-on-container-exit --exit-code-from client
-
-      - name: Stop proxy test containers
-        if: always()
-        run: docker compose -p halsingelive-proxy-tests -f tests/proxy-chain/compose.yaml down
-
-      - name: Build EventCatalog image
-        run: docker build -f src/services/EventCatalog/Dockerfile src/services/EventCatalog
-
-      - name: Verify real reservation proxy chain
-        # The runner always tears down its uniquely named project.
-        shell: pwsh
-        run: ./tests/reservation-chain/run.ps1
-
-      - name: Save reservation chain evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: reservation-chain-evidence
-          path: tests/reservation-chain/results/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Build PaymentSimulator image
-        run: docker build -f src/services/PaymentSimulator/Dockerfile src
-
-      - name: Build TicketService image
-        run: docker build -f src/services/TicketService/Dockerfile src
+  containers:
+    # Preserve the existing check name as the gate for both parallel jobs.
+    name: Container build and Compose validation
+    runs-on: ubuntu-latest
+    needs: [container-builds, keycloak-security]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - name: Check container job results
+        env:
+          BUILD_RESULT: ${{ needs.container-builds.result }}
+          KEYCLOAK_RESULT: ${{ needs.keycloak-security.result }}
+        run: |
+          test "$BUILD_RESULT" = success
+          test "$KEYCLOAK_RESULT" = success

@@ -31,9 +31,10 @@ public sealed class ReservationLimitTests(BookingDatabaseFixture fixture) : ICla
     };
 
     [BookingIntegrationFact]
-    public async Task ThreePerSixtySeconds_FourthGets429_OtherAddressWorks_OriginalAddressRecovers()
+    public async Task AttemptWindow_FourthGets429_OtherAddressWorks_OriginalAddressRecovers()
     {
-        var limits = Limits(attempts: 3);
+        // The reservation-chain suite covers the full 60-second production window.
+        var limits = Limits(attempts: 3, window: 10);
         var inventory = await fixture.CreateInventoryAsync(stock: 100);
         await using var host = await StartHostAsync(limits);
         var started = DateTimeOffset.UtcNow;
@@ -47,7 +48,7 @@ public sealed class ReservationLimitTests(BookingDatabaseFixture fixture) : ICla
             request.Headers.Add("X-Forwarded-For", "198.51.100.88");
             request.Headers.Add("X-Real-IP", "203.0.113.99");
             using var response = await host.Client.SendAsync(request);
-            await AssertLimitedAsync(response, "AttemptLimitExceeded", 60);
+            await AssertLimitedAsync(response, "AttemptLimitExceeded", limits.WindowSeconds);
         }
         Assert.Equal(3, await BookingCountAsync(inventory));
         Assert.Equal(97, await StockAsync(inventory));
@@ -55,7 +56,7 @@ public sealed class ReservationLimitTests(BookingDatabaseFixture fixture) : ICla
         using (var response = await PostAsync(other, inventory))
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
-        var remaining = started.AddSeconds(61) - DateTimeOffset.UtcNow;
+        var remaining = started.AddSeconds(limits.WindowSeconds + 1) - DateTimeOffset.UtcNow;
         if (remaining > TimeSpan.Zero) await Task.Delay(remaining);
         using var recovered = await PostAsync(host.Client, inventory);
         Assert.Equal(HttpStatusCode.Accepted, recovered.StatusCode);

@@ -22,7 +22,8 @@ lock, login and token IP limits, another source IP, discovery during a limit,
 and spoofed forwarding headers through the proxy and directly to Keycloak.
 Login events are enabled only in the test realm to inspect verified client IPs.
 No tokens or passwords are printed. Account recovery deliberately takes 62 seconds.
-CI runs the same command and always removes the containers afterward.
+CI runs the same command in an independent job alongside the build and reservation
+checks, and always removes the containers afterward.
 On failure, Keycloak and proxy logs are saved to the ignored `results/services.log`
 before teardown. CI retains them as `keycloak-security-diagnostics` for seven days.
 Logs contain synthetic fixture data and may include client IPs; delete local
