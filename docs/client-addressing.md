@@ -1,11 +1,5 @@
 # Klientadress genom webbproxy och gateway
 
-Krav 2 i [issue #151](https://github.com/kimrodin/HalsingeLiveAB/issues/151)
-hanteras av kedjan **klient → Nginx/Vite → ApiGateway → Booking**.
-Booking använder `HttpContext.Connection.RemoteIpAddress` efter
-`UseClientAddressing()`. Framtida IP-baserade begränsningar ska använda denna
-adress, inte läsa `X-Forwarded-For` eller `X-Real-IP` själva.
-
 ## Tillit vid varje led
 
 - Nginx och Vite är yttersta proxy i den medföljande konfigurationen. De ersätter
