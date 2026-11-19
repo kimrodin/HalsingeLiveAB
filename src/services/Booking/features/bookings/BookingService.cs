@@ -175,17 +175,21 @@ public sealed partial class BookingService(
         string customerEmail,
         CancellationToken cancellationToken = default)
     {
-        var booking = await dbContext.Bookings
-            .SingleOrDefaultAsync(item => item.BookingId == bookingId, cancellationToken);
-        if (booking is null)
-            return BookingCustomerUpdateResult.NotFound;
-        if (booking.PersonalDataPseudonymizedAtUtc is not null)
-            return BookingCustomerUpdateResult.Pseudonymized;
+        var updated = await dbContext.Bookings
+            .Where(item => item.BookingId == bookingId
+                && item.PersonalDataPseudonymizedAtUtc == null)
+            .ExecuteUpdateAsync(update => update
+                .SetProperty(item => item.CustomerName, customerName.Trim())
+                .SetProperty(item => item.CustomerEmail, customerEmail.Trim()), cancellationToken);
 
-        booking.CustomerName = customerName.Trim();
-        booking.CustomerEmail = customerEmail.Trim();
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return BookingCustomerUpdateResult.Updated;
+        if (updated > 0)
+            return BookingCustomerUpdateResult.Updated;
+
+        var exists = await dbContext.Bookings
+            .AnyAsync(item => item.BookingId == bookingId, cancellationToken);
+        return exists
+            ? BookingCustomerUpdateResult.Pseudonymized
+            : BookingCustomerUpdateResult.NotFound;
     }
 
     public async Task<BookingModel> GetBookingForGuestAsync(

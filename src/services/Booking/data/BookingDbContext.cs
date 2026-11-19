@@ -62,7 +62,9 @@ public class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbCo
         modelBuilder.Entity<BookingItem>(entity =>
         {
             entity.ToTable("BookingItems", table =>
-                table.HasCheckConstraint("CK_BookingItems_Currency_Valid", "\"Currency\" ~ '^[A-Z]{3}$'"));
+                table.HasCheckConstraint("CK_BookingItems_Currency_Valid", Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite"
+                    ? "\"Currency\" GLOB '[A-Z][A-Z][A-Z]'"
+                    : "\"Currency\" ~ '^[A-Z]{3}$'"));
             entity.HasKey(item => item.BookingItemId);
             entity.Property(item => item.UnitPrice).HasPrecision(12, 2);
             entity.Property(item => item.Currency).HasMaxLength(3).HasDefaultValue("SEK").IsRequired();

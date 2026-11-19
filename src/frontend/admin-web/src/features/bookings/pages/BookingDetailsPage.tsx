@@ -188,7 +188,7 @@ export default function BookingDetailsPage() {
           <Alert severity="error" sx={{ mb: 2 }}>{updateCustomer.error.message}</Alert>
         )}
         {updateCustomer.isSuccess && <Alert severity="success" sx={{ mb: 2 }}>Kunduppgifter sparade.</Alert>}
-        <Box component="form" onSubmit={(event) => {
+        <Box key={Boolean(booking.personalDataPseudonymizedAtUtc)} component="form" onSubmit={(event) => {
           event.preventDefault();
           updateCustomer.mutate();
         }} sx={{
