@@ -313,8 +313,11 @@ services:
 
   keycloak:
     image: "${KEYCLOAK_IMAGE:?Set KEYCLOAK_IMAGE}"
-    command: start-dev --import-realm
+    command: start --import-realm
     environment:
+      KC_HTTP_ENABLED: "true"
+      # Keep the existing local database/volume; use PostgreSQL before public deployment.
+      KC_DB: dev-file
       KC_BOOTSTRAP_ADMIN_USERNAME: "${KC_BOOTSTRAP_ADMIN_USERNAME:?Set KC_BOOTSTRAP_ADMIN_USERNAME}"
       KC_BOOTSTRAP_ADMIN_PASSWORD: "${KC_BOOTSTRAP_ADMIN_PASSWORD:?Set KC_BOOTSTRAP_ADMIN_PASSWORD}"
       KEYCLOAK_APP_ADMIN_PASSWORD: "${KEYCLOAK_APP_ADMIN_PASSWORD:?Set KEYCLOAK_APP_ADMIN_PASSWORD}"

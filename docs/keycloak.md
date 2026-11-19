@@ -61,6 +61,11 @@ klientinställningarna.
 
 ## Skydd av inloggning
 
+Keycloak kör `start --import-realm` med `KC_HTTP_ENABLED=true` för lokal HTTP
+bakom proxyn. `KC_DB=dev-file` behåller utvecklingsdatabasen i `keycloak-data`.
+Detta är fortfarande en lokal utvecklingskonfiguration: inför publik drift
+behövs PostgreSQL och HTTPS. Att byta startkommando aktiverar inte kryptering.
+
 Porten `KEYCLOAK_PUBLISHED_PORT` (normalt `127.0.0.1:8180`) går till
 `keycloak-proxy`. Keycloak har ingen publicerad port. Den publika adressen,
 issuer, adminwebbens inställning och intern discovery på `keycloak:8080` behålls.

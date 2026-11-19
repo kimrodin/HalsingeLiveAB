@@ -6,6 +6,8 @@ docker compose -p halsingelive-keycloak-tests -f tests/keycloak-security/compose
 ```
 
 Uses the production realm import and Nginx template with real Keycloak 26.8.2.
+Runs `start --import-realm` with explicit HTTP and `dev-file`, matching the
+local Compose configuration; it does not require TLS certificates.
 No application `.env`, host ports or persistent volumes. Credentials are public
 fixture values. Uses subnet `172.30.154.0/24`; run only one copy at a time.
 Always run `down` after local verification, including after a failure.

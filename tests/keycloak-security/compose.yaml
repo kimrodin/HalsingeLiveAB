@@ -2,8 +2,10 @@
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.2
-    command: start-dev --import-realm
+    command: start --import-realm
     environment:
+      KC_HTTP_ENABLED: "true"
+      KC_DB: dev-file
       KC_BOOTSTRAP_ADMIN_USERNAME: fixture-admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: fixture-password
       KEYCLOAK_APP_ADMIN_PASSWORD: fixture-password

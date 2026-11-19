@@ -89,6 +89,23 @@
   ],
   "users": [
     {
+      "username": "admintest",
+      "enabled": true,
+      "firstName": "Local",
+      "lastName": "Administrator",
+      "email": "admintest@example.test",
+      "emailVerified": true,
+      "realmRoles": ["admin"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_APP_ADMIN_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "requiredActions": []
+    },
+    {
       "username": "testadmin",
       "enabled": true,
       "firstName": "Local",
